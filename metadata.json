@@ -1,0 +1,5 @@
+{
+  "name": "Firebase App",
+  "description": "A Next.js app with Firebase integration",
+  "requestFramePermissions": []
+}

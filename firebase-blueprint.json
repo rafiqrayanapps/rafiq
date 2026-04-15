@@ -1,0 +1,94 @@
+{
+  "entities": {
+    "AppConfig": {
+      "title": "App Configuration",
+      "description": "Global application configuration",
+      "type": "object",
+      "properties": {
+        "shareLink": {
+          "type": "string",
+          "description": "The public share link"
+        },
+        "dialogTitle": { "type": "string" },
+        "dialogDescription": { "type": "string" },
+        "dialogCancelText": { "type": "string" },
+        "dialogActionText": { "type": "string" },
+        "dialogActionUrl": { "type": "string" },
+        "showDialog": { "type": "boolean" }
+      },
+      "required": ["shareLink"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "A top-level content category",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string" },
+        "icon": { "type": "string" },
+        "order": { "type": "number" }
+      },
+      "required": ["name", "type"]
+    },
+    "SubCategory": {
+      "title": "SubCategory",
+      "description": "A sub-category within a main category",
+      "type": "object",
+      "properties": {
+        "categoryId": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "order": { "type": "number" }
+      },
+      "required": ["categoryId", "name"]
+    },
+    "Item": {
+      "title": "Item",
+      "description": "A content item within a sub-category",
+      "type": "object",
+      "properties": {
+        "subCategoryId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "downloadUrl": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "style": { "type": "string", "description": "Visual style or layout for this item" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["subCategoryId", "title"]
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "A system administrator",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["superadmin", "editor"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "role"]
+    }
+  },
+  "firestore": {
+    "/appConfig/{configId}": {
+      "schema": "AppConfig",
+      "description": "Collection for application configuration"
+    },
+    "/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "Collection of top-level categories"
+    },
+    "/subCategories/{subCategoryId}": {
+      "schema": "SubCategory",
+      "description": "Collection of sub-categories"
+    },
+    "/items/{itemId}": {
+      "schema": "Item",
+      "description": "Collection of content items"
+    },
+    "/admins/{adminId}": {
+      "schema": "Admin",
+      "description": "Collection of system administrators"
+    }
+  }
+}
