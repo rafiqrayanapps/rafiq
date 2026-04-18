@@ -58,8 +58,8 @@ export function useCollection(path: string) {
     return query(collection(firestore, path));
   }, [firestore, path]);
   
-  const result = useCollectionBase(q as any);
-  return { ...result, loading: result.isLoading };
+  const { data, isLoading, error } = useCollectionBase(q as any);
+  return useMemo(() => ({ data, loading: isLoading, error }), [data, isLoading, error]);
 }
 
 /**
@@ -72,6 +72,6 @@ export function useDoc(pathOrCollection: string, docId?: string) {
     return docId ? doc(firestore, pathOrCollection, docId) : doc(firestore, pathOrCollection);
   }, [firestore, pathOrCollection, docId]);
   
-  const result = useDocBase(ref as any);
-  return { ...result, loading: result.isLoading };
+  const { data, isLoading, error } = useDocBase(ref as any);
+  return useMemo(() => ({ data, loading: isLoading, error }), [data, isLoading, error]);
 }

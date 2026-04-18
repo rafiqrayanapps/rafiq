@@ -41,10 +41,10 @@ export default function ColorsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      <Header title="منسق الألوان" showBackButton />
+      <Header title="منسق الألوان" showBackButton compact />
       
-      <main className="flex-1 px-6 pb-32 pt-6 max-w-6xl mx-auto w-full space-y-12">
-        <section className="flex flex-col md:flex-row items-center justify-between gap-8">
+      <main className="flex-1 px-6 pb-32 pt-4 max-w-6xl mx-auto w-full space-y-8">
+        <section className="flex flex-col md:flex-row items-center justify-between gap-6 pb-2">
           <div className="space-y-4 text-center md:text-right">
             <div className="flex items-center gap-3 justify-center md:justify-start">
               <div className="w-12 h-12 bg-white rounded-2xl shadow-xl flex items-center justify-center text-primary">

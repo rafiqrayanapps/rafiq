@@ -73,7 +73,7 @@ export default function FloatingButton() {
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative w-full max-w-sm bg-white rounded-[40px] overflow-hidden shadow-2xl"
+              className="relative w-full max-w-sm bg-card rounded-[40px] overflow-hidden shadow-2xl"
             >
               <div className="p-8 text-primary-foreground relative" style={{ background: 'var(--primary-gradient)' }}>
                 <button 

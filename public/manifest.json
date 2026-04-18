@@ -1,0 +1,21 @@
+{
+  "name": "رفيق المصمم",
+  "short_name": "رفيق",
+  "description": "تطبيق رفيق المصمم - بوابتك لتصاميم إبداعية",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#FF0000",
+  "icons": [
+    {
+      "src": "https://picsum.photos/seed/rafiq-icon/192/192",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://picsum.photos/seed/rafiq-icon/512/512",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

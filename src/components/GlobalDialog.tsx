@@ -14,10 +14,15 @@ export default function GlobalDialog() {
   useEffect(() => {
     if (config?.isActive) {
       const lastShown = localStorage.getItem('last_dialog_shown');
-      const frequency = config.frequency || 24; // hours
+      const frequency = config.frequency || 24;
+      const unit = config.frequencyUnit || 'hours';
       const now = Date.now();
+      
+      const frequencyMs = unit === 'minutes' 
+        ? frequency * 60 * 1000 
+        : frequency * 60 * 60 * 1000;
 
-      if (!lastShown || now - parseInt(lastShown) > frequency * 60 * 60 * 1000) {
+      if (!lastShown || now - parseInt(lastShown) > frequencyMs) {
         setIsOpen(true);
       }
     }

@@ -1,5 +1,5 @@
 {
-  "name": "Firebase App",
-  "description": "A Next.js app with Firebase integration",
+  "name": "رفيق المصمم",
+  "description": "تطبيق شامل للمصممين يتضمن أدوات الذكاء الاصطناعي لتوليد الصور والنصوص، إزالة الخلفية، تحسين جودة الصور، وتنسيق الألوان.",
   "requestFramePermissions": []
 }

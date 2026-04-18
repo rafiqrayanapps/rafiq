@@ -78,14 +78,14 @@ function HomeContent() {
         showBackButton={activeTab !== 'home'}
         onBackClick={handleBack}
         extraContent={activeTab === 'home' ? (
-          <div className="relative z-[55] -mt-6">
-            <div className="pb-4 px-6 max-w-2xl mx-auto">
-              <div className="relative group">
+          <div className="relative z-[55] -mt-2">
+            <div className="pb-0 px-6 max-w-2xl mx-auto">
+              <div className="relative group shadow-[0_15px_30px_-5px_rgba(0,0,0,0.1)] rounded-2xl">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
                   <Input 
                       ref={searchInputRef}
                       placeholder="ابحث عن القسم..." 
-                      className="h-14 w-full rounded-2xl border-none bg-card pl-12 pr-4 text-base focus:ring-0 transition-all" 
+                      className="h-12 w-full rounded-2xl border-none bg-card pl-12 pr-4 text-sm focus:ring-0 transition-all shadow-none" 
                       value={searchTerm} 
                       onChange={(e) => setSearchTerm(e.target.value)} 
                   />
@@ -95,7 +95,7 @@ function HomeContent() {
         ) : null}
       />
       
-      <main className="flex-1 px-6 pb-32 pt-6 container max-w-6xl mx-auto">
+      <main className="flex-1 px-6 pb-32 pt-2 container max-w-6xl mx-auto">
         <AnimatePresence mode="wait">
           {activeTab === 'home' && (
             <motion.div 
@@ -104,14 +104,14 @@ function HomeContent() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.2 }}
-              className="space-y-6"
+              className="space-y-4"
             >
               {isLoading ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                   {[...Array(10)].map((_, i) => <CategorySkeleton key={`home-skeleton-${i}`} className="aspect-square" />)}
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   <div className="flex justify-between items-center px-1 animate-in fade-in slide-in-from-bottom-2 duration-500">
                       <p className="text-muted-foreground text-xs font-medium">{mainCategories.length} قسم متوفر</p>
                   </div>

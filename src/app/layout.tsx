@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ThemeApplier from "@/components/ThemeApplier";
 import GlobalDialog from "@/components/GlobalDialog";
 import FloatingButton from "@/components/FloatingButton";
+import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import { FirebaseClientProvider } from "@/firebase/client-provider";
 import { CategoryProvider } from "@/components/providers/CategoryProvider";
 import { Toaster } from "@/components/ui/toaster";
@@ -48,6 +49,7 @@ export default function RootLayout({
       <body className="font-body antialiased bg-background text-foreground">
         <FirebaseClientProvider>
           <CategoryProvider>
+            <ServiceWorkerRegister />
             <ThemeApplier />
             <GlobalDialog />
             <FloatingButton />

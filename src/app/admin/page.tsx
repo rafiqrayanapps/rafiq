@@ -5,19 +5,45 @@ import { useAuth, useCollection, useDoc, handleFirestoreError, OperationType } f
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import { cn } from '@/lib/utils';
-import { Shield, Globe, Database, AlertTriangle, CheckCircle, Copy, LogIn, Plus, FolderPlus, FilePlus, List, ChevronDown, Trash2, Palette, BellRing, Send, Lock, Download, Edit3, ChevronRight, X, Settings, UserPlus, MessageSquare, MessageCircle, User, ShieldCheck, Bell, MousePointer2, Hammer, Ticket, Zap, Home, Users, ArrowUp, ArrowDown } from 'lucide-react';
+import { Shield, Globe, Database, AlertTriangle, CheckCircle, Copy, LogIn, Plus, FolderPlus, FilePlus, List, ChevronDown, Trash2, Palette, BellRing, Send, Lock, Download, Edit3, ChevronRight, X, Settings, UserPlus, MessageSquare, MessageCircle, User, ShieldCheck, Bell, MousePointer2, Hammer, Ticket, Zap, Home, Users, ArrowUp, ArrowDown, Info, Heart, Star, Target, Rocket, Award, Instagram, Twitter, Github, MapPin, Clock, Phone, Mail, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
+import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { db } from '@/firebase';
 import { collection, addDoc, serverTimestamp, deleteDoc, doc, updateDoc, setDoc } from 'firebase/firestore';
 
+const iconMap: Record<string, any> = {
+  Phone,
+  Mail,
+  MessageCircle,
+  ExternalLink,
+  Send,
+  MapPin,
+  Clock,
+  Instagram,
+  Twitter,
+  Github,
+  Globe,
+  Settings,
+  Shield,
+  Palette,
+  Bell,
+  Info,
+  User,
+  Users,
+  Target,
+  Rocket,
+  Award
+};
+
 export default function AdminPage() {
+  const { toast } = useToast();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { user, isAdmin, isEditor, loading, loginWithGoogle, logout } = useAuth();
   const [currentDomain, setCurrentDomain] = useState('');
   const [copySuccess, setCopySuccess] = useState(false);
-  const [activeTab, setActiveTab] = useState<'menu' | 'users' | 'content' | 'colors' | 'notifications' | 'dialog' | 'floatingButton'>('menu');
+  const [activeTab, setActiveTab] = useState<'menu' | 'users' | 'content' | 'colors' | 'notifications' | 'dialog' | 'floatingButton' | 'about' | 'contact'>('menu');
   const [viewLevel, setViewLevel] = useState<'categories' | 'subcategories' | 'items'>('categories');
   const router = useRouter();
 
@@ -63,12 +89,14 @@ export default function AdminPage() {
   }, [theme]);
   const [notifTitle, setNotifTitle] = useState('');
   const [notifBody, setNotifBody] = useState('');
+  const [notifLink, setNotifLink] = useState('');
   const [editingItem, setEditingItem] = useState<any>(null);
   const [editingCategory, setEditingCategory] = useState<any>(null);
   const [editingSubCategory, setEditingSubCategory] = useState<any>(null);
   const [expandedCatId, setExpandedCatId] = useState<string | null>(null);
 
   const [isSaving, setIsSaving] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
   const [selectedManagerId, setSelectedManagerId] = useState<{type: 'category' | 'subcategory', id: string} | null>(null);
 
   // Delete Confirmation State
@@ -102,14 +130,36 @@ export default function AdminPage() {
   const [dialogActionText, setDialogActionText] = useState('اشتراك الآن');
   const [dialogActionUrl, setDialogActionUrl] = useState('');
   const [dialogFrequency, setDialogFrequency] = useState(24); // hours
+  const [dialogFrequencyUnit, setDialogFrequencyUnit] = useState<'hours' | 'minutes'>('hours');
   const [isDialogActive, setIsDialogActive] = useState(false);
+
+  // About Page State
+  const { data: aboutConfig } = useDoc('appConfig', 'about');
+  const [aboutTitle, setAboutTitle] = useState('');
+  const [aboutSubtitle, setAboutSubtitle] = useState('');
+  const [aboutDescription, setAboutDescription] = useState('');
+  const [aboutVision, setAboutVision] = useState('');
+  const [aboutHeroImage, setAboutHeroImage] = useState('');
+  const [aboutFeatures, setAboutFeatures] = useState<any[]>([]);
+
+  // Contact Page State
+  const { data: contactConfig } = useDoc('appConfig', 'contact');
+  const [contactTitle, setContactTitle] = useState('');
+  const [contactSubtitle, setContactSubtitle] = useState('');
+  const [contactBtnLink, setContactBtnLink] = useState('');
+  const [isContactBtnActive, setIsContactBtnActive] = useState(false);
 
   // Floating Button State
   const { data: fbConfig } = useDoc('appConfig', 'floatingButton');
   const [fbLabel, setFbLabel] = useState('');
   const [fbLink, setFbLink] = useState('');
-  const [fbDuration, setFbDuration] = useState(30); // days
+  const [fbDuration, setFbDuration] = useState(30);
   const [isFbActive, setIsFbActive] = useState(false);
+
+  // Dynamic Contacts State
+  const { data: contactsData } = useCollection('contacts');
+  const [editingContact, setEditingContact] = useState<any>(null);
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
 
   useEffect(() => {
     if (dialogConfig) {
@@ -119,9 +169,30 @@ export default function AdminPage() {
       setDialogActionText(dialogConfig.actionText || 'اشتراك الآن');
       setDialogActionUrl(dialogConfig.actionUrl || '');
       setDialogFrequency(dialogConfig.frequency || 24);
+      setDialogFrequencyUnit(dialogConfig.frequencyUnit || 'hours');
       setIsDialogActive(dialogConfig.isActive || false);
     }
   }, [dialogConfig]);
+
+  useEffect(() => {
+    if (aboutConfig) {
+      setAboutTitle(aboutConfig.title || '');
+      setAboutSubtitle(aboutConfig.subtitle || '');
+      setAboutDescription(aboutConfig.description || '');
+      setAboutVision(aboutConfig.vision || '');
+      setAboutHeroImage(aboutConfig.heroImage || '');
+      setAboutFeatures(aboutConfig.features || []);
+    }
+  }, [aboutConfig]);
+
+  useEffect(() => {
+    if (contactConfig) {
+      setContactTitle(contactConfig.title || '');
+      setContactSubtitle(contactConfig.subtitle || '');
+      setContactBtnLink(contactConfig.whatsAppUrl || '');
+      setIsContactBtnActive(contactConfig.showWhatsAppBtn || false);
+    }
+  }, [contactConfig]);
 
   useEffect(() => {
     if (fbConfig) {
@@ -143,6 +214,7 @@ export default function AdminPage() {
   const categories = allCategories.filter(c => !c.parentId);
   const subCategories = allCategories.filter(c => c.parentId);
   const items = itemsData || [];
+  const contacts = (contactsData || []).sort((a, b) => (a.order || 0) - (b.order || 0));
 
   const handleMoveCategory = async (id: string, direction: 'up' | 'down') => {
     const currentIndex = categories.findIndex(c => c.id === id);
@@ -197,7 +269,7 @@ export default function AdminPage() {
         activatedByUid: user?.uid
       });
       setNewUserId('');
-      alert('تم إضافة المستخدم بنجاح!');
+      toast({ title: "تم النجاح", description: "تم إضافة المستخدم بنجاح!" });
     } catch (error: any) {
       handleFirestoreError(error, OperationType.UPDATE, 'whitelist');
     } finally {
@@ -215,12 +287,82 @@ export default function AdminPage() {
         actionText: dialogActionText,
         actionUrl: dialogActionUrl,
         frequency: dialogFrequency,
+        frequencyUnit: dialogFrequencyUnit,
         isActive: isDialogActive,
         updatedAt: new Date().toISOString()
       }, { merge: true });
-      alert('تم تحديث إعدادات الديالوج بنجاح!');
+      toast({ title: "تم النجاح", description: "تم تحديث إعدادات الديالوج بنجاح!" });
     } catch (error: any) {
       handleFirestoreError(error, OperationType.UPDATE, 'appConfig/dialog');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleUpdateAbout = async () => {
+    setIsSaving(true);
+    try {
+      await setDoc(doc(db, 'appConfig', 'about'), {
+        title: aboutTitle,
+        subtitle: aboutSubtitle,
+        description: aboutDescription,
+        vision: aboutVision,
+        heroImage: aboutHeroImage,
+        features: aboutFeatures,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+      toast({ title: "تم النجاح", description: "تم تحديث صفحة حول التطبيق بنجاح!" });
+    } catch (error: any) {
+      handleFirestoreError(error, OperationType.UPDATE, 'appConfig/about');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleUpdateContact = async () => {
+    setIsSaving(true);
+    try {
+      await setDoc(doc(db, 'appConfig', 'contact'), {
+        title: contactTitle,
+        subtitle: contactSubtitle,
+        showWhatsAppBtn: isContactBtnActive,
+        whatsAppUrl: contactBtnLink,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+      toast({ title: "تم النجاح", description: "تم تحديث البيانات العامة بنجاح!" });
+    } catch (error: any) {
+      handleFirestoreError(error, OperationType.UPDATE, 'appConfig/contact');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSaveContactItem = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingContact?.label || !editingContact?.value) return;
+    setIsSaving(true);
+    try {
+      const data = {
+        label: editingContact.label,
+        value: editingContact.value,
+        type: editingContact.type || 'phone',
+        icon: editingContact.icon || 'Phone',
+        actionUrl: editingContact.actionUrl || '',
+        order: editingContact.order || contacts.length,
+        active: editingContact.active !== false,
+        updatedAt: new Date().toISOString()
+      };
+
+      if (editingContact.id) {
+        await updateDoc(doc(db, 'contacts', editingContact.id), data);
+      } else {
+        await addDoc(collection(db, 'contacts'), data);
+      }
+      setEditingContact(null);
+      setIsContactModalOpen(false);
+      toast({ title: "تم النجاح", description: "تم حفظ وسيلة التواصل بنجاح!" });
+    } catch (error: any) {
+      handleFirestoreError(error, editingContact.id ? OperationType.UPDATE : OperationType.CREATE, 'contacts');
     } finally {
       setIsSaving(false);
     }
@@ -236,7 +378,7 @@ export default function AdminPage() {
         isActive: isFbActive,
         updatedAt: new Date().toISOString()
       }, { merge: true });
-      alert('تم تحديث إعدادات الزر العائم بنجاح!');
+      toast({ title: "تم النجاح", description: "تم تحديث إعدادات الزر العائم بنجاح!" });
     } catch (error: any) {
       handleFirestoreError(error, OperationType.UPDATE, 'appConfig/floatingButton');
     } finally {
@@ -265,7 +407,7 @@ export default function AdminPage() {
         updatedAt: new Date().toISOString()
       });
       setEditingCategory(null);
-      alert('تم إضافة القسم بنجاح!');
+      toast({ title: "تم النجاح", description: "تم إضافة القسم بنجاح!" });
     } catch (error: any) {
       handleFirestoreError(error, OperationType.CREATE, 'categories');
     } finally {
@@ -299,7 +441,7 @@ export default function AdminPage() {
         updatedAt: new Date().toISOString()
       });
       setEditingSubCategory(null);
-      alert('تم إضافة القسم الفرعي بنجاح!');
+      toast({ title: "تم النجاح", description: "تم إضافة القسم الفرعي بنجاح!" });
     } catch (error: any) {
       handleFirestoreError(error, OperationType.CREATE, 'categories');
     } finally {
@@ -324,7 +466,7 @@ export default function AdminPage() {
         updatedAt: new Date().toISOString()
       });
       setEditingItem(null);
-      alert('تم إضافة المحتوى بنجاح!');
+      toast({ title: "تم النجاح", description: "تم إضافة المحتوى بنجاح!" });
     } catch (error: any) {
       handleFirestoreError(error, OperationType.CREATE, `categories/${editingItem.subCategoryId}/items`);
     } finally {
@@ -346,7 +488,7 @@ export default function AdminPage() {
         updatedAt: new Date().toISOString()
       });
       setEditingCategory(null);
-      alert('تم تحديث القسم بنجاح!');
+      toast({ title: "تم النجاح", description: "تم تحديث القسم بنجاح!" });
     } catch (error: any) {
       handleFirestoreError(error, OperationType.UPDATE, 'categories');
     } finally {
@@ -367,7 +509,7 @@ export default function AdminPage() {
         updatedAt: new Date().toISOString()
       });
       setEditingSubCategory(null);
-      alert('تم تحديث القسم الفرعي بنجاح!');
+      toast({ title: "تم النجاح", description: "تم تحديث القسم الفرعي بنجاح!" });
     } catch (error: any) {
       handleFirestoreError(error, OperationType.UPDATE, 'categories');
     } finally {
@@ -391,7 +533,7 @@ export default function AdminPage() {
         updatedAt: new Date().toISOString()
       });
       setEditingItem(null);
-      alert('تم تحديث المحتوى بنجاح!');
+      toast({ title: "تم النجاح", description: "تم تحديث المحتوى بنجاح!" });
     } catch (error: any) {
       handleFirestoreError(error, OperationType.UPDATE, `categories/${editingItem.subCategoryId}/items`);
     } finally {
@@ -420,7 +562,8 @@ export default function AdminPage() {
         customCss,
         updatedAt: new Date().toISOString()
       });
-      alert('تم تحديث إعدادات المظهر بنجاح!');
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 3000);
     } catch (error: any) {
       handleFirestoreError(error, OperationType.UPDATE, 'appConfig/theme');
     } finally {
@@ -436,12 +579,15 @@ export default function AdminPage() {
       await addDoc(collection(db, 'notifications'), {
         title: notifTitle,
         body: notifBody,
+        link: notifLink || '',
         createdAt: new Date().toISOString(),
-        read: false
+        read: false,
+        isNew: true
       });
       setNotifTitle('');
       setNotifBody('');
-      alert('تم إرسال الإشعار بنجاح!');
+      setNotifLink('');
+      toast({ title: "تم النجاح", description: "تم إرسال الإشعار بنجاح!" });
     } catch (error: any) {
       handleFirestoreError(error, OperationType.CREATE, 'notifications');
     } finally {
@@ -453,6 +599,7 @@ export default function AdminPage() {
     try {
       await deleteDoc(doc(db, path));
       setDeleteConfirm(null);
+      toast({ title: "تم الحذف", description: "تم حذف العنصر بنجاح!" });
     } catch (error: any) {
       handleFirestoreError(error, OperationType.DELETE, path);
     }
@@ -469,13 +616,13 @@ export default function AdminPage() {
 
       <main className="max-w-6xl mx-auto px-6 pt-6 pb-10">
         {!isAdmin && user ? (
-          <div className="bg-white rounded-[40px] p-12 text-center shadow-2xl shadow-gray-200/50 border border-gray-100">
+          <div className="bg-card rounded-[40px] p-12 text-center shadow-2xl shadow-muted/50 border border-border">
             <div className="w-24 h-24 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-8">
               <AlertTriangle size={48} />
             </div>
-            <h1 className="text-3xl font-black mb-4">عذراً، ليس لديك صلاحية الوصول</h1>
-            <p className="text-gray-500 mb-10 max-w-md mx-auto leading-relaxed">
-              أنت مسجل الدخول حالياً بـ: <span className="font-bold text-gray-900">{user.email}</span>
+            <h1 className="text-3xl font-black mb-4 text-foreground">عذراً، ليس لديك صلاحية الوصول</h1>
+            <p className="text-gray-500 dark:text-gray-400 mb-10 max-w-md mx-auto leading-relaxed">
+              أنت مسجل الدخول حالياً بـ: <span className="font-bold text-foreground">{user.email}</span>
               <br />
               هذا البريد غير مدرج في قائمة المسؤولين المعتمدين.
             </p>
@@ -499,13 +646,13 @@ export default function AdminPage() {
             <div className="flex items-center justify-between mb-10">
               <div className="flex items-center gap-3">
                 <Settings className="text-primary w-8 h-8" />
-                <h1 className="text-2xl font-black text-slate-800 tracking-tight leading-tight">
+                <h1 className="text-2xl font-black text-foreground tracking-tight leading-tight">
                   لوحة تحكم المدير<br/>الملكية
                 </h1>
               </div>
               <button 
                 onClick={() => logout()}
-                className="bg-slate-100 text-slate-700 px-5 py-3 rounded-2xl font-bold text-sm hover:bg-slate-200 transition-colors"
+                className="bg-muted text-foreground/70 px-5 py-3 rounded-2xl font-bold text-sm hover:bg-muted/80 transition-colors"
               >
                 تسجيل<br/>خروج
               </button>
@@ -520,15 +667,17 @@ export default function AdminPage() {
                   { id: 'notifications', label: 'الإشعارات', icon: Bell },
                   { id: 'dialog', label: 'ديالوج', icon: MessageSquare },
                   { id: 'floatingButton', label: 'الزر العائم', icon: MousePointer2 },
+                  { id: 'about', label: 'حول التطبيق', icon: Info },
+                  { id: 'contact', label: 'تواصل معنا', icon: MessageCircle },
                 ].map((tab) => {
                   if (!isAdmin && tab.id !== 'content') return null;
                   return (
                     <button
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id as any)}
-                      className="flex flex-col items-center justify-center p-6 rounded-[2rem] transition-all duration-300 gap-4 shadow-sm border bg-white text-slate-800 border-slate-100 hover:border-primary/30 hover:shadow-md active:scale-95"
+                      className="flex flex-col items-center justify-center p-6 rounded-[2rem] transition-all duration-300 gap-4 shadow-sm border bg-card text-foreground border-border hover:border-primary/30 hover:shadow-md active:scale-95"
                     >
-                      <tab.icon className="w-8 h-8 text-slate-700" strokeWidth={2} />
+                      <tab.icon className="w-8 h-8 text-foreground/70" strokeWidth={2} />
                       <span className="font-bold text-base">{tab.label}</span>
                     </button>
                   );
@@ -691,17 +840,17 @@ export default function AdminPage() {
                   exit={{ opacity: 0, y: -20 }}
                   className="space-y-8"
                 >
-                  <section className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100">
+                  <section className="bg-card rounded-3xl p-8 shadow-sm border border-border">
                     <div className="flex items-center gap-3 mb-8">
-                      <div className="w-10 h-10 bg-pink-50 text-pink-600 rounded-xl flex items-center justify-center">
+                      <div className="w-10 h-10 bg-pink-50 dark:bg-pink-900/20 text-pink-600 rounded-xl flex items-center justify-center">
                         <Palette size={20} />
                       </div>
-                      <h2 className="text-xl font-bold">ألوان الموقع والمظهر</h2>
+                      <h2 className="text-xl font-bold text-foreground">ألوان الموقع والمظهر</h2>
                     </div>
                     
                     <div className="space-y-8">
-                      <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100">
-                        <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-4">نمط المظهر الافتراضي</label>
+                      <div className="p-6 bg-muted rounded-2xl border border-border">
+                        <label className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block mb-4">نمط المظهر الافتراضي</label>
                         <div className="grid grid-cols-3 gap-3">
                           {[
                             { id: 'light', label: 'فاتح', icon: '☀️' },
@@ -715,8 +864,8 @@ export default function AdminPage() {
                               className={cn(
                                 "flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all",
                                 themeMode === mode.id 
-                                  ? "bg-white border-primary shadow-md text-primary" 
-                                  : "bg-white/50 border-transparent text-gray-400 hover:border-gray-200"
+                                  ? "bg-card border-primary shadow-md text-primary" 
+                                  : "bg-card/50 border-transparent text-gray-400 hover:border-border"
                               )}
                             >
                               <span className="text-2xl">{mode.icon}</span>
@@ -726,18 +875,18 @@ export default function AdminPage() {
                         </div>
                       </div>
 
-                      <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100">
-                        <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-4">تفعيل التدرج اللوني (Gradient)</label>
+                      <div className="p-6 bg-muted rounded-2xl border border-border">
+                        <label className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block mb-4">تفعيل التدرج اللوني (Gradient)</label>
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-sm font-bold">استخدام التدرج</p>
-                            <p className="text-[10px] text-gray-400">سيتم تطبيق التدرج على الأزرار والعناصر الرئيسية</p>
+                            <p className="text-sm font-bold text-foreground">استخدام التدرج</p>
+                            <p className="text-[10px] text-gray-400 dark:text-gray-500">سيتم تطبيق التدرج على الأزرار والعناصر الرئيسية</p>
                           </div>
                           <button 
                             onClick={() => setUseGradient(!useGradient)}
                             className={cn(
                               "w-14 h-8 rounded-full transition-all relative",
-                              useGradient ? "bg-primary" : "bg-gray-300"
+                              useGradient ? "bg-primary" : "bg-muted-foreground/30"
                             )}
                           >
                             <div className={cn(
@@ -750,88 +899,102 @@ export default function AdminPage() {
 
                       {useGradient && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100">
-                            <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-4">تدرج البداية (فاتح)</label>
+                          <div className="p-6 bg-muted rounded-2xl border border-border">
+                            <label className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block mb-4">تدرج البداية (فاتح)</label>
                             <div className="flex items-center gap-4">
-                              <input type="color" value={gradientStart} onChange={(e) => setGradientStart(e.target.value)} className="w-12 h-12 cursor-pointer rounded-xl border-2 border-white shadow-sm" />
-                              <input type="text" value={gradientStart} onChange={(e) => setGradientStart(e.target.value)} className="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-2 text-xs font-mono font-bold" />
+                              <input type="color" value={gradientStart} onChange={(e) => setGradientStart(e.target.value)} className="w-12 h-12 cursor-pointer rounded-xl border-2 border-card shadow-sm" />
+                              <input type="text" value={gradientStart} onChange={(e) => setGradientStart(e.target.value)} className="flex-1 bg-card border border-border rounded-xl px-4 py-2 text-xs font-mono font-bold text-foreground" />
                             </div>
                           </div>
-                          <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100">
-                            <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-4">تدرج النهاية (فاتح)</label>
+                          <div className="p-6 bg-muted rounded-2xl border border-border">
+                            <label className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block mb-4">تدرج النهاية (فاتح)</label>
                             <div className="flex items-center gap-4">
-                              <input type="color" value={gradientEnd} onChange={(e) => setGradientEnd(e.target.value)} className="w-12 h-12 cursor-pointer rounded-xl border-2 border-white shadow-sm" />
-                              <input type="text" value={gradientEnd} onChange={(e) => setGradientEnd(e.target.value)} className="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-2 text-xs font-mono font-bold" />
+                              <input type="color" value={gradientEnd} onChange={(e) => setGradientEnd(e.target.value)} className="w-12 h-12 cursor-pointer rounded-xl border-2 border-card shadow-sm" />
+                              <input type="text" value={gradientEnd} onChange={(e) => setGradientEnd(e.target.value)} className="flex-1 bg-card border border-border rounded-xl px-4 py-2 text-xs font-mono font-bold text-foreground" />
                             </div>
                           </div>
-                          <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100">
-                            <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-4">تدرج البداية (داكن)</label>
+                          <div className="p-6 bg-muted rounded-2xl border border-border">
+                            <label className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block mb-4">تدرج البداية (داكن)</label>
                             <div className="flex items-center gap-4">
-                              <input type="color" value={darkGradientStart} onChange={(e) => setDarkGradientStart(e.target.value)} className="w-12 h-12 cursor-pointer rounded-xl border-2 border-white shadow-sm" />
-                              <input type="text" value={darkGradientStart} onChange={(e) => setDarkGradientStart(e.target.value)} className="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-2 text-xs font-mono font-bold" />
+                              <input type="color" value={darkGradientStart} onChange={(e) => setDarkGradientStart(e.target.value)} className="w-12 h-12 cursor-pointer rounded-xl border-2 border-card shadow-sm" />
+                              <input type="text" value={darkGradientStart} onChange={(e) => setDarkGradientStart(e.target.value)} className="flex-1 bg-card border border-border rounded-xl px-4 py-2 text-xs font-mono font-bold text-foreground" />
                             </div>
                           </div>
-                          <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100">
-                            <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-4">تدرج النهاية (داكن)</label>
+                          <div className="p-6 bg-muted rounded-2xl border border-border">
+                            <label className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block mb-4">تدرج النهاية (داكن)</label>
                             <div className="flex items-center gap-4">
-                              <input type="color" value={darkGradientEnd} onChange={(e) => setDarkGradientEnd(e.target.value)} className="w-12 h-12 cursor-pointer rounded-xl border-2 border-white shadow-sm" />
-                              <input type="text" value={darkGradientEnd} onChange={(e) => setDarkGradientEnd(e.target.value)} className="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-2 text-xs font-mono font-bold" />
+                              <input type="color" value={darkGradientEnd} onChange={(e) => setDarkGradientEnd(e.target.value)} className="w-12 h-12 cursor-pointer rounded-xl border-2 border-card shadow-sm" />
+                              <input type="text" value={darkGradientEnd} onChange={(e) => setDarkGradientEnd(e.target.value)} className="flex-1 bg-card border border-border rounded-xl px-4 py-2 text-xs font-mono font-bold text-foreground" />
                             </div>
                           </div>
                         </div>
                       )}
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100">
-                          <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-4">اللون الرئيسي (فاتح)</label>
+                        <div className="p-6 bg-muted rounded-2xl border border-border">
+                          <label className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block mb-4">اللون الرئيسي (فاتح)</label>
                           <div className="flex items-center gap-4">
-                            <input type="color" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} className="w-12 h-12 cursor-pointer rounded-xl border-2 border-white shadow-sm" />
-                            <input type="text" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} className="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-2 text-xs font-mono font-bold" />
+                            <input type="color" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} className="w-12 h-12 cursor-pointer rounded-xl border-2 border-card shadow-sm" />
+                            <input type="text" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} className="flex-1 bg-card border border-border rounded-xl px-4 py-2 text-xs font-mono font-bold text-foreground" />
                           </div>
                         </div>
-                        <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100">
-                          <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-4">اللون الرئيسي (داكن)</label>
+                        <div className="p-6 bg-muted rounded-2xl border border-border">
+                          <label className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block mb-4">اللون الرئيسي (داكن)</label>
                           <div className="flex items-center gap-4">
-                            <input type="color" value={darkPrimaryColor} onChange={(e) => setDarkPrimaryColor(e.target.value)} className="w-12 h-12 cursor-pointer rounded-xl border-2 border-white shadow-sm" />
-                            <input type="text" value={darkPrimaryColor} onChange={(e) => setDarkPrimaryColor(e.target.value)} className="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-2 text-xs font-mono font-bold" />
+                            <input type="color" value={darkPrimaryColor} onChange={(e) => setDarkPrimaryColor(e.target.value)} className="w-12 h-12 cursor-pointer rounded-xl border-2 border-card shadow-sm" />
+                            <input type="text" value={darkPrimaryColor} onChange={(e) => setDarkPrimaryColor(e.target.value)} className="flex-1 bg-card border border-border rounded-xl px-4 py-2 text-xs font-mono font-bold text-foreground" />
                           </div>
                         </div>
-                        <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100">
-                          <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-4">لون الخلفية (فاتح)</label>
+                        <div className="p-6 bg-muted rounded-2xl border border-border">
+                          <label className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block mb-4">لون الخلفية (فاتح)</label>
                           <div className="flex items-center gap-4">
-                            <input type="color" value={backgroundColor} onChange={(e) => setBackgroundColor(e.target.value)} className="w-12 h-12 cursor-pointer rounded-xl border-2 border-white shadow-sm" />
-                            <input type="text" value={backgroundColor} onChange={(e) => setBackgroundColor(e.target.value)} className="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-2 text-xs font-mono font-bold" />
+                            <input type="color" value={backgroundColor} onChange={(e) => setBackgroundColor(e.target.value)} className="w-12 h-12 cursor-pointer rounded-xl border-2 border-card shadow-sm" />
+                            <input type="text" value={backgroundColor} onChange={(e) => setBackgroundColor(e.target.value)} className="flex-1 bg-card border border-border rounded-xl px-4 py-2 text-xs font-mono font-bold text-foreground" />
                           </div>
                         </div>
-                        <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100">
-                          <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-4">لون الخلفية (داكن)</label>
+                        <div className="p-6 bg-muted rounded-2xl border border-border">
+                          <label className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block mb-4">لون الخلفية (داكن)</label>
                           <div className="flex items-center gap-4">
-                            <input type="color" value={darkBackgroundColor} onChange={(e) => setDarkBackgroundColor(e.target.value)} className="w-12 h-12 cursor-pointer rounded-xl border-2 border-white shadow-sm" />
-                            <input type="text" value={darkBackgroundColor} onChange={(e) => setDarkBackgroundColor(e.target.value)} className="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-2 text-xs font-mono font-bold" />
+                            <input type="color" value={darkBackgroundColor} onChange={(e) => setDarkBackgroundColor(e.target.value)} className="w-12 h-12 cursor-pointer rounded-xl border-2 border-card shadow-sm" />
+                            <input type="text" value={darkBackgroundColor} onChange={(e) => setDarkBackgroundColor(e.target.value)} className="flex-1 bg-card border border-border rounded-xl px-4 py-2 text-xs font-mono font-bold text-foreground" />
                           </div>
                         </div>
-                        <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100">
-                          <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-4">لون القائمة السفلية (فاتح)</label>
+                        <div className="p-6 bg-muted rounded-2xl border border-border">
+                          <label className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block mb-4">لون الكروت (فاتح)</label>
                           <div className="flex items-center gap-4">
-                            <input type="color" value={bottomNavColor} onChange={(e) => setBottomNavColor(e.target.value)} className="w-12 h-12 cursor-pointer rounded-xl border-2 border-white shadow-sm" />
-                            <input type="text" value={bottomNavColor} onChange={(e) => setBottomNavColor(e.target.value)} className="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-2 text-xs font-mono font-bold" />
+                            <input type="color" value={cardColor} onChange={(e) => setCardColor(e.target.value)} className="w-12 h-12 cursor-pointer rounded-xl border-2 border-card shadow-sm" />
+                            <input type="text" value={cardColor} onChange={(e) => setCardColor(e.target.value)} className="flex-1 bg-card border border-border rounded-xl px-4 py-2 text-xs font-mono font-bold text-foreground" />
                           </div>
                         </div>
-                        <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100">
-                          <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-4">لون القائمة السفلية (داكن)</label>
+                        <div className="p-6 bg-muted rounded-2xl border border-border">
+                          <label className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block mb-4">لون الكروت (داكن)</label>
                           <div className="flex items-center gap-4">
-                            <input type="color" value={darkBottomNavColor} onChange={(e) => setDarkBottomNavColor(e.target.value)} className="w-12 h-12 cursor-pointer rounded-xl border-2 border-white shadow-sm" />
-                            <input type="text" value={darkBottomNavColor} onChange={(e) => setDarkBottomNavColor(e.target.value)} className="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-2 text-xs font-mono font-bold" />
+                            <input type="color" value={darkCardColor} onChange={(e) => setDarkCardColor(e.target.value)} className="w-12 h-12 cursor-pointer rounded-xl border-2 border-card shadow-sm" />
+                            <input type="text" value={darkCardColor} onChange={(e) => setDarkCardColor(e.target.value)} className="flex-1 bg-card border border-border rounded-xl px-4 py-2 text-xs font-mono font-bold text-foreground" />
+                          </div>
+                        </div>
+                        <div className="p-6 bg-muted rounded-2xl border border-border">
+                          <label className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block mb-4">لون القائمة السفلية (فاتح)</label>
+                          <div className="flex items-center gap-4">
+                            <input type="color" value={bottomNavColor} onChange={(e) => setBottomNavColor(e.target.value)} className="w-12 h-12 cursor-pointer rounded-xl border-2 border-card shadow-sm" />
+                            <input type="text" value={bottomNavColor} onChange={(e) => setBottomNavColor(e.target.value)} className="flex-1 bg-card border border-border rounded-xl px-4 py-2 text-xs font-mono font-bold text-foreground" />
+                          </div>
+                        </div>
+                        <div className="p-6 bg-muted rounded-2xl border border-border">
+                          <label className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block mb-4">لون القائمة السفلية (داكن)</label>
+                          <div className="flex items-center gap-4">
+                            <input type="color" value={darkBottomNavColor} onChange={(e) => setDarkBottomNavColor(e.target.value)} className="w-12 h-12 cursor-pointer rounded-xl border-2 border-card shadow-sm" />
+                            <input type="text" value={darkBottomNavColor} onChange={(e) => setDarkBottomNavColor(e.target.value)} className="flex-1 bg-card border border-border rounded-xl px-4 py-2 text-xs font-mono font-bold text-foreground" />
                           </div>
                         </div>
                       </div>
 
-                      <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100">
-                        <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-4">كود CSS مخصص</label>
+                      <div className="p-6 bg-muted rounded-2xl border border-border">
+                        <label className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block mb-4">كود CSS مخصص</label>
                         <textarea 
                           value={customCss} 
                           onChange={(e) => setCustomCss(e.target.value)} 
-                          className="w-full bg-white border border-gray-200 rounded-xl px-4 py-4 text-sm font-mono font-bold h-48 resize-none focus:ring-2 focus:ring-primary/20 outline-none"
+                          className="w-full bg-card border border-border rounded-xl px-4 py-4 text-sm font-mono font-bold h-48 resize-none focus:ring-2 focus:ring-primary/20 outline-none text-foreground"
                           placeholder="/* اكتب كود CSS هنا... */&#10;.my-class {&#10;  color: red;&#10;}"
                           dir="ltr"
                         />
@@ -840,10 +1003,15 @@ export default function AdminPage() {
                       <button 
                         onClick={handleUpdateTheme}
                         disabled={isSaving}
-                        className="w-full text-white py-4 rounded-2xl font-bold text-sm hover:opacity-90 transition-all shadow-lg shadow-primary/20 disabled:opacity-50 active:scale-95"
+                        className="w-full text-white py-4 rounded-2xl font-bold text-sm hover:opacity-90 transition-all shadow-lg shadow-primary/20 disabled:opacity-50 active:scale-95 flex items-center justify-center gap-2"
                         style={{ background: 'var(--primary-gradient)' }}
                       >
-                        {isSaving ? 'جاري الحفظ...' : 'حفظ إعدادات الألوان'}
+                        {isSaving ? (
+                          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        ) : showSuccess ? (
+                          <ShieldCheck size={20} />
+                        ) : null}
+                        {isSaving ? 'جاري الحفظ...' : showSuccess ? 'تم الحفظ بنجاح!' : 'حفظ إعدادات الألوان'}
                       </button>
                     </div>
                   </section>
@@ -886,6 +1054,16 @@ export default function AdminPage() {
                           required
                         />
                       </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block ml-2">رابط الإشعار (اختياري)</label>
+                        <input 
+                          type="text" 
+                          placeholder="https://example.com" 
+                          value={notifLink}
+                          onChange={(e) => setNotifLink(e.target.value)}
+                          className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all"
+                        />
+                      </div>
                       <button 
                         type="submit" 
                         disabled={isSaving}
@@ -906,23 +1084,42 @@ export default function AdminPage() {
                     </div>
                     <div className="space-y-4">
                       {notifications?.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((notif, idx) => (
-                        <div key={`${notif.id}-${idx}`} className="p-4 bg-gray-50 rounded-2xl border border-gray-100 flex justify-between items-start">
-                          <div>
-                            <h3 className="font-bold text-sm">{notif.title}</h3>
-                            <p className="text-xs text-gray-500 mt-1">{notif.body}</p>
-                            <span className="text-[10px] text-gray-400 mt-2 block">
-                              {new Date(notif.createdAt).toLocaleDateString('ar-SA', {
-                                year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
-                              })}
-                            </span>
+                        <div key={`${notif.id}-${idx}`} className="p-6 bg-white rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-md transition-all flex justify-between items-start gap-4 group">
+                          <div className="flex gap-4 fill-mode-forwards">
+                            <div className="w-12 h-12 bg-primary/5 rounded-2xl flex items-center justify-center text-primary shrink-0 group-hover:bg-primary group-hover:text-white transition-all">
+                                <Bell size={24} />
+                            </div>
+                            <div className="space-y-1">
+                                <h3 className="font-black text-gray-900 leading-tight">{notif.title}</h3>
+                                <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">{notif.body}</p>
+                                <div className="flex items-center gap-2 pt-1">
+                                    <span className="text-[9px] font-black text-primary bg-primary/10 px-2 py-0.5 rounded-full uppercase tracking-tighter">
+                                        {new Date(notif.createdAt).toLocaleDateString('ar-SA', { day: 'numeric', month: 'short' })}
+                                    </span>
+                                    <span className="text-[9px] font-bold text-gray-400">
+                                        {new Date(notif.createdAt).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                    {notif.link && (
+                                        <div className="flex items-center gap-1 text-[9px] text-blue-500 font-bold">
+                                            <ExternalLink size={10} />
+                                            <span>يحتوي رابط</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                           </div>
-                          <button onClick={() => initiateDelete(`notifications/${notif.id}`, 'notification', notif.title)} className="text-red-500 p-2 hover:bg-red-50 rounded-xl transition-colors">
-                            <Trash2 size={16} />
+                          <button 
+                            onClick={() => initiateDelete(`notifications/${notif.id}`, 'إشعار', notif.title)} 
+                            className="text-gray-300 hover:text-red-500 hover:bg-red-50 p-2 rounded-xl transition-all"
+                          >
+                            <Trash2 size={18} />
                           </button>
                         </div>
                       ))}
                       {(!notifications || notifications.length === 0) && (
-                        <p className="text-center text-gray-500 text-sm py-8">لا توجد إشعارات مرسلة</p>
+                        <div className="text-center py-12 px-6 bg-gray-50 rounded-3xl border border-dashed border-gray-200">
+                            <p className="text-gray-400 text-sm font-bold">لا توجد إشعارات مرسلة بعد</p>
+                        </div>
                       )}
                     </div>
                   </section>
@@ -1014,14 +1211,27 @@ export default function AdminPage() {
                         />
                       </div>
 
-                      <div className="space-y-2">
-                        <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block ml-2">تكرار الظهور (بالساعات)</label>
-                        <input 
-                          type="number" 
-                          value={dialogFrequency}
-                          onChange={(e) => setDialogFrequency(parseInt(e.target.value))}
-                          className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all"
-                        />
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block ml-2">تكرار الظهور</label>
+                          <input 
+                            type="number" 
+                            value={dialogFrequency}
+                            onChange={(e) => setDialogFrequency(parseInt(e.target.value))}
+                            className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block ml-2">الوحدة</label>
+                          <select 
+                            value={dialogFrequencyUnit}
+                            onChange={(e) => setDialogFrequencyUnit(e.target.value as any)}
+                            className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all appearance-none"
+                          >
+                            <option value="hours">ساعة</option>
+                            <option value="minutes">دقيقة</option>
+                          </select>
+                        </div>
                       </div>
 
                       <button 
@@ -1034,6 +1244,399 @@ export default function AdminPage() {
                       </button>
                     </div>
                   </section>
+                </motion.div>
+              ) : activeTab === 'about' ? (
+                <motion.div
+                  key="about"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="space-y-8"
+                >
+                  <section className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100">
+                    <div className="flex items-center gap-3 mb-8">
+                      <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
+                        <Info size={20} />
+                      </div>
+                      <h2 className="text-xl font-bold">إعدادات صفحة حول التطبيق</h2>
+                    </div>
+
+                    <div className="space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block ml-2">العنوان الرئيسي</label>
+                          <input 
+                            type="text" 
+                            value={aboutTitle}
+                            onChange={(e) => setAboutTitle(e.target.value)}
+                            className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block ml-2">العنوان الفرعي</label>
+                          <input 
+                            type="text" 
+                            value={aboutSubtitle}
+                            onChange={(e) => setAboutSubtitle(e.target.value)}
+                            className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block ml-2">الوصف</label>
+                        <textarea 
+                          value={aboutDescription}
+                          onChange={(e) => setAboutDescription(e.target.value)}
+                          className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-medium h-32 resize-none outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block ml-2">الرؤية</label>
+                        <textarea 
+                          value={aboutVision}
+                          onChange={(e) => setAboutVision(e.target.value)}
+                          className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-medium h-32 resize-none outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block ml-2">رابط الصورة الرئيسية</label>
+                        <input 
+                          type="text" 
+                          value={aboutHeroImage}
+                          onChange={(e) => setAboutHeroImage(e.target.value)}
+                          className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all"
+                          placeholder="https://..."
+                        />
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block ml-2">المميزات</label>
+                          <button 
+                            onClick={() => setAboutFeatures([...aboutFeatures, { icon: 'Zap', title: '', desc: '' }])}
+                            className="text-primary text-xs font-bold hover:underline"
+                          >
+                            + إضافة ميزة
+                          </button>
+                        </div>
+                        <div className="space-y-4">
+                          {aboutFeatures.map((feature, idx) => (
+                            <div key={idx} className="p-4 bg-gray-50 rounded-2xl border border-gray-100 space-y-4 relative">
+                              <button 
+                                onClick={() => setAboutFeatures(aboutFeatures.filter((_, i) => i !== idx))}
+                                className="absolute top-2 left-2 text-red-500 p-1 hover:bg-red-50 rounded-lg"
+                              >
+                                <X size={16} />
+                              </button>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <input 
+                                  type="text" 
+                                  placeholder="العنوان"
+                                  value={feature.title}
+                                  onChange={(e) => {
+                                    const newFeatures = [...aboutFeatures];
+                                    newFeatures[idx] = { ...newFeatures[idx], title: e.target.value };
+                                    setAboutFeatures(newFeatures);
+                                  }}
+                                  className="w-full bg-white border border-gray-100 rounded-xl px-4 py-2 text-sm font-bold outline-none"
+                                />
+                                <select 
+                                  value={feature.icon}
+                                  onChange={(e) => {
+                                    const newFeatures = [...aboutFeatures];
+                                    newFeatures[idx] = { ...newFeatures[idx], icon: e.target.value };
+                                    setAboutFeatures(newFeatures);
+                                  }}
+                                  className="w-full bg-white border border-gray-100 rounded-xl px-4 py-2 text-sm font-bold outline-none"
+                                >
+                                  <option value="Zap">صاعقة (Zap)</option>
+                                  <option value="ShieldCheck">درع (Shield)</option>
+                                  <option value="Heart">قلب (Heart)</option>
+                                  <option value="Star">نجمة (Star)</option>
+                                  <option value="Users">مستخدمين (Users)</option>
+                                  <option value="Target">هدف (Target)</option>
+                                  <option value="Rocket">صاروخ (Rocket)</option>
+                                  <option value="Award">جائزة (Award)</option>
+                                </select>
+                              </div>
+                              <input 
+                                type="text" 
+                                placeholder="الوصف"
+                                value={feature.desc}
+                                onChange={(e) => {
+                                  const newFeatures = [...aboutFeatures];
+                                  newFeatures[idx] = { ...newFeatures[idx], desc: e.target.value };
+                                  setAboutFeatures(newFeatures);
+                                }}
+                                className="w-full bg-white border border-gray-100 rounded-xl px-4 py-2 text-sm font-medium outline-none"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <button 
+                        onClick={handleUpdateAbout}
+                        disabled={isSaving}
+                        className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-sm hover:opacity-90 transition-all shadow-lg active:scale-95 disabled:opacity-50"
+                      >
+                        {isSaving ? 'جاري الحفظ...' : 'حفظ إعدادات صفحة حول التطبيق'}
+                      </button>
+                    </div>
+                  </section>
+                </motion.div>
+              ) : activeTab === 'contact' ? (
+                <motion.div
+                  key="contact"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="space-y-8"
+                >
+                  <section className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100">
+                    <div className="flex items-center gap-3 mb-8">
+                      <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
+                        <MessageCircle size={20} />
+                      </div>
+                      <h2 className="text-xl font-bold">إعدادات صفحة تواصل معنا</h2>
+                    </div>
+
+                    <div className="space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block ml-2">العنوان الرئيسي</label>
+                          <input 
+                            type="text" 
+                            value={contactTitle}
+                            onChange={(e) => setContactTitle(e.target.value)}
+                            className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block ml-2">العنوان الفرعي</label>
+                          <input 
+                            type="text" 
+                            value={contactSubtitle}
+                            onChange={(e) => setContactSubtitle(e.target.value)}
+                            className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="p-6 bg-green-50 rounded-[2rem] border border-green-100 space-y-4">
+                        <div className="flex items-center justify-between">
+                            <h4 className="text-sm font-black text-green-700">زر واتساب العائم</h4>
+                            <div 
+                                onClick={() => setIsContactBtnActive(!isContactBtnActive)}
+                                className={cn(
+                                    "w-12 h-6 rounded-full p-1 cursor-pointer transition-colors",
+                                    isContactBtnActive ? "bg-green-500" : "bg-gray-300"
+                                )}
+                            >
+                                <div className={cn(
+                                    "w-4 h-4 bg-white rounded-full transition-transform",
+                                    isContactBtnActive ? "translate-x-6" : "translate-x-0"
+                                )} />
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-green-600 uppercase">رابط محادثة واتساب (https://wa.me/xxx)</label>
+                          <input 
+                            type="text" 
+                            value={contactBtnLink}
+                            onChange={(e) => setContactBtnLink(e.target.value)}
+                            className="w-full bg-white border border-green-100 rounded-xl px-4 py-2 text-xs font-bold outline-none"
+                            placeholder="https://wa.me/9665xxxxxxxx"
+                          />
+                        </div>
+                      </div>
+
+                      <button 
+                        onClick={handleUpdateContact}
+                        disabled={isSaving}
+                        className="w-full h-14 rounded-2xl text-white font-bold bg-primary shadow-lg shadow-primary/20 transition-all active:scale-95 disabled:opacity-50"
+                      >
+                        {isSaving ? 'جاري الحفظ...' : 'حفظ البيانات العامة'}
+                      </button>
+                    </div>
+                  </section>
+
+                  <section className="bg-white rounded-[3rem] p-8 shadow-sm border border-gray-100 space-y-8">
+                    <div className="flex items-center justify-between">
+                        <div className="space-y-1">
+                            <h2 className="text-xl font-black text-[#1A1C1E]">وسائل التواصل</h2>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-relaxed">إضافة أو حذف وسائل التواصل المعروضة</p>
+                        </div>
+                        <button 
+                            onClick={() => {
+                                setEditingContact({ type: 'phone', label: '', value: '', icon: 'Phone', actionUrl: '', order: contacts.length, active: true });
+                                setIsContactModalOpen(true);
+                        }}
+                            className="w-12 h-12 bg-primary text-white rounded-2xl flex items-center justify-center shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all"
+                        >
+                            <Plus size={24} />
+                        </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {contacts.map((contact, idx) => {
+                            const Icon = iconMap[contact.icon] || Phone;
+                            return (
+                                <div key={contact.id} className="bg-gray-50 p-6 rounded-3xl border border-gray-100 flex items-center justify-between hover:bg-white hover:shadow-xl transition-all group">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-primary shadow-sm">
+                                            <Icon size={24} />
+                                        </div>
+                                        <div className="text-right">
+                                            <div className="flex items-center gap-2">
+                                                <h4 className="text-sm font-black text-gray-900">{contact.label}</h4>
+                                                {!contact.active && <span className="text-[8px] bg-red-100 text-red-500 px-2 py-0.5 rounded-full font-black uppercase tracking-tighter">معطل</span>}
+                                            </div>
+                                            <p className="text-[11px] text-gray-500 font-bold" dir="ltr">{contact.value}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button 
+                                            onClick={() => {
+                                                setEditingContact(contact);
+                                                setIsContactModalOpen(true);
+                                            }}
+                                            className="p-2 text-primary bg-primary/5 rounded-xl hover:bg-primary hover:text-white transition-all"
+                                        >
+                                            <Edit3 size={16} />
+                                        </button>
+                                        <button 
+                                            onClick={() => initiateDelete(`contacts/${contact.id}`, 'وسيلة تواصل', contact.label)}
+                                            className="p-2 text-red-500 bg-red-50 rounded-xl hover:bg-red-500 hover:text-white transition-all"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                  </section>
+
+                  {isContactModalOpen && (
+                      <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 sm:p-0">
+                          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsContactModalOpen(false)} />
+                          <motion.div 
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            className="bg-white rounded-[3rem] w-full max-w-lg p-10 relative z-10 shadow-3xl space-y-8"
+                          >
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-xl font-black">{editingContact?.id ? 'تعديل' : 'إضافة'} وسيلة تواصل</h3>
+                                <button onClick={() => setIsContactModalOpen(false)} className="text-gray-400">
+                                    <X size={24} />
+                                </button>
+                            </div>
+
+                            <form onSubmit={handleSaveContactItem} className="space-y-6">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mr-4">التسمية</label>
+                                        <input 
+                                            required
+                                            value={editingContact?.label || ''}
+                                            onChange={(e) => setEditingContact({...editingContact, label: e.target.value})}
+                                            className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-3.5 text-xs font-bold focus:ring-2 focus:ring-primary/10 outline-none transition-all"
+                                            placeholder="اتصال / واتساب"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mr-4">القيمة</label>
+                                        <input 
+                                            required
+                                            value={editingContact?.value || ''}
+                                            onChange={(e) => setEditingContact({...editingContact, value: e.target.value})}
+                                            className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-3.5 text-xs font-bold focus:ring-2 focus:ring-primary/10 outline-none transition-all"
+                                            placeholder="784240692"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mr-4">النوع</label>
+                                        <select 
+                                            value={editingContact?.type || 'phone'}
+                                            onChange={(e) => setEditingContact({...editingContact, type: e.target.value})}
+                                            className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none appearance-none"
+                                        >
+                                            <option value="phone">هاتف</option>
+                                            <option value="email">بريد إلكتروني</option>
+                                            <option value="whatsapp">واتساب</option>
+                                            <option value="link">رابط آخر</option>
+                                        </select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mr-4">الأيقونة</label>
+                                        <select 
+                                            value={editingContact?.icon || 'Phone'}
+                                            onChange={(e) => setEditingContact({...editingContact, icon: e.target.value})}
+                                            className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none appearance-none"
+                                        >
+                                            <option value="Phone">هاتف</option>
+                                            <option value="Mail">بريد</option>
+                                            <option value="MessageCircle">محادثة</option>
+                                            <option value="ExternalLink">رابط خارجي</option>
+                                            <option value="Send">تيليجرام / طيارة</option>
+                                            <option value="Instagram">انستقرام</option>
+                                            <option value="Twitter">تويتر</option>
+                                            <option value="Github">جيت هاب</option>
+                                            <option value="Globe">كروم / ويب</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mr-4">رابط الإجراء (tel:, mailto:, ...)</label>
+                                    <input 
+                                        required
+                                        value={editingContact?.actionUrl || ''}
+                                        onChange={(e) => setEditingContact({...editingContact, actionUrl: e.target.value})}
+                                        className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-3.5 text-xs font-bold focus:ring-2 focus:ring-primary/10 outline-none transition-all"
+                                        placeholder="tel:+9665xxxxxxxx"
+                                    />
+                                </div>
+
+                                <div className="flex items-center gap-6">
+                                    <div className="flex-1 space-y-2">
+                                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mr-4">الترتيب</label>
+                                        <input 
+                                            type="number"
+                                            value={editingContact?.order || 0}
+                                            onChange={(e) => setEditingContact({...editingContact, order: parseInt(e.target.value)})}
+                                            className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none"
+                                        />
+                                    </div>
+                                    <div className="flex items-center gap-3 mt-6">
+                                        <input 
+                                            type="checkbox"
+                                            checked={editingContact?.active !== false}
+                                            onChange={(e) => setEditingContact({...editingContact, active: e.target.checked})}
+                                            className="w-5 h-5 accent-primary"
+                                        />
+                                        <label className="text-xs font-black">نشط</label>
+                                    </div>
+                                </div>
+
+                                <button 
+                                    type="submit"
+                                    disabled={isSaving}
+                                    className="w-full h-14 rounded-2xl bg-primary text-white font-black text-sm shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50"
+                                >
+                                    {isSaving ? 'جاري الحفظ...' : 'حفظ وسيلة التواصل'}
+                                </button>
+                            </form>
+                          </motion.div>
+                      </div>
+                  )}
                 </motion.div>
               ) : activeTab === 'floatingButton' ? (
                 <motion.div

@@ -67,6 +67,21 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["email", "role"]
+    },
+    "ContactItem": {
+      "title": "Contact Item",
+      "description": "A contact method item for the Contact Us page",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["phone", "email", "whatsapp", "link"] },
+        "label": { "type": "string" },
+        "value": { "type": "string" },
+        "icon": { "type": "string" },
+        "actionUrl": { "type": "string" },
+        "order": { "type": "number" },
+        "active": { "type": "boolean" }
+      },
+      "required": ["type", "label", "value", "actionUrl"]
     }
   },
   "firestore": {
@@ -89,6 +104,10 @@
     "/admins/{adminId}": {
       "schema": "Admin",
       "description": "Collection of system administrators"
+    },
+    "/contacts/{contactId}": {
+      "schema": "ContactItem",
+      "description": "Collection of contact methods"
     }
   }
 }

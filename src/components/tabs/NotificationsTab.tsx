@@ -32,7 +32,7 @@ export default function NotificationsTab() {
   };
 
   return (
-    <div className="w-full space-y-8 animate-in fade-in duration-500 pt-4">
+    <div className="w-full space-y-8 animate-in fade-in duration-500 pt-10">
         {loading ? (
           <div className="flex flex-col items-center justify-center p-20 gap-4">
             <Loader2 className="animate-spin text-primary h-12 w-12" />

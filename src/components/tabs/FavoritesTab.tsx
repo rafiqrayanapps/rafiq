@@ -351,7 +351,7 @@ export default function FavoritesTab() {
   };
 
   return (
-    <div className="w-full space-y-8 animate-in fade-in duration-500 pt-4">
+    <div className="w-full space-y-8 animate-in fade-in duration-500 pt-6">
         {favorites.length > 0 ? (
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
                 <div className="flex items-center justify-between px-1">
