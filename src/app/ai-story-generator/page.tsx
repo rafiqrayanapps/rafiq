@@ -627,11 +627,12 @@ export default function AIStoryGenerator() {
                        aspectRatio === '16:9' ? 'aspect-video' : 'aspect-[9/16]'
                      )}>
                         {/* Use native img for html2canvas to work best with CORS/dataUrls */}
-                        <img 
+                        <Image 
                           src={scene.imageUrl} 
                           alt={`Scene ${idx + 1}`} 
-                          className="w-full h-full object-cover"
-                          crossOrigin="anonymous"
+                          fill
+                          className="object-cover"
+                          unoptimized
                         />
                      </div>
                    )}

@@ -485,11 +485,10 @@ export default function ImageToPromptPage() {
                     <button
                       onClick={() => {
                         setIsErrorDialogOpen(false);
-                        setShowKeyInput(true);
                       }}
                       className="w-full py-4 px-6 rounded-2xl bg-primary text-white font-black text-sm shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all"
                     >
-                      تعديل مفتاح API
+                      إعادة المحاولة
                     </button>
                     <button
                         onClick={() => setIsErrorDialogOpen(false)}

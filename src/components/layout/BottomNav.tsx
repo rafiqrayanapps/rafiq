@@ -13,16 +13,36 @@ export default function BottomNav() {
   const searchParams = useSearchParams();
   const [isDark, setIsDark] = useState(false);
   const { data: notifications } = useCollection('notifications');
+  const [readIds, setReadIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    // Check initial dark mode state
+    setIsDark(document.documentElement.classList.contains('dark'));
+
+    const syncReadIds = () => {
+      const stored = localStorage.getItem('read_notifications');
+      if (stored) {
+        try {
+          setReadIds(JSON.parse(stored));
+        } catch (e) {
+          console.error("Error parsing read notifications", e);
+        }
+      }
+    };
+
+    // Load initial status
+    syncReadIds();
+
+    // Listen for updates from other components
+    window.addEventListener('notifications_updated', syncReadIds);
+    return () => window.removeEventListener('notifications_updated', syncReadIds);
+  }, []);
 
   const unreadCount = useMemo(() => {
     if (!notifications) return 0;
-    return notifications.filter(n => n.read === false || n.isNew === true).length;
-  }, [notifications]);
-
-  useEffect(() => {
-    // Check initial state
-    setIsDark(document.documentElement.classList.contains('dark'));
-  }, []);
+    // Count notifications that are NOT in the readIds list
+    return notifications.filter(n => !readIds.includes(n.id)).length;
+  }, [notifications, readIds]);
 
   if (pathname === '/') {
     return null;

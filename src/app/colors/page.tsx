@@ -3,7 +3,7 @@
 import { motion } from 'framer-motion';
 import Header from '@/components/Header';
 import { Palette, Copy, RefreshCw, Check, Sparkles } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useApiKey } from '@/components/providers/ApiKeyProvider';
 import ApiKeyGate from '@/components/ApiKeyGate';
@@ -14,7 +14,7 @@ export default function ColorsPage() {
   const [palettes, setPalettes] = useState<string[][]>([]);
   const [copiedColor, setCopiedColor] = useState<string | null>(null);
 
-  const generatePalettes = () => {
+  const generatePalettes = useCallback(() => {
     if (!hasKey) return;
     const newPalettes = Array.from({ length: 12 }, () => {
       const baseHue = Math.floor(Math.random() * 360);
@@ -27,13 +27,13 @@ export default function ColorsPage() {
       ];
     });
     setPalettes(newPalettes);
-  };
+  }, [hasKey]);
 
   useEffect(() => {
     if (hasKey) {
       generatePalettes();
     }
-  }, [hasKey]);
+  }, [hasKey, generatePalettes]);
 
   const copyColor = (color: string) => {
     navigator.clipboard.writeText(color);

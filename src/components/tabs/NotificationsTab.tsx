@@ -1,31 +1,39 @@
 'use client';
 
-import { useMemo, useEffect } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Bell, Loader2 } from 'lucide-react';
 import { useCollection } from '@/hooks/useFirebase';
-import { db } from '@/firebase';
-import { doc, updateDoc, writeBatch } from 'firebase/firestore';
 
 export default function NotificationsTab() {
   const { data: notifications, loading } = useCollection('notifications');
+  const [readIds, setReadIds] = useState<string[]>([]);
 
-  // Mark unread as read when mounting
+  // Load read status from local storage
   useEffect(() => {
-    if (!loading && notifications && notifications.length > 0) {
-      const unread = notifications.filter(n => n.read === false || n.isNew === true);
-      if (unread.length > 0) {
-        const batch = writeBatch(db);
-        unread.forEach(notif => {
-          batch.update(doc(db, 'notifications', notif.id), {
-            read: true,
-            isNew: false
-          });
-        });
-        batch.commit().catch(err => console.error("Error marking as read:", err));
+    const stored = localStorage.getItem('read_notifications');
+    if (stored) {
+      try {
+        setReadIds(JSON.parse(stored));
+      } catch (e) {
+        console.error("Error parsing read notifications", e);
       }
     }
-  }, [notifications, loading]);
+  }, []);
+
+  // Mark all as read when viewing the tab
+  useEffect(() => {
+    if (!loading && notifications && notifications.length > 0) {
+      const allIds = notifications.map(n => n.id);
+      const newReadIds = Array.from(new Set([...readIds, ...allIds]));
+      
+      if (newReadIds.length > readIds.length) {
+        setReadIds(newReadIds);
+        localStorage.setItem('read_notifications', JSON.stringify(newReadIds));
+        window.dispatchEvent(new Event('notifications_updated'));
+      }
+    }
+  }, [notifications, loading, readIds]);
 
   // Sort notifications by createdAt descending
   const sortedNotifications = useMemo(() => {
@@ -100,7 +108,7 @@ export default function NotificationsTab() {
                         </span>
                       </div>
                     </div>
-                    {notif.read === false && (
+                    {!readIds.includes(notif.id) && (
                       <div className="w-3 h-3 rounded-full bg-primary shadow-lg shadow-primary/50 animate-pulse" />
                     )}
                   </div>
