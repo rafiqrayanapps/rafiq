@@ -98,6 +98,17 @@ export default function AdminPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [selectedManagerId, setSelectedManagerId] = useState<{type: 'category' | 'subcategory', id: string} | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const handleSetViewLevel = (level: 'categories' | 'subcategories' | 'items') => {
+    setViewLevel(level);
+    setSearchQuery('');
+  };
+
+  const handleSetSelectedManager = (idObj: {type: 'category' | 'subcategory', id: string} | null) => {
+    setSelectedManagerId(idObj);
+    setSearchQuery('');
+  };
 
   // Delete Confirmation State
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string, type: string, label: string } | null>(null);
@@ -215,6 +226,10 @@ export default function AdminPage() {
   const subCategories = allCategories.filter(c => c.parentId);
   const items = itemsData || [];
   const contacts = (contactsData || []).sort((a, b) => (a.order || 0) - (b.order || 0));
+
+  const currentParentStyle = (allCategoriesData || []).find(c => c.id === selectedManagerId?.id)?.displayStyle || 'style1';
+  const relevantSubs = subCategories.filter(s => s.parentId === selectedManagerId?.id);
+  const hasSubCategories = relevantSubs.length > 0;
 
   const handleMoveCategory = async (id: string, direction: 'up' | 'down') => {
     const currentIndex = categories.findIndex(c => c.id === id);
@@ -403,6 +418,8 @@ export default function AdminPage() {
         displayStyle: editingCategory.displayStyle || 'style1',
         subCategoryLayout: editingCategory.subCategoryLayout || 'vertical',
         isUnderMaintenance: editingCategory.isUnderMaintenance || false,
+        accentColor: editingCategory.accentColor || '',
+        useCustomAccent: editingCategory.useCustomAccent || false,
         order: categories.length,
         updatedAt: new Date().toISOString()
       });
@@ -436,8 +453,12 @@ export default function AdminPage() {
         parentId: editingSubCategory.categoryId,
         name: editingSubCategory.name,
         description: editingSubCategory.description || '',
+        displayStyle: editingSubCategory.displayStyle || 'style1',
+        fileTypes: editingSubCategory.fileTypes || '',
         isUnderMaintenance: editingSubCategory.isUnderMaintenance || false,
-        order: subCategories.length,
+        accentColor: editingSubCategory.accentColor || '',
+        useCustomAccent: editingSubCategory.useCustomAccent || false,
+        order: subCategories.filter(s => s.parentId === editingSubCategory.categoryId).length,
         updatedAt: new Date().toISOString()
       });
       setEditingSubCategory(null);
@@ -458,10 +479,18 @@ export default function AdminPage() {
         title: editingItem.title,
         description: editingItem.description || '',
         downloadUrl: editingItem.downloadUrl || '',
+        videoUrl: editingItem.videoUrl || '',
         imageUrl: editingItem.imageUrl || editingItem.downloadUrl || '',
         style: editingItem.style || '',
+        rating: editingItem.rating || '',
+        reviewCount: editingItem.reviewCount || '',
+        ageRating: editingItem.ageRating || '',
+        size: editingItem.size || '',
+        screenshots: editingItem.screenshots || [],
+        prompt: editingItem.prompt || '',
         showCopyButton: editingItem.showCopyButton !== false,
         showDownloadButton: editingItem.showDownloadButton !== false,
+        order: items.length,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       });
@@ -485,6 +514,8 @@ export default function AdminPage() {
         displayStyle: editingCategory.displayStyle || 'style1',
         subCategoryLayout: editingCategory.subCategoryLayout || 'vertical',
         isUnderMaintenance: editingCategory.isUnderMaintenance || false,
+        accentColor: editingCategory.accentColor || '',
+        useCustomAccent: editingCategory.useCustomAccent || false,
         updatedAt: new Date().toISOString()
       });
       setEditingCategory(null);
@@ -505,7 +536,11 @@ export default function AdminPage() {
         name: editingSubCategory.name,
         description: editingSubCategory.description || '',
         parentId: editingSubCategory.categoryId,
+        displayStyle: editingSubCategory.displayStyle || 'style1',
+        fileTypes: editingSubCategory.fileTypes || '',
         isUnderMaintenance: editingSubCategory.isUnderMaintenance || false,
+        accentColor: editingSubCategory.accentColor || '',
+        useCustomAccent: editingSubCategory.useCustomAccent || false,
         updatedAt: new Date().toISOString()
       });
       setEditingSubCategory(null);
@@ -526,8 +561,15 @@ export default function AdminPage() {
         title: editingItem.title,
         description: editingItem.description || '',
         downloadUrl: editingItem.downloadUrl || '',
+        videoUrl: editingItem.videoUrl || '',
         imageUrl: editingItem.imageUrl || '',
         style: editingItem.style || '',
+        rating: editingItem.rating || '',
+        reviewCount: editingItem.reviewCount || '',
+        ageRating: editingItem.ageRating || '',
+        size: editingItem.size || '',
+        screenshots: editingItem.screenshots || [],
+        prompt: editingItem.prompt || '',
         showCopyButton: editingItem.showCopyButton !== false,
         showDownloadButton: editingItem.showDownloadButton !== false,
         updatedAt: new Date().toISOString()
@@ -536,6 +578,30 @@ export default function AdminPage() {
       toast({ title: "تم النجاح", description: "تم تحديث المحتوى بنجاح!" });
     } catch (error: any) {
       handleFirestoreError(error, OperationType.UPDATE, `categories/${editingItem.subCategoryId}/items`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleMoveSubCategory = async (id: string, direction: 'up' | 'down') => {
+    const parentId = subCategories.find(s => s.id === id)?.parentId;
+    if (!parentId) return;
+    
+    const relevantSubs = subCategories.filter(s => s.parentId === parentId);
+    const currentIndex = relevantSubs.findIndex(s => s.id === id);
+    if (direction === 'up' && currentIndex === 0) return;
+    if (direction === 'down' && currentIndex === relevantSubs.length - 1) return;
+
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    const currentSub = relevantSubs[currentIndex];
+    const targetSub = relevantSubs[targetIndex];
+
+    setIsSaving(true);
+    try {
+      await updateDoc(doc(db, 'categories', currentSub.id), { order: targetIndex });
+      await updateDoc(doc(db, 'categories', targetSub.id), { order: currentIndex });
+    } catch (error: any) {
+      handleFirestoreError(error, OperationType.UPDATE, 'categories');
     } finally {
       setIsSaving(false);
     }
@@ -609,19 +675,39 @@ export default function AdminPage() {
   const devDomain = "ais-dev-wdz3ydwwnvsr5dasvcbb6c-177196040326.europe-west2.run.app";
   const preDomain = "ais-pre-wdz3ydwwnvsr5dasvcbb6c-177196040326.europe-west2.run.app";
 
-  return (
-    <div className="min-h-screen bg-background text-foreground font-sans pb-20">
-      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
-      <Header onMenuClick={() => setIsSidebarOpen(true)} />
+  const getHeaderTitle = () => {
+    switch (activeTab) {
+      case 'users': return 'إدارة المستخدمين';
+      case 'content': return 'المحتوى والأقسام';
+      case 'colors': return 'المظهر والألوان';
+      case 'notifications': return 'الإشعارات';
+      case 'dialog': return 'النافذة المنبثقة';
+      case 'floatingButton': return 'الزر العائم';
+      case 'about': return 'من نحن';
+      case 'contact': return 'تواصل معنا';
+      default: return 'لوحة التحكم';
+    }
+  };
 
-      <main className="max-w-6xl mx-auto px-6 pt-6 pb-10">
+  return (
+    <div className="min-h-screen bg-background text-foreground font-sans pb-20" dir="rtl">
+      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+      <Header 
+        title={getHeaderTitle()} 
+        onMenuClick={activeTab === 'menu' ? () => setIsSidebarOpen(true) : undefined}
+        showBackButton={activeTab !== 'menu'}
+        onBackClick={() => setActiveTab('menu')}
+      />
+
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 pt-6 pb-10">
         {!isAdmin && user ? (
-          <div className="bg-card rounded-[40px] p-12 text-center shadow-2xl shadow-muted/50 border border-border">
-            <div className="w-24 h-24 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-8">
-              <AlertTriangle size={48} />
+          <div className="bg-card rounded-[28px] sm:rounded-[40px] p-8 sm:p-12 text-center shadow-2xl shadow-muted/50 border border-border">
+            <div className="w-16 h-16 sm:w-24 sm:h-24 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6 sm:mb-8">
+              <AlertTriangle size={32} className="sm:hidden" />
+              <AlertTriangle size={48} className="hidden sm:block" />
             </div>
-            <h1 className="text-3xl font-black mb-4 text-foreground">عذراً، ليس لديك صلاحية الوصول</h1>
-            <p className="text-gray-500 dark:text-gray-400 mb-10 max-w-md mx-auto leading-relaxed">
+            <h1 className="text-2xl sm:text-3xl font-black mb-4 text-foreground">عذراً، ليس لديك صلاحية الوصول</h1>
+            <p className="text-gray-500 dark:text-gray-400 mb-8 sm:mb-10 max-w-md mx-auto leading-relaxed text-sm sm:text-base">
               أنت مسجل الدخول حالياً بـ: <span className="font-bold text-foreground">{user.email}</span>
               <br />
               هذا البريد غير مدرج في قائمة المسؤولين المعتمدين.
@@ -643,60 +729,107 @@ export default function AdminPage() {
           </div>
         ) : (
           <>
-            <div className="flex items-center justify-between mb-10">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8 sm:mb-10">
               <div className="flex items-center gap-3">
-                <Settings className="text-primary w-8 h-8" />
-                <h1 className="text-2xl font-black text-foreground tracking-tight leading-tight">
-                  لوحة تحكم المدير<br/>الملكية
+                <Settings className="text-primary w-6 h-6 sm:w-8 sm:h-8" />
+                <h1 className="text-xl sm:text-2xl font-black text-foreground tracking-tight leading-tight">
+                  <span className="block sm:inline">لوحة تحكم المدير</span>
+                  <span className="hidden sm:inline"> | </span>
+                  <span className="block sm:inline text-primary/70 sm:text-inherit">الملكية</span>
                 </h1>
               </div>
               <button 
                 onClick={() => logout()}
-                className="bg-muted text-foreground/70 px-5 py-3 rounded-2xl font-bold text-sm hover:bg-muted/80 transition-colors"
+                className="bg-muted text-foreground/70 px-4 py-2 sm:px-5 sm:py-3 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm hover:bg-muted/80 transition-colors w-full sm:w-auto text-center"
               >
-                تسجيل<br/>خروج
+                تسجيل الخروج
               </button>
             </div>
 
-            {activeTab === 'menu' ? (
-              <div className="grid grid-cols-2 gap-4 mb-12">
-                {[
-                  { id: 'content', label: 'المحتوى', icon: Home },
-                  { id: 'users', label: 'المستخدمين', icon: User },
-                  { id: 'colors', label: 'ألوان الموقع', icon: Palette },
-                  { id: 'notifications', label: 'الإشعارات', icon: Bell },
-                  { id: 'dialog', label: 'ديالوج', icon: MessageSquare },
-                  { id: 'floatingButton', label: 'الزر العائم', icon: MousePointer2 },
-                  { id: 'about', label: 'حول التطبيق', icon: Info },
-                  { id: 'contact', label: 'تواصل معنا', icon: MessageCircle },
-                ].map((tab) => {
-                  if (!isAdmin && tab.id !== 'content') return null;
-                  return (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id as any)}
-                      className="flex flex-col items-center justify-center p-6 rounded-[2rem] transition-all duration-300 gap-4 shadow-sm border bg-card text-foreground border-border hover:border-primary/30 hover:shadow-md active:scale-95"
-                    >
-                      <tab.icon className="w-8 h-8 text-foreground/70" strokeWidth={2} />
-                      <span className="font-bold text-base">{tab.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="mb-6">
-                <button 
-                  onClick={() => setActiveTab('menu')}
-                  className="flex items-center gap-2 text-slate-500 hover:text-primary transition-colors font-bold bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-100"
-                >
-                  <ChevronRight size={20} />
-                  العودة للقائمة
-                </button>
-              </div>
-            )}
-
             <AnimatePresence mode="wait">
-              {activeTab === 'users' ? (
+              {activeTab === 'menu' ? (
+                <motion.div
+                  key="menu"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="space-y-12"
+                >
+                  {/* Quick Stats Dashboard */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {[
+                      { label: 'الأقسام', value: categories.length + subCategories.length, icon: Database, color: 'text-blue-500', bg: 'bg-blue-50' },
+                      { label: 'المستخدمين', value: whitelistData?.length || 0, icon: User, color: 'text-orange-500', bg: 'bg-orange-50' },
+                      { label: 'الإشعارات', value: notifications?.length || 0, icon: Bell, color: 'text-pink-500', bg: 'bg-pink-50' },
+                      { label: 'جهات الاتصال', value: contacts.length, icon: MessageCircle, color: 'text-green-500', bg: 'bg-green-50' },
+                    ].map((stat, i) => (
+                      <div key={i} className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm flex flex-col items-center gap-3">
+                        <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center", stat.bg, stat.color)}>
+                          <stat.icon size={24} />
+                        </div>
+                        <div className="text-center">
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{stat.label}</p>
+                          <span className="text-xl font-black text-gray-900">{stat.value}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="space-y-10">
+                    {[
+                      {
+                        title: 'إدارة المحتوى والمستخدمين',
+                        items: [
+                          { id: 'content', label: 'المحتوى والأقسام', icon: Home, desc: 'إدارة الأقسام والمنشورات' },
+                          { id: 'users', label: 'المستخدمين', icon: Users, desc: 'إدارة صلاحيات الوصول' },
+                        ]
+                      },
+                      {
+                        title: 'المظهر والهوية',
+                        items: [
+                          { id: 'colors', label: 'ألوان الموقع', icon: Palette, desc: 'تخصيص ألوان الواجهة' },
+                        ]
+                      },
+                      {
+                        title: 'التفاعل والتواصل',
+                        items: [
+                          { id: 'notifications', label: 'الإشعارات', icon: BellRing, desc: 'إرسال تنبيهات للمستخدمين' },
+                          { id: 'dialog', label: 'النافذة المنبثقة', icon: MessageSquare, desc: 'إعداد ديالوج الاشتراك' },
+                          { id: 'floatingButton', label: 'الزر العائم', icon: MousePointer2, desc: 'زر الوصول السريع' },
+                        ]
+                      },
+                      {
+                        title: 'صفحات الموقع',
+                        items: [
+                          { id: 'about', label: 'من نحن', icon: Info, desc: 'تعديل صفحة حول التطبيق' },
+                          { id: 'contact', label: 'تواصل معنا', icon: MessageCircle, desc: 'إدارة أرقام وروابط التواصل' },
+                        ]
+                      }
+                    ].map((group, idx) => (
+                      <div key={idx} className="space-y-5">
+                        <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mr-4">{group.title}</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {group.items.map((tab) => (
+                            <button
+                              key={tab.id}
+                              onClick={() => setActiveTab(tab.id as any)}
+                              className="flex items-center p-6 rounded-[2rem] transition-all duration-300 gap-5 shadow-sm border bg-white text-gray-900 border-gray-100 hover:border-primary/30 hover:shadow-xl hover:-translate-y-1 active:scale-95 group text-right"
+                            >
+                              <div className="w-14 h-14 bg-gray-50 text-gray-400 rounded-2xl flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-all shrink-0">
+                                <tab.icon size={28} />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="font-black text-base sm:text-lg mb-1">{tab.label}</p>
+                                <p className="text-[10px] sm:text-xs text-gray-400 font-bold leading-tight line-clamp-1">{tab.desc}</p>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              ) : activeTab === 'users' ? (
                 <motion.div
                   key="users"
                   initial={{ opacity: 0, y: 20 }}
@@ -704,12 +837,13 @@ export default function AdminPage() {
                   exit={{ opacity: 0, y: -20 }}
                   className="space-y-8"
                 >
-                  <section className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100">
-                    <div className="flex items-center gap-3 mb-8">
-                      <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
-                        <UserPlus size={20} />
+                  <section className="bg-white rounded-2xl sm:rounded-3xl p-6 sm:p-8 shadow-sm border border-gray-100">
+                    <div className="flex items-center gap-3 mb-6 sm:mb-8">
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
+                        <UserPlus size={18} className="sm:hidden" />
+                        <UserPlus size={20} className="hidden sm:block" />
                       </div>
-                      <h2 className="text-xl font-bold">إضافة مستخدم جديد</h2>
+                      <h2 className="text-lg sm:text-xl font-bold">إضافة مستخدم جديد</h2>
                     </div>
                     
                     <form onSubmit={handleAddUser} className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
@@ -746,22 +880,23 @@ export default function AdminPage() {
                     </form>
                   </section>
 
-                  <section className="bg-white rounded-[40px] p-10 shadow-sm border border-gray-100">
-                    <div className="flex items-center justify-between mb-10">
+                  <section className="bg-white rounded-[28px] sm:rounded-[40px] p-6 sm:p-10 shadow-sm border border-gray-100">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8 sm:mb-10">
                       <div className="space-y-1">
-                        <h2 className="text-2xl font-black text-gray-900">قائمة المستخدمين</h2>
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">إدارة الصلاحيات والوصول</p>
+                        <h2 className="text-xl sm:text-2xl font-black text-gray-900">قائمة المستخدمين</h2>
+                        <p className="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-widest">إدارة الصلاحيات والوصول</p>
                       </div>
-                      <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center text-gray-400">
-                        <Users size={24} />
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gray-50 rounded-xl sm:rounded-2xl flex items-center justify-center text-gray-400">
+                        <Users size={20} className="sm:hidden" />
+                        <Users size={24} className="hidden sm:block" />
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                       {whitelistData?.map((entry: any, idx: number) => (
-                        <div key={`${entry.id}-${idx}`} className="bg-white rounded-[2.5rem] p-8 border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-500 group relative overflow-hidden">
+                        <div key={`${entry.id}-${idx}`} className="bg-white rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-8 border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-500 group relative overflow-hidden">
                           {/* Top Section: Avatar & Info */}
-                          <div className="flex items-start justify-between mb-8">
+                          <div className="flex items-start justify-between mb-6 sm:mb-8">
                             <div className="flex items-center gap-5">
                               <div className={cn(
                                 "w-16 h-16 rounded-[1.5rem] flex items-center justify-center text-2xl font-black shadow-inner",
@@ -1723,72 +1858,93 @@ export default function AdminPage() {
                   exit={{ opacity: 0, y: -20 }}
                   className="space-y-8"
                 >
-                  {/* Content Header */}
-                  <div className="bg-white rounded-[40px] p-10 text-center shadow-sm border border-gray-100 relative overflow-hidden">
-                    <div className="relative z-10">
-                      <h2 className="text-3xl font-black mb-2">إدارة المحتوى</h2>
-                      <p className="text-gray-400 text-sm mb-8">تحكم في أقسام الموقع الرئيسية</p>
-                      
-                      <button 
-                        onClick={() => setEditingCategory({ name: '', type: 'XML', displayStyle: 'style1' })}
-                        className="flex items-center gap-2 px-10 py-4 bg-primary text-white rounded-2xl font-bold text-sm shadow-xl shadow-primary/20 hover:opacity-90 transition-all active:scale-95 mx-auto"
-                      >
-                        <Plus size={20} />
-                        <span>قسم جديد</span>
-                      </button>
+                  {/* Content Header - Only show at top level */}
+                   {viewLevel === 'categories' && (
+                    <div className="bg-white rounded-[28px] sm:rounded-[40px] p-6 sm:p-10 shadow-sm border border-gray-100 flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden">
+                      <div className="text-center md:text-right">
+                        <h2 className="text-2xl sm:text-3xl font-black mb-1">إدارة المحتوى</h2>
+                        <p className="text-gray-400 text-xs sm:text-sm font-bold uppercase tracking-widest">تعديل أقسام الموقع والمنشورات</p>
+                      </div>
+
+                      <div className="flex flex-wrap items-center justify-center gap-4">
+                        <div className="relative group">
+                          <input 
+                            type="text"
+                            placeholder="بحث في الأقسام..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="bg-gray-50 border-2 border-gray-100 rounded-2xl px-6 py-3 pr-12 text-sm font-bold w-full md:w-64 outline-none focus:bg-white focus:border-primary/30 transition-all"
+                          />
+                          <Database size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-primary transition-colors" />
+                        </div>
+
+                        <button 
+                          onClick={() => setEditingCategory({ name: '', type: 'XML', displayStyle: 'style1' })}
+                          className="flex items-center gap-2 px-8 py-3 bg-primary text-white rounded-2xl font-bold text-sm shadow-lg shadow-primary/20 hover:opacity-90 transition-all active:scale-95"
+                        >
+                          <Plus size={18} />
+                          <span>قسم جديد</span>
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {viewLevel === 'categories' ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      {categories.map((cat, idx) => (
-                        <div key={`cat-${cat.id}-${idx}`} className="bg-white rounded-[40px] overflow-hidden shadow-sm border border-gray-100 group hover:shadow-xl transition-all duration-500">
-                          <div className="bg-primary p-8 text-white relative">
-                            <div className="flex items-center justify-between mb-4">
-                              <span className="px-3 py-1 bg-white/20 backdrop-blur-md rounded-lg text-[10px] font-bold uppercase tracking-wider">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8">
+                      {categories
+                        .filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()))
+                        .map((cat, idx) => (
+                        <div key={`cat-${cat.id}-${idx}`} className="bg-white rounded-[28px] sm:rounded-[40px] overflow-hidden shadow-sm border border-gray-100 group hover:shadow-xl transition-all duration-500">
+                          <div className="bg-primary p-6 sm:p-8 text-white relative">
+                            <div className="flex items-center justify-between mb-3 sm:mb-4">
+                              <span className="px-2 sm:px-3 py-0.5 sm:py-1 bg-white/20 backdrop-blur-md rounded-lg text-[8px] sm:text-[10px] font-bold uppercase tracking-wider">
                                 {cat.displayStyle || 'style1'}
                               </span>
-                              <div className="w-2 h-10 bg-white/20 rounded-full" />
+                              <div className="w-2 h-8 sm:h-10 bg-white/20 rounded-full" />
                             </div>
-                            <h3 className="text-2xl font-black">{cat.name}</h3>
+                            <h3 className="text-xl sm:text-2xl font-black">{cat.name}</h3>
                           </div>
-                          <div className="p-8 flex items-center justify-between gap-4">
-                            <div className="flex gap-2">
-                              <div className="flex flex-col gap-1">
+                          <div className="p-4 sm:p-8 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+                            <div className="flex justify-between sm:justify-start gap-2">
+                              <div className="flex gap-1">
                                 <button 
                                   onClick={() => handleMoveCategory(cat.id, 'up')}
                                   disabled={categories.indexOf(cat) === 0}
-                                  className="p-2 bg-gray-50 text-gray-400 rounded-lg hover:bg-primary/10 hover:text-primary disabled:opacity-30 transition-all"
+                                  className="p-2 sm:p-2.5 bg-gray-50 text-gray-400 rounded-lg hover:bg-primary/10 hover:text-primary disabled:opacity-30 transition-all"
                                 >
                                   <ArrowUp size={16} />
                                 </button>
                                 <button 
                                   onClick={() => handleMoveCategory(cat.id, 'down')}
                                   disabled={categories.indexOf(cat) === categories.length - 1}
-                                  className="p-2 bg-gray-50 text-gray-400 rounded-lg hover:bg-primary/10 hover:text-primary disabled:opacity-30 transition-all"
+                                  className="p-2 sm:p-2.5 bg-gray-50 text-gray-400 rounded-lg hover:bg-primary/10 hover:text-primary disabled:opacity-30 transition-all"
                                 >
                                   <ArrowDown size={16} />
                                 </button>
                               </div>
-                              <button 
-                                onClick={() => initiateDelete(`categories/${cat.id}`, 'category', cat.name)}
-                                className="p-4 bg-red-50 text-red-500 rounded-2xl hover:bg-red-100 transition-colors"
-                              >
-                                <Trash2 size={20} />
-                              </button>
-                              <button 
-                                onClick={() => setEditingCategory(cat)}
-                                className="p-4 bg-gray-50 text-gray-400 rounded-2xl hover:bg-gray-100 transition-colors border border-gray-100"
-                              >
-                                <Edit3 size={20} />
-                              </button>
+                              <div className="flex gap-2">
+                                <button 
+                                  onClick={() => initiateDelete(`categories/${cat.id}`, 'category', cat.name)}
+                                  className="p-3 sm:p-4 bg-red-50 text-red-500 rounded-xl sm:rounded-2xl hover:bg-red-100 transition-colors"
+                                >
+                                  <Trash2 size={18} className="sm:hidden" />
+                                  <Trash2 size={20} className="hidden sm:block" />
+                                </button>
+                                <button 
+                                  onClick={() => setEditingCategory(cat)}
+                                  className="p-3 sm:p-4 bg-gray-50 text-gray-400 rounded-xl sm:rounded-2xl hover:bg-gray-100 transition-colors border border-gray-100"
+                                >
+                                  <Edit3 size={18} className="sm:hidden" />
+                                  <Edit3 size={20} className="hidden sm:block" />
+                                </button>
+                              </div>
                             </div>
                             <button 
                               onClick={() => {
-                                setSelectedManagerId({type: 'category', id: cat.id});
-                                setViewLevel('subcategories');
+                                handleSetSelectedManager({type: 'category', id: cat.id});
+                                handleSetViewLevel('subcategories');
                               }}
-                              className="flex-1 py-4 bg-primary text-white rounded-2xl font-bold text-sm shadow-lg shadow-primary/10 hover:opacity-90 transition-all active:scale-95"
+                              className="py-3 sm:py-4 bg-primary text-white rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm shadow-lg shadow-primary/10 hover:opacity-90 transition-all active:scale-95"
                             >
                               إدارة القسم
                             </button>
@@ -1797,113 +1953,259 @@ export default function AdminPage() {
                       ))}
                     </div>
                   ) : viewLevel === 'subcategories' ? (
-                    <div className="space-y-8">
-                      <div className="bg-white rounded-[40px] p-10 text-center shadow-sm border border-gray-100 relative">
-                        <button 
-                          onClick={() => setViewLevel('categories')}
-                          className="absolute left-8 top-1/2 -translate-y-1/2 p-3 bg-gray-50 text-gray-400 rounded-2xl hover:bg-gray-100 transition-all"
-                        >
-                          <ChevronRight size={24} />
-                        </button>
-                        <h2 className="text-2xl font-black mb-1">
-                          {categories.find(c => c.id === selectedManagerId?.id)?.name}
-                        </h2>
-                        <p className="text-gray-400 text-xs mb-8">تعديل المحتوى والأقسام الفرعية</p>
+                    <div className="space-y-6 sm:space-y-8">
+                       <div className="bg-white rounded-[28px] sm:rounded-[40px] p-6 sm:p-10 text-center shadow-sm border border-gray-100 relative">
+                        <div className="flex flex-col items-center gap-4">
+                          {/* Breadcrumbs for easier navigation */}
+                          <div className="flex items-center gap-2 text-[10px] sm:text-xs font-bold text-gray-400 bg-gray-50 px-4 py-2 rounded-full mb-2">
+                            <button onClick={() => handleSetViewLevel('categories')} className="hover:text-primary transition-colors">المحتوى</button>
+                            <ChevronRight size={12} />
+                            <span className="text-primary truncate max-w-[150px]">
+                              {categories.find(c => c.id === selectedManagerId?.id)?.name}
+                            </span>
+                          </div>
+
+                          <h2 className="text-2xl sm:text-3xl font-black text-gray-900 leading-tight">
+                            {categories.find(c => c.id === selectedManagerId?.id)?.name}
+                          </h2>
+                          <p className="text-gray-400 text-[10px] sm:text-xs font-bold uppercase tracking-widest">إدارة المنشورات والأقسام الفرعية</p>
+                        </div>
                         
-                        <button 
-                          onClick={() => setEditingSubCategory({ name: '', categoryId: selectedManagerId?.id, description: '' })}
-                          className="flex items-center gap-2 px-10 py-4 bg-white border-2 border-gray-100 text-gray-900 rounded-2xl font-bold text-sm hover:bg-gray-50 transition-all active:scale-95 mx-auto"
-                        >
-                          <Send size={18} className="-rotate-45" />
-                          <span>منشور جديد</span>
-                        </button>
+                        <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 mx-auto mt-6 sm:mt-8">
+                          <button 
+                            onClick={() => setEditingSubCategory({ name: '', categoryId: selectedManagerId?.id, description: '', displayStyle: 'style1', fileTypes: '' })}
+                            className="flex items-center gap-2 px-6 sm:px-10 py-3 sm:py-4 bg-white border-2 border-gray-100 text-gray-900 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm hover:bg-gray-50 transition-all active:scale-95"
+                          >
+                            <FolderPlus size={18} className="sm:hidden" />
+                            <FolderPlus size={20} className="hidden sm:block" />
+                            <span>إضافة قسم فرعي</span>
+                          </button>
+
+                          {!hasSubCategories && (
+                            <button 
+                              onClick={() => setEditingItem({ title: '', subCategoryId: selectedManagerId?.id, description: '', downloadUrl: '' })}
+                              className="flex items-center gap-2 px-6 sm:px-10 py-3 sm:py-4 bg-primary text-white rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm shadow-xl shadow-primary/20 hover:opacity-90 transition-all active:scale-95"
+                            >
+                              <Plus size={18} className="sm:hidden" />
+                              <Plus size={20} className="hidden sm:block" />
+                              <span>إضافة محتوى</span>
+                            </button>
+                          )}
+                        </div>
                       </div>
 
-                      <div className="space-y-4">
-                        <h3 className="text-primary font-bold text-sm mr-4">الأقسام الفرعية</h3>
-                        <div className="grid grid-cols-1 gap-4">
-                          {subCategories.filter(s => s.parentId === selectedManagerId?.id).map((sub, idx) => (
-                            <div key={`sub-${sub.id}-${idx}`} className="bg-white p-6 rounded-[32px] shadow-sm border border-gray-100 flex items-center justify-between group hover:shadow-md transition-all">
-                              <div className="flex items-center gap-4">
-                                <div className="p-3 bg-gray-50 text-gray-400 rounded-2xl group-hover:bg-primary/10 group-hover:text-primary transition-colors">
-                                  <List size={20} />
+                      <div className="space-y-3 sm:space-y-4">
+                        <h3 className="text-primary font-bold text-xs sm:text-sm mr-2 sm:mr-4 uppercase tracking-wider">
+                          {hasSubCategories ? 'الأقسام الفرعية' : 'المحتوى المباشر'}
+                        </h3>
+                        <div className="grid grid-cols-1 gap-3 sm:gap-4">
+                          {hasSubCategories ? (
+                            relevantSubs
+                              .filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()))
+                              .map((sub, idx) => (
+                              <div key={`sub-${sub.id}-${idx}`} className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-[32px] shadow-sm border border-gray-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 group hover:shadow-md transition-all">
+                                <div className="flex items-center gap-3 sm:gap-4">
+                                  <div className="p-2 sm:p-3 bg-gray-50 text-gray-400 rounded-xl sm:rounded-2xl group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                                    <List size={18} className="sm:hidden" />
+                                    <List size={20} className="hidden sm:block" />
+                                  </div>
+                                  <div className="flex flex-col">
+                                    <span className="font-black text-base sm:text-lg">{sub.name}</span>
+                                    <span className="text-[8px] sm:text-[10px] text-gray-400 font-bold uppercase">{sub.displayStyle || 'style1'} • {sub.fileTypes || 'بدون صيغة'}</span>
+                                  </div>
                                 </div>
-                                <span className="font-black text-lg">{sub.name}</span>
+                                <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3">
+                                  <div className="flex items-center gap-1 sm:gap-1.5 ml-0 sm:ml-2">
+                                    <button 
+                                      onClick={() => handleMoveSubCategory(sub.id, 'up')}
+                                      disabled={idx === 0}
+                                      className="p-2 bg-gray-50 text-gray-400 rounded-lg hover:bg-primary/10 hover:text-primary disabled:opacity-30 transition-all border border-transparent"
+                                    >
+                                      <ArrowUp size={14} />
+                                    </button>
+                                    <button 
+                                      onClick={() => handleMoveSubCategory(sub.id, 'down')}
+                                      disabled={idx === relevantSubs.length - 1}
+                                      className="p-2 bg-gray-50 text-gray-400 rounded-lg hover:bg-primary/10 hover:text-primary disabled:opacity-30 transition-all border border-transparent"
+                                    >
+                                      <ArrowDown size={14} />
+                                    </button>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <button 
+                                      onClick={() => initiateDelete(`categories/${sub.id}`, 'subcategory', sub.name)}
+                                      className="p-2 sm:p-3 text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+                                    >
+                                      <Trash2 size={18} className="sm:hidden" />
+                                      <Trash2 size={20} className="hidden sm:block" />
+                                    </button>
+                                    <button 
+                                      onClick={() => setEditingSubCategory({...sub, categoryId: sub.parentId})}
+                                      className="p-2 sm:p-3 text-blue-500 hover:bg-blue-50 rounded-xl transition-colors"
+                                    >
+                                      <Edit3 size={18} className="sm:hidden" />
+                                      <Edit3 size={20} className="hidden sm:block" />
+                                    </button>
+                                    <button 
+                                      onClick={() => {
+                                        setSelectedManagerId({type: 'subcategory', id: sub.id});
+                                        setViewLevel('items');
+                                      }}
+                                      className="px-4 py-2 sm:p-3 bg-primary/5 sm:bg-transparent text-primary hover:bg-primary/10 rounded-xl transition-all font-bold text-xs sm:text-sm flex items-center gap-2"
+                                    >
+                                      <Database size={18} className="sm:hidden" />
+                                      <Database size={20} className="hidden sm:block" />
+                                      <span className="sm:hidden text-xs">إدارة المحتوى</span>
+                                    </button>
+                                  </div>
+                                </div>
                               </div>
-                              <div className="flex items-center gap-3">
-                                <button 
-                                  onClick={() => initiateDelete(`categories/${sub.id}`, 'subcategory', sub.name)}
-                                  className="p-3 text-red-500 hover:bg-red-50 rounded-xl transition-colors"
-                                >
-                                  <Trash2 size={20} />
-                                </button>
-                                <button 
-                                  onClick={() => {
-                                    setSelectedManagerId({type: 'subcategory', id: sub.id});
-                                    setViewLevel('items');
-                                  }}
-                                  className="p-3 text-primary hover:bg-primary/5 rounded-xl transition-colors"
-                                >
-                                  <Database size={20} />
-                                </button>
+                            ))
+                          ) : (
+                            items.length > 0 ? (
+                              items
+                                .filter(item => 
+                                  item.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                  item.description.toLowerCase().includes(searchQuery.toLowerCase())
+                                )
+                                .map((item, idx) => (
+                                <div key={`item-${item.id}-${idx}`} className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-[32px] shadow-sm border border-gray-100 flex items-center justify-between group hover:shadow-md transition-all">
+                                  <div className="flex items-center gap-3 sm:gap-4 overflow-hidden">
+                                    <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-50 rounded-xl sm:rounded-2xl flex items-center justify-center text-gray-400 relative overflow-hidden flex-shrink-0">
+                                      {item.imageUrl ? (
+                                        <Image src={item.imageUrl} fill className="object-cover" alt="" referrerPolicy="no-referrer" />
+                                      ) : (
+                                        <>
+                                          <Database size={20} className="sm:hidden" />
+                                          <Database size={24} className="hidden sm:block" />
+                                        </>
+                                      )}
+                                    </div>
+                                    <div className="min-w-0">
+                                      <h4 className="font-black text-base sm:text-lg truncate">{item.title}</h4>
+                                      <p className="text-[10px] sm:text-xs text-gray-400 line-clamp-1">{item.description}</p>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-1 sm:gap-3 flex-shrink-0">
+                                    <button 
+                                      onClick={() => setEditingItem(item)}
+                                      className="p-2 sm:p-3 text-blue-500 hover:bg-blue-50 rounded-xl transition-colors"
+                                    >
+                                      <Edit3 size={18} className="sm:hidden" />
+                                      <Edit3 size={20} className="hidden sm:block" />
+                                    </button>
+                                    <button 
+                                      onClick={() => initiateDelete(`categories/${selectedManagerId?.id}/items/${item.id}`, 'item', item.title)}
+                                      className="p-2 sm:p-3 text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+                                    >
+                                      <Trash2 size={18} className="sm:hidden" />
+                                      <Trash2 size={20} className="hidden sm:block" />
+                                    </button>
+                                  </div>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="text-center py-12 bg-gray-50 rounded-3xl border border-dashed border-gray-200">
+                                <p className="text-gray-400 font-bold">لا يوجد محتوى أو أقسام فرعية بعد</p>
                               </div>
-                            </div>
-                          ))}
+                            )
+                          )}
                         </div>
                       </div>
                     </div>
                   ) : (
-                    <div className="space-y-8">
-                      <div className="bg-white rounded-[40px] p-10 text-center shadow-sm border border-gray-100 relative">
-                        <button 
-                          onClick={() => setViewLevel('subcategories')}
-                          className="absolute left-8 top-1/2 -translate-y-1/2 p-3 bg-gray-50 text-gray-400 rounded-2xl hover:bg-gray-100 transition-all"
-                        >
-                          <ChevronRight size={24} />
-                        </button>
-                        <h2 className="text-2xl font-black mb-1">
-                          {subCategories.find(s => s.id === selectedManagerId?.id)?.name}
-                        </h2>
-                        <p className="text-gray-400 text-xs mb-8">إدارة المحتوى المضاف</p>
+                    <div className="space-y-6 sm:space-y-8">
+                       <div className="bg-white rounded-[28px] sm:rounded-[40px] p-6 sm:p-10 text-center shadow-sm border border-gray-100 relative">
+                        <div className="flex flex-col items-center gap-4">
+                          {/* Breadcrumbs for easier navigation */}
+                          <div className="flex items-center gap-2 text-[10px] sm:text-xs font-bold text-gray-400 bg-gray-50 px-4 py-2 rounded-full mb-2 overflow-x-auto max-w-full">
+                            <button onClick={() => handleSetViewLevel('categories')} className="hover:text-primary transition-colors whitespace-nowrap">المحتوى</button>
+                            <ChevronRight size={12} className="shrink-0" />
+                            <button 
+                              onClick={() => {
+                                const sub = subCategories.find(s => s.id === selectedManagerId?.id);
+                                if (sub) {
+                                  handleSetSelectedManager({type: 'category', id: sub.parentId});
+                                  handleSetViewLevel('subcategories');
+                                }
+                              }} 
+                              className="hover:text-primary transition-colors truncate max-w-[100px]"
+                            >
+                              {categories.find(c => c.id === subCategories.find(s => s.id === selectedManagerId?.id)?.parentId)?.name}
+                            </button>
+                            <ChevronRight size={12} className="shrink-0" />
+                            <span className="text-primary truncate max-w-[100px]">
+                              {subCategories.find(s => s.id === selectedManagerId?.id)?.name}
+                            </span>
+                          </div>
+
+                          <h2 className="text-2xl sm:text-3xl font-black text-gray-900 leading-tight">
+                            {subCategories.find(s => s.id === selectedManagerId?.id)?.name}
+                          </h2>
+                          <p className="text-gray-400 text-[10px] sm:text-xs font-bold uppercase tracking-widest">إدارة المحتوى المضاف</p>
+                        </div>
                         
-                        <button 
-                          onClick={() => setEditingItem({ title: '', subCategoryId: selectedManagerId?.id, description: '', downloadUrl: '' })}
-                          className="flex items-center gap-2 px-10 py-4 bg-primary text-white rounded-2xl font-bold text-sm shadow-xl shadow-primary/20 hover:opacity-90 transition-all active:scale-95 mx-auto"
-                        >
-                          <Plus size={20} />
-                          <span>إضافة محتوى</span>
-                        </button>
+                        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-6 sm:mt-8">
+                          <div className="relative group w-full sm:w-64">
+                            <input 
+                              type="text"
+                              placeholder="بحث في المحتوى..."
+                              value={searchQuery}
+                              onChange={(e) => setSearchQuery(e.target.value)}
+                              className="bg-gray-50 border-2 border-gray-100 rounded-2xl px-6 py-3 pr-12 text-sm font-bold w-full outline-none focus:bg-white focus:border-primary/30 transition-all"
+                            />
+                            <Database size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-primary transition-colors" />
+                          </div>
+
+                          <button 
+                            onClick={() => setEditingItem({ title: '', subCategoryId: selectedManagerId?.id, description: '', downloadUrl: '' })}
+                            className="flex items-center gap-2 px-6 sm:px-10 py-3 sm:py-4 bg-primary text-white rounded-xl sm:rounded-2xl font-bold text-sm shadow-xl shadow-primary/20 hover:opacity-90 transition-all active:scale-95 w-full sm:w-auto"
+                          >
+                            <Plus size={18} className="sm:hidden" />
+                            <Plus size={20} className="hidden sm:block" />
+                            <span>إضافة محتوى</span>
+                          </button>
+                        </div>
                       </div>
 
-                      <div className="grid grid-cols-1 gap-4">
-                        {items.map((item, idx) => (
-                          <div key={`item-${item.id}-${idx}`} className="bg-white p-6 rounded-[32px] shadow-sm border border-gray-100 flex items-center justify-between group hover:shadow-md transition-all">
-                            <div className="flex items-center gap-4">
-                              <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center text-gray-400 relative overflow-hidden">
+                      <div className="grid grid-cols-1 gap-3 sm:gap-4">
+                        {items
+                          .filter(item => 
+                            item.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                            item.description.toLowerCase().includes(searchQuery.toLowerCase())
+                          )
+                          .map((item, idx) => (
+                          <div key={`item-${item.id}-${idx}`} className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-[32px] shadow-sm border border-gray-100 flex items-center justify-between group hover:shadow-md transition-all">
+                            <div className="flex items-center gap-3 sm:gap-4 overflow-hidden">
+                              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-50 rounded-xl sm:rounded-2xl flex items-center justify-center text-gray-400 relative overflow-hidden flex-shrink-0">
                                 {item.imageUrl ? (
                                   <Image src={item.imageUrl} fill className="object-cover" alt="" referrerPolicy="no-referrer" />
                                 ) : (
-                                  <Database size={24} />
+                                  <>
+                                    <Database size={20} className="sm:hidden" />
+                                    <Database size={24} className="hidden sm:block" />
+                                  </>
                                 )}
-                                {/* Removed Pro Lock */}
                               </div>
-                              <div>
-                                <h4 className="font-black text-lg">{item.title}</h4>
-                                <p className="text-xs text-gray-400 line-clamp-1">{item.description}</p>
+                              <div className="min-w-0">
+                                <h4 className="font-black text-base sm:text-lg truncate">{item.title}</h4>
+                                <p className="text-[10px] sm:text-xs text-gray-400 line-clamp-1">{item.description}</p>
                               </div>
                             </div>
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-1 sm:gap-3 flex-shrink-0">
                               <button 
                                 onClick={() => setEditingItem(item)}
-                                className="p-3 text-blue-500 hover:bg-blue-50 rounded-xl transition-colors"
+                                className="p-2 sm:p-3 text-blue-500 hover:bg-blue-50 rounded-xl transition-colors"
                               >
-                                <Edit3 size={20} />
+                                <Edit3 size={18} className="sm:hidden" />
+                                <Edit3 size={20} className="hidden sm:block" />
                               </button>
                               <button 
                                 onClick={() => initiateDelete(`categories/${selectedManagerId?.id}/items/${item.id}`, 'item', item.title)}
-                                className="p-3 text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+                                className="p-2 sm:p-3 text-red-500 hover:bg-red-50 rounded-xl transition-colors"
                               >
-                                <Trash2 size={20} />
+                                <Trash2 size={18} className="sm:hidden" />
+                                <Trash2 size={20} className="hidden sm:block" />
                               </button>
                             </div>
                           </div>
@@ -1923,41 +2225,42 @@ export default function AdminPage() {
                           initial={{ scale: 0.9, opacity: 0 }}
                           animate={{ scale: 1, opacity: 1 }}
                           exit={{ scale: 0.9, opacity: 0 }}
-                          className="bg-white rounded-[40px] p-10 w-full max-w-lg shadow-2xl relative"
+                          className="bg-white rounded-[28px] sm:rounded-[40px] p-6 sm:p-10 w-full max-w-lg shadow-2xl relative max-h-[90vh] overflow-y-auto"
                         >
                           <button 
                             onClick={() => setEditingCategory(null)}
-                            className="absolute right-8 top-8 text-gray-400 hover:text-gray-600 transition-colors"
+                            className="absolute right-4 sm:right-8 top-4 sm:top-8 text-gray-400 hover:text-gray-600 transition-colors"
                           >
-                            <X size={24} />
+                            <X size={20} className="sm:hidden" />
+                            <X size={24} className="hidden sm:block" />
                           </button>
                           
-                          <h2 className="text-2xl font-black mb-10 text-center">إعدادات القسم</h2>
+                          <h2 className="text-xl sm:text-2xl font-black mb-6 sm:mb-10 text-center">إعدادات القسم</h2>
                           
-                          <form onSubmit={editingCategory.id ? handleUpdateCategory : handleAddCategory} className="space-y-8">
-                            <div className="space-y-3">
-                              <label className="text-sm font-bold text-gray-900 mr-2">اسم القسم</label>
+                          <form onSubmit={editingCategory.id ? handleUpdateCategory : handleAddCategory} className="space-y-6 sm:space-y-8">
+                            <div className="space-y-2 sm:space-y-3">
+                              <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">اسم القسم</label>
                               <div className="relative">
                                 <input 
                                   type="text" 
                                   value={editingCategory.name}
                                   onChange={(e) => setEditingCategory({...editingCategory, name: e.target.value})}
-                                  className="w-full bg-gray-50 border-2 border-gray-100 rounded-2xl px-6 py-4 text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all"
+                                  className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all"
                                   required
                                 />
-                                <div className="absolute left-4 top-1/2 -translate-y-1/2 bg-blue-100 text-blue-600 px-3 py-1 rounded-lg text-[10px] font-bold">
+                                <div className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 bg-blue-100 text-blue-600 px-2 sm:px-3 py-0.5 sm:py-1 rounded-lg text-[8px] sm:text-[10px] font-bold">
                                   {editingCategory.name || 'القسم'}
                                 </div>
                               </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-6">
-                              <div className="space-y-3">
-                                <label className="text-sm font-bold text-gray-900 mr-2">نمط العرض</label>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                              <div className="space-y-2 sm:space-y-3">
+                                <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">نمط العرض</label>
                                 <select 
                                   value={editingCategory.displayStyle || 'style1'}
                                   onChange={(e) => setEditingCategory({...editingCategory, displayStyle: e.target.value})}
-                                  className="w-full bg-gray-50 border-2 border-gray-100 rounded-2xl px-6 py-4 text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all appearance-none"
+                                  className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all appearance-none"
                                 >
                                   <option value="style1">شبكة أيقونات (Logos)</option>
                                   <option value="style2">أغلفة عريضة (Banners)</option>
@@ -1965,14 +2268,15 @@ export default function AdminPage() {
                                   <option value="style4">مشغل صوتيات (Audio)</option>
                                   <option value="style5">نسخ نصوص (Prompts)</option>
                                   <option value="style6">قائمة صوتيات متقدمة</option>
+                                  <option value="style8">نمط الفيديو (Video)</option>
                                 </select>
                               </div>
-                              <div className="space-y-3">
-                                <label className="text-sm font-bold text-gray-900 mr-2">ترتيب الأقسام الفرعية</label>
+                              <div className="space-y-2 sm:space-y-3">
+                                <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">ترتيب الأقسام الفرعية</label>
                                 <select 
                                   value={editingCategory.subCategoryLayout || 'vertical'}
                                   onChange={(e) => setEditingCategory({...editingCategory, subCategoryLayout: e.target.value as any})}
-                                  className="w-full bg-gray-50 border-2 border-gray-100 rounded-2xl px-6 py-4 text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all appearance-none"
+                                  className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all appearance-none"
                                 >
                                   <option value="vertical">رأسي (Vertical)</option>
                                   <option value="horizontal">أفقي (Horizontal)</option>
@@ -1980,30 +2284,68 @@ export default function AdminPage() {
                               </div>
                             </div>
 
-                            <div className="space-y-3">
-                              <label className="text-sm font-bold text-gray-900 mr-2">صيغ الملفات (مثلاً: PSD, AI)</label>
+                            <div className="space-y-2 sm:space-y-3">
+                              <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">صيغ الملفات (مثلاً: PSD, AI)</label>
                               <input 
                                 type="text" 
                                 value={editingCategory.fileTypes || ''}
                                 onChange={(e) => setEditingCategory({...editingCategory, fileTypes: e.target.value})}
-                                className="w-full bg-gray-50 border-2 border-gray-100 rounded-2xl px-6 py-4 text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all"
+                                className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all"
                                 placeholder="XML, PLP, APK..."
                               />
                             </div>
 
-                            <div className="flex items-center justify-between p-6 bg-gray-50 rounded-[28px] border-2 border-gray-100">
-                              <span className="text-sm font-bold text-gray-900">وضع الصيانة</span>
+                            <div className="flex items-center justify-between p-4 sm:p-6 bg-gray-50 rounded-2xl sm:rounded-[28px] border-2 border-gray-100">
+                              <span className="text-xs sm:text-sm font-bold text-gray-900">لون مخصص لهذا القسم</span>
+                              <button 
+                                type="button"
+                                onClick={() => setEditingCategory({...editingCategory, useCustomAccent: !editingCategory.useCustomAccent})}
+                                className={cn(
+                                  "w-12 h-7 sm:w-14 sm:h-8 rounded-full transition-all relative",
+                                  editingCategory.useCustomAccent ? "bg-primary" : "bg-gray-200"
+                                )}
+                              >
+                                <div className={cn(
+                                  "absolute top-0.5 sm:top-1 w-6 h-6 bg-white rounded-full transition-all",
+                                  editingCategory.useCustomAccent ? "right-0.5 sm:right-1" : "right-5 sm:right-7"
+                                )} />
+                              </button>
+                            </div>
+
+                            {editingCategory.useCustomAccent && (
+                              <div className="space-y-2 sm:space-y-3">
+                                <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">لون البراند المخصص (Hex)</label>
+                                <div className="flex items-center gap-3 sm:gap-4">
+                                  <input 
+                                    type="color" 
+                                    value={editingCategory.accentColor || '#3B82F6'} 
+                                    onChange={(e) => setEditingCategory({...editingCategory, accentColor: e.target.value})} 
+                                    className="w-10 h-10 sm:w-12 sm:h-12 cursor-pointer rounded-lg sm:rounded-xl border-2 border-gray-100 shadow-sm" 
+                                  />
+                                  <input 
+                                    type="text" 
+                                    value={editingCategory.accentColor || ''} 
+                                    onChange={(e) => setEditingCategory({...editingCategory, accentColor: e.target.value})} 
+                                    className="flex-1 bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all uppercase"
+                                    placeholder="#000000"
+                                  />
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="flex items-center justify-between p-4 sm:p-6 bg-gray-50 rounded-2xl sm:rounded-[28px] border-2 border-gray-100">
+                              <span className="text-xs sm:text-sm font-bold text-gray-900">وضع الصيانة</span>
                               <button 
                                 type="button"
                                 onClick={() => setEditingCategory({...editingCategory, isUnderMaintenance: !editingCategory.isUnderMaintenance})}
                                 className={cn(
-                                  "w-14 h-8 rounded-full transition-all relative",
+                                  "w-12 h-7 sm:w-14 sm:h-8 rounded-full transition-all relative",
                                   editingCategory.isUnderMaintenance ? "bg-red-500" : "bg-gray-200"
                                 )}
                               >
                                 <div className={cn(
-                                  "absolute top-1 w-6 h-6 bg-white rounded-full transition-all",
-                                  editingCategory.isUnderMaintenance ? "right-1" : "right-7"
+                                  "absolute top-0.5 sm:top-1 w-6 h-6 bg-white rounded-full transition-all",
+                                  editingCategory.isUnderMaintenance ? "right-0.5 sm:right-1" : "right-5 sm:right-7"
                                 )} />
                               </button>
                             </div>
@@ -2011,7 +2353,7 @@ export default function AdminPage() {
                             <button 
                               type="submit" 
                               disabled={isSaving}
-                              className="w-full bg-primary text-white py-5 rounded-[28px] font-black text-lg shadow-xl shadow-primary/20 hover:opacity-90 transition-all active:scale-95"
+                              className="w-full bg-primary text-white py-4 sm:py-5 rounded-2xl sm:rounded-[28px] font-black text-base sm:text-lg shadow-xl shadow-primary/20 hover:opacity-90 transition-all active:scale-95"
                             >
                               {isSaving ? 'جاري الحفظ...' : 'حفظ القسم'}
                             </button>
@@ -2030,60 +2372,128 @@ export default function AdminPage() {
                           initial={{ scale: 0.9, opacity: 0 }}
                           animate={{ scale: 1, opacity: 1 }}
                           exit={{ scale: 0.9, opacity: 0 }}
-                          className="bg-white rounded-[40px] p-10 w-full max-w-lg shadow-2xl relative"
+                          className="bg-white rounded-[28px] sm:rounded-[40px] p-6 sm:p-10 w-full max-w-lg shadow-2xl relative max-h-[90vh] overflow-y-auto"
                         >
                           <button 
                             onClick={() => setEditingSubCategory(null)}
-                            className="absolute right-8 top-8 text-gray-400 hover:text-gray-600 transition-colors"
+                            className="absolute right-4 sm:right-8 top-4 sm:top-8 text-gray-400 hover:text-gray-600 transition-colors"
                           >
-                            <X size={24} />
+                            <X size={20} className="sm:hidden" />
+                            <X size={24} className="hidden sm:block" />
                           </button>
 
-                          <h2 className="text-2xl font-black mb-10 text-center">
+                          <h2 className="text-xl sm:text-2xl font-black mb-6 sm:mb-10 text-center leading-tight">
                             {editingSubCategory.id ? 'تعديل القسم الفرعي' : 'إضافة قسم فرعي جديد'}
                           </h2>
 
-                          <form onSubmit={editingSubCategory.id ? handleUpdateSubCategory : handleAddSubCategory} className="space-y-8">
-                            <div className="space-y-3">
-                              <label className="text-sm font-bold text-gray-900 mr-2">اسم القسم الفرعي</label>
+                          <form onSubmit={editingSubCategory.id ? handleUpdateSubCategory : handleAddSubCategory} className="space-y-6 sm:space-y-8">
+                            <div className="space-y-2 sm:space-y-3">
+                              <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">اسم القسم الفرعي</label>
                               <input 
                                 type="text" 
                                 value={editingSubCategory.name}
                                 onChange={(e) => setEditingSubCategory({...editingSubCategory, name: e.target.value})}
-                                className="w-full bg-gray-50 border-2 border-gray-100 rounded-2xl px-6 py-4 text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all"
+                                className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all"
                                 required
                               />
                             </div>
-                            <div className="space-y-3">
-                              <label className="text-sm font-bold text-gray-900 mr-2">الوصف</label>
+                            <div className="space-y-2 sm:space-y-3">
+                              <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">الوصف</label>
                               <textarea 
                                 value={editingSubCategory.description}
                                 onChange={(e) => setEditingSubCategory({...editingSubCategory, description: e.target.value})}
-                                className="w-full bg-gray-50 border-2 border-gray-100 rounded-2xl px-6 py-4 text-sm font-medium h-32 resize-none outline-none focus:border-primary/30 focus:bg-white transition-all"
+                                className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-medium h-24 sm:h-32 resize-none outline-none focus:border-primary/30 focus:bg-white transition-all"
                                 placeholder="اكتب وصفاً مختصراً للقسم الفرعي..."
                               />
                             </div>
 
-                            <div className="flex items-center justify-between p-6 bg-gray-50 rounded-[28px] border-2 border-gray-100">
-                              <span className="text-sm font-bold text-gray-900">وضع الصيانة</span>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                              <div className="space-y-2 sm:space-y-3">
+                                <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">نمط عرض المحتوى</label>
+                                <select 
+                                  value={editingSubCategory.displayStyle || 'style1'}
+                                  onChange={(e) => setEditingSubCategory({...editingSubCategory, displayStyle: e.target.value})}
+                                  className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all appearance-none"
+                                >
+                                  <option value="style1">شبكة أيقونات (Logos)</option>
+                                  <option value="style2">أغلفة عريضة (Banners)</option>
+                                  <option value="style3">تطبيقات وألعاب (Apps)</option>
+                                  <option value="style4">مشغل صوتيات (Audio)</option>
+                                  <option value="style5">نسخ نصوص (Prompts)</option>
+                                  <option value="style6">قائمة صوتيات متقدمة</option>
+                                  <option value="style8">نمط الفيديو (Video)</option>
+                                </select>
+                              </div>
+                              <div className="space-y-2 sm:space-y-3">
+                                <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">صيغة الملفات (مثلاً: XML)</label>
+                                <input 
+                                  type="text" 
+                                  value={editingSubCategory.fileTypes || ''}
+                                  onChange={(e) => setEditingSubCategory({...editingSubCategory, fileTypes: e.target.value})}
+                                  className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all"
+                                  placeholder="XML, PSD, APK..."
+                                />
+                              </div>
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 sm:p-6 bg-gray-50 rounded-2xl sm:rounded-[28px] border-2 border-gray-100">
+                              <span className="text-xs sm:text-sm font-bold text-gray-900">لون مخصص لهذه الصفحة</span>
+                              <button 
+                                type="button"
+                                onClick={() => setEditingSubCategory({...editingSubCategory, useCustomAccent: !editingSubCategory.useCustomAccent})}
+                                className={cn(
+                                  "w-12 h-7 sm:w-14 sm:h-8 rounded-full transition-all relative",
+                                  editingSubCategory.useCustomAccent ? "bg-primary" : "bg-gray-200"
+                                )}
+                              >
+                                <div className={cn(
+                                  "absolute top-0.5 sm:top-1 w-6 h-6 bg-white rounded-full transition-all",
+                                  editingSubCategory.useCustomAccent ? "right-0.5 sm:right-1" : "right-5 sm:right-7"
+                                )} />
+                              </button>
+                            </div>
+
+                            {editingSubCategory.useCustomAccent && (
+                              <div className="space-y-2 sm:space-y-3">
+                                <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">لون البراند المخصص (Hex)</label>
+                                <div className="flex items-center gap-3 sm:gap-4">
+                                  <input 
+                                    type="color" 
+                                    value={editingSubCategory.accentColor || '#3B82F6'} 
+                                    onChange={(e) => setEditingSubCategory({...editingSubCategory, accentColor: e.target.value})} 
+                                    className="w-10 h-10 sm:w-12 sm:h-12 cursor-pointer rounded-lg sm:rounded-xl border-2 border-gray-100 shadow-sm" 
+                                  />
+                                  <input 
+                                    type="text" 
+                                    value={editingSubCategory.accentColor || ''} 
+                                    onChange={(e) => setEditingSubCategory({...editingSubCategory, accentColor: e.target.value})} 
+                                    className="flex-1 bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all uppercase"
+                                    placeholder="#000000"
+                                  />
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="flex items-center justify-between p-4 sm:p-6 bg-gray-50 rounded-2xl sm:rounded-[28px] border-2 border-gray-100">
+                              <span className="text-xs sm:text-sm font-bold text-gray-900">وضع الصيانة</span>
                               <button 
                                 type="button"
                                 onClick={() => setEditingSubCategory({...editingSubCategory, isUnderMaintenance: !editingSubCategory.isUnderMaintenance})}
                                 className={cn(
-                                  "w-14 h-8 rounded-full transition-all relative",
+                                  "w-12 h-7 sm:w-14 sm:h-8 rounded-full transition-all relative",
                                   editingSubCategory.isUnderMaintenance ? "bg-red-500" : "bg-gray-200"
                                 )}
                               >
                                 <div className={cn(
-                                  "absolute top-1 w-6 h-6 bg-white rounded-full transition-all",
-                                  editingSubCategory.isUnderMaintenance ? "right-1" : "right-7"
+                                  "absolute top-0.5 sm:top-1 w-6 h-6 bg-white rounded-full transition-all",
+                                  editingSubCategory.isUnderMaintenance ? "right-0.5 sm:right-1" : "right-5 sm:right-7"
                                 )} />
                               </button>
                             </div>
                             <button 
                               type="submit" 
                               disabled={isSaving}
-                              className="w-full bg-primary text-white py-5 rounded-[28px] font-black text-lg shadow-xl shadow-primary/20 hover:opacity-90 transition-all active:scale-95"
+                              className="w-full bg-primary text-white py-4 sm:py-5 rounded-2xl sm:rounded-[28px] font-black text-base sm:text-lg shadow-xl shadow-primary/20 hover:opacity-90 transition-all active:scale-95"
                             >
                               {isSaving ? 'جاري الحفظ...' : 'حفظ القسم الفرعي'}
                             </button>
@@ -2102,98 +2512,214 @@ export default function AdminPage() {
                           initial={{ scale: 0.9, opacity: 0 }}
                           animate={{ scale: 1, opacity: 1 }}
                           exit={{ scale: 0.9, opacity: 0 }}
-                          className="bg-white rounded-[40px] p-10 w-full max-w-lg shadow-2xl relative max-h-[90vh] overflow-y-auto custom-scrollbar"
+                          className="bg-white rounded-[28px] sm:rounded-[40px] p-6 sm:p-10 w-full max-w-lg shadow-2xl relative max-h-[90vh] overflow-y-auto custom-scrollbar"
                         >
                           <button 
                             onClick={() => setEditingItem(null)}
-                            className="absolute right-8 top-8 text-gray-400 hover:text-gray-600 transition-colors"
+                            className="absolute right-4 sm:right-8 top-4 sm:top-8 text-gray-400 hover:text-gray-600 transition-colors"
                           >
-                            <X size={24} />
+                            <X size={20} className="sm:hidden" />
+                            <X size={24} className="hidden sm:block" />
                           </button>
-                          <h2 className="text-2xl font-black mb-10 text-center">
+                          <h2 className="text-xl sm:text-2xl font-black mb-6 sm:mb-10 text-center">
                             {editingItem.id ? 'تعديل المحتوى' : 'إضافة محتوى جديد'}
                           </h2>
 
-                          <form onSubmit={editingItem.id ? handleUpdateItem : handleAddItem} className="space-y-8">
-                            <div className="space-y-3">
-                              <label className="text-sm font-bold text-gray-900 mr-2">عنوان المحتوى</label>
+                          <form onSubmit={editingItem.id ? handleUpdateItem : handleAddItem} className="space-y-6 sm:space-y-8">
+                            <div className="space-y-2 sm:space-y-3">
+                              <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">عنوان المحتوى</label>
                               <input 
                                 type="text" 
                                 value={editingItem.title}
                                 onChange={(e) => setEditingItem({...editingItem, title: e.target.value})}
-                                className="w-full bg-gray-50 border-2 border-gray-100 rounded-2xl px-6 py-4 text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all"
+                                className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all"
                                 required
                               />
                             </div>
-                            <div className="space-y-3">
-                              <label className="text-sm font-bold text-gray-900 mr-2">الوصف</label>
-                              <textarea 
-                                value={editingItem.description}
-                                onChange={(e) => setEditingItem({...editingItem, description: e.target.value})}
-                                className="w-full bg-gray-50 border-2 border-gray-100 rounded-2xl px-6 py-4 text-sm font-medium h-24 resize-none outline-none focus:border-primary/30 focus:bg-white transition-all"
-                              />
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                              <div className="space-y-3">
-                                <label className="text-sm font-bold text-gray-900 mr-2">رابط الصورة</label>
-                                <input 
-                                  type="url" 
-                                  value={editingItem.imageUrl || ''}
-                                  onChange={(e) => setEditingItem({...editingItem, imageUrl: e.target.value})}
-                                  className="w-full bg-gray-50 border-2 border-gray-100 rounded-2xl px-6 py-4 text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all"
-                                />
-                              </div>
-                              <div className="space-y-3">
-                                <label className="text-sm font-bold text-gray-900 mr-2">رابط التحميل</label>
-                                <input 
-                                  type="url" 
-                                  value={editingItem.downloadUrl}
-                                  onChange={(e) => setEditingItem({...editingItem, downloadUrl: e.target.value})}
-                                  className="w-full bg-gray-50 border-2 border-gray-100 rounded-2xl px-6 py-4 text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all"
-                                />
-                              </div>
-                            </div>
-                            {/* Removed Pro Toggle */}
 
-                            <div className="grid grid-cols-2 gap-4">
-                              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                                <span className="text-xs font-bold">زر النسخ</span>
-                                <button 
-                                  type="button"
-                                  onClick={() => setEditingItem({...editingItem, showCopyButton: editingItem.showCopyButton === false ? true : false})}
-                                  className={cn(
-                                    "w-10 h-6 rounded-full transition-all relative",
-                                    editingItem.showCopyButton !== false ? "bg-primary" : "bg-gray-300"
-                                  )}
-                                >
-                                  <div className={cn(
-                                    "absolute top-1 w-4 h-4 bg-white rounded-full transition-all",
-                                    editingItem.showCopyButton !== false ? "right-1" : "right-5"
-                                  )} />
-                                </button>
-                              </div>
-                              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                                <span className="text-xs font-bold">زر التحميل</span>
-                                <button 
-                                  type="button"
-                                  onClick={() => setEditingItem({...editingItem, showDownloadButton: editingItem.showDownloadButton === false ? true : false})}
-                                  className={cn(
-                                    "w-10 h-6 rounded-full transition-all relative",
-                                    editingItem.showDownloadButton !== false ? "bg-primary" : "bg-gray-300"
-                                  )}
-                                >
-                                  <div className={cn(
-                                    "absolute top-1 w-4 h-4 bg-white rounded-full transition-all",
-                                    editingItem.showDownloadButton !== false ? "right-1" : "right-5"
-                                  )} />
-                                </button>
-                              </div>
+                            {/* Conditional Rendering Based on Style */}
+                            <div className="space-y-6">
+                              {/* Common Description - For most styles except prompt maybe? or let it be */}
+                              {currentParentStyle !== 'style5' && (
+                                <div className="space-y-2 sm:space-y-3">
+                                  <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">
+                                    {currentParentStyle === 'style4' || currentParentStyle === 'style6' ? 'اسم الفنان / الوصف' : 'الوصف'}
+                                  </label>
+                                  <textarea 
+                                    value={editingItem.description}
+                                    onChange={(e) => setEditingItem({...editingItem, description: e.target.value})}
+                                    className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-medium h-24 resize-none outline-none focus:border-primary/30 focus:bg-white transition-all"
+                                  />
+                                </div>
+                              )}
+
+                              {/* Image URL - For most except some? */}
+                              {currentParentStyle !== 'style4' && currentParentStyle !== 'style6' && (
+                                <div className="space-y-2 sm:space-y-3">
+                                  <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">رابط الصورة {currentParentStyle === 'style3' ? '(أيقونة التطبيق)' : ''}</label>
+                                  <input 
+                                    type="url" 
+                                    value={editingItem.imageUrl || ''}
+                                    onChange={(e) => setEditingItem({...editingItem, imageUrl: e.target.value})}
+                                    className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all"
+                                  />
+                                </div>
+                              )}
+
+                              {/* Download / Audio URL */}
+                              {(currentParentStyle === 'style1' || currentParentStyle === 'style2' || currentParentStyle === 'style3' || currentParentStyle === 'style4' || currentParentStyle === 'style6') && (
+                                <div className="space-y-2 sm:space-y-3">
+                                  <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">
+                                    {currentParentStyle === 'style4' || currentParentStyle === 'style6' ? 'رابط الملف الصوتي' : 'رابط التحميل المباشر'}
+                                  </label>
+                                  <input 
+                                    type="url" 
+                                    value={editingItem.downloadUrl || ''}
+                                    onChange={(e) => setEditingItem({...editingItem, downloadUrl: e.target.value})}
+                                    className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all"
+                                    placeholder="https://..."
+                                  />
+                                </div>
+                              )}
+
+                              {/* Video URL for Style 8 */}
+                              {currentParentStyle === 'style8' && (
+                                <div className="space-y-2 sm:space-y-3">
+                                  <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">رابط فيديو اليوتيوب</label>
+                                  <input 
+                                    type="url" 
+                                    value={editingItem.videoUrl || ''}
+                                    onChange={(e) => setEditingItem({...editingItem, videoUrl: e.target.value})}
+                                    className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all"
+                                    placeholder="https://www.youtube.com/watch?v=..."
+                                  />
+                                </div>
+                              )}
+
+                              {/* Prompt for Style 5 */}
+                              {currentParentStyle === 'style5' && (
+                                <div className="space-y-2 sm:space-y-3">
+                                  <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">نص البرومبت (Prompt)</label>
+                                  <textarea 
+                                    value={editingItem.prompt || ''}
+                                    onChange={(e) => setEditingItem({...editingItem, prompt: e.target.value})}
+                                    className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-mono h-32 resize-none outline-none focus:border-primary/30 focus:bg-white transition-all"
+                                    placeholder="اكتب البرومبت هنا..."
+                                    dir="ltr"
+                                  />
+                                </div>
+                              )}
+
+                              {/* App Store Style Fields (Style 3) */}
+                              {currentParentStyle === 'style3' && (
+                                <div className="bg-gray-50/50 p-6 rounded-3xl border-2 border-gray-100 space-y-6">
+                                  <h3 className="text-sm font-black text-primary flex items-center gap-2">
+                                    <Rocket size={16} />
+                                    تفاصيل المتجر (App Store)
+                                  </h3>
+                                  
+                                  <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                      <label className="text-[10px] font-bold text-gray-400 mr-2">التقييم (مثلاً: 4.8)</label>
+                                      <input 
+                                        type="text"
+                                        value={editingItem.rating || ''}
+                                        onChange={(e) => setEditingItem({...editingItem, rating: e.target.value})}
+                                        className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2 text-xs font-bold outline-none"
+                                        placeholder="4.8"
+                                      />
+                                    </div>
+                                    <div className="space-y-1">
+                                      <label className="text-[10px] font-bold text-gray-400 mr-2">عدد المراجعات</label>
+                                      <input 
+                                        type="text"
+                                        value={editingItem.reviewCount || ''}
+                                        onChange={(e) => setEditingItem({...editingItem, reviewCount: e.target.value})}
+                                        className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2 text-xs font-bold outline-none"
+                                        placeholder="12 ألف مراجعة"
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                      <label className="text-[10px] font-bold text-gray-400 mr-2">التصنيف العمري</label>
+                                      <input 
+                                        type="text"
+                                        value={editingItem.ageRating || ''}
+                                        onChange={(e) => setEditingItem({...editingItem, ageRating: e.target.value})}
+                                        className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2 text-xs font-bold outline-none"
+                                        placeholder="+3"
+                                      />
+                                    </div>
+                                    <div className="space-y-1">
+                                      <label className="text-[10px] font-bold text-gray-400 mr-2">حجم الملف</label>
+                                      <input 
+                                        type="text"
+                                        value={editingItem.size || ''}
+                                        onChange={(e) => setEditingItem({...editingItem, size: e.target.value})}
+                                        className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2 text-xs font-bold outline-none"
+                                        placeholder="15MB"
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <label className="text-[10px] font-bold text-gray-400 mr-2">لقطات الشاشة (رابط في كل سطر)</label>
+                                    <textarea 
+                                      value={(editingItem.screenshots || []).join('\n')}
+                                      onChange={(e) => setEditingItem({...editingItem, screenshots: e.target.value.split('\n').filter(s => s.trim() !== '')})}
+                                      className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2 text-xs font-medium h-24 resize-none outline-none"
+                                      placeholder="أدخل روابط الصور هنا..."
+                                    />
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                              {(currentParentStyle === 'style5') && (
+                                <div className="flex items-center justify-between p-3 sm:p-4 bg-gray-50 rounded-xl sm:rounded-2xl border border-gray-100">
+                                  <span className="text-[10px] sm:text-xs font-bold">زر النسخ</span>
+                                  <button 
+                                    type="button"
+                                    onClick={() => setEditingItem({...editingItem, showCopyButton: editingItem.showCopyButton === false ? true : false})}
+                                    className={cn(
+                                      "w-8 h-5 sm:w-10 sm:h-6 rounded-full transition-all relative",
+                                      editingItem.showCopyButton !== false ? "bg-primary" : "bg-gray-300"
+                                    )}
+                                  >
+                                    <div className={cn(
+                                      "absolute top-0.5 sm:top-1 w-4 h-4 bg-white rounded-full transition-all",
+                                      editingItem.showCopyButton !== false ? "right-0.5 sm:right-1" : "right-3.5 sm:right-5"
+                                    )} />
+                                  </button>
+                                </div>
+                              )}
+                              {(currentParentStyle === 'style1' || currentParentStyle === 'style2' || currentParentStyle === 'style3' || currentParentStyle === 'style4' || currentParentStyle === 'style6') && (
+                                <div className="flex items-center justify-between p-3 sm:p-4 bg-gray-50 rounded-xl sm:rounded-2xl border border-gray-100 group">
+                                  <span className="text-[10px] sm:text-xs font-bold">زر التحميل</span>
+                                  <button 
+                                    type="button"
+                                    onClick={() => setEditingItem({...editingItem, showDownloadButton: editingItem.showDownloadButton === false ? true : false})}
+                                    className={cn(
+                                      "w-8 h-5 sm:w-10 sm:h-6 rounded-full transition-all relative",
+                                      editingItem.showDownloadButton !== false ? "bg-primary" : "bg-gray-300"
+                                    )}
+                                  >
+                                    <div className={cn(
+                                      "absolute top-0.5 sm:top-1 w-4 h-4 bg-white rounded-full transition-all",
+                                      editingItem.showDownloadButton !== false ? "right-0.5 sm:right-1" : "right-3.5 sm:right-5"
+                                    )} />
+                                  </button>
+                                </div>
+                              )}
                             </div>
 
                             <button 
                               type="submit" 
                               disabled={isSaving}
-                              className="w-full bg-primary text-white py-5 rounded-[28px] font-black text-lg shadow-xl shadow-primary/20 hover:opacity-90 transition-all active:scale-95"
+                              className="w-full bg-primary text-white py-4 sm:py-5 rounded-2xl sm:rounded-[28px] font-black text-base sm:text-lg shadow-xl shadow-primary/20 hover:opacity-90 transition-all active:scale-95"
                             >
                               {isSaving ? 'جاري الحفظ...' : 'حفظ المحتوى'}
                             </button>
@@ -2220,14 +2746,15 @@ export default function AdminPage() {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-[40px] p-10 w-full max-w-md shadow-2xl text-center relative overflow-hidden"
+              className="bg-white rounded-[28px] sm:rounded-[40px] p-6 sm:p-10 w-full max-w-md shadow-2xl text-center relative overflow-hidden"
             >
-              <div className="w-20 h-20 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
-                <AlertTriangle size={40} />
+              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
+                <AlertTriangle size={32} className="sm:hidden" />
+                <AlertTriangle size={40} className="hidden sm:block" />
               </div>
               
-              <h2 className="text-2xl font-black mb-2">تأكيد الحذف</h2>
-              <p className="text-gray-500 text-sm mb-8 leading-relaxed">
+              <h2 className="text-xl sm:text-2xl font-black mb-2">تأكيد الحذف</h2>
+              <p className="text-gray-500 text-xs sm:text-sm mb-6 sm:mb-8 leading-relaxed">
                 هل أنت متأكد من رغبتك في حذف <span className="font-bold text-red-500">&quot;{deleteConfirm.label}&quot;</span>؟
                 <br />
                 هذا الإجراء لا يمكن التراجع عنه.
@@ -2244,7 +2771,7 @@ export default function AdminPage() {
                     }
                   }}
                   className={cn(
-                    "w-full py-5 rounded-2xl font-black text-lg transition-all active:scale-95 flex items-center justify-center gap-3",
+                    "w-full py-4 sm:py-5 rounded-xl sm:rounded-2xl font-black text-base sm:text-lg transition-all active:scale-95 flex items-center justify-center gap-3",
                     canDelete 
                       ? "bg-red-500 text-white shadow-xl shadow-red-500/20 hover:opacity-90" 
                       : "bg-gray-100 text-gray-400 cursor-not-allowed"
@@ -2254,15 +2781,16 @@ export default function AdminPage() {
                     <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   ) : (
                     <>
-                      <Trash2 size={20} />
-                      {canDelete ? 'تأكيد الحذف النهائي' : `انتظر ${deleteCountdown} ثوانٍ...`}
+                      <Trash2 size={18} className="sm:hidden" />
+                      <Trash2 size={20} className="hidden sm:block" />
+                      <span>{canDelete ? 'تأكيد الحذف النهائي' : `انتظر ${deleteCountdown} ثوانٍ...`}</span>
                     </>
                   )}
                 </button>
                 
                 <button 
                   onClick={() => setDeleteConfirm(null)}
-                  className="w-full py-4 text-gray-400 font-bold hover:text-gray-600 transition-colors"
+                  className="w-full py-4 sm:py-5 rounded-xl sm:rounded-2xl font-bold text-gray-400 hover:bg-gray-50 transition-all text-sm sm:text-base"
                 >
                   إلغاء
                 </button>

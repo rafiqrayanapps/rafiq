@@ -8,7 +8,8 @@ import Image from 'next/image';
 import { GoogleGenAI } from "@google/genai";
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import useLocalStorage from '@/hooks/use-local-storage';
+import { useApiKey } from '@/components/providers/ApiKeyProvider';
+import ApiKeyGate from '@/components/ApiKeyGate';
 
 export default function ImageToPromptPage() {
   const [image, setImage] = useState<string | null>(null);
@@ -20,21 +21,13 @@ export default function ImageToPromptPage() {
   const [targetText, setTargetText] = useState<string>('');
   const [aspectRatio, setAspectRatio] = useState<string>('1:1');
   const [selectedStyle, setSelectedStyle] = useState<string>('default');
-  const [userApiKey, setUserApiKey] = useLocalStorage<string>('user-gemini-api-key', '');
-  const [showKeyInput, setShowKeyInput] = useState(false);
+  const { apiKey: userApiKey, hasKey } = useApiKey();
   
   const [isErrorDialogOpen, setIsErrorDialogOpen] = useState(false);
   const [errorInfo, setErrorInfo] = useState<{title: string, message: string} | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
-
-  // Initialize showKeyInput based on whether a key exists
-  useEffect(() => {
-    if (!userApiKey) {
-      setShowKeyInput(true);
-    }
-  }, [userApiKey]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -55,13 +48,12 @@ export default function ImageToPromptPage() {
   const generatePrompt = async () => {
     if (!image) return;
 
-    if (!userApiKey || userApiKey.trim() === '') {
+    if (!hasKey) {
       toast({
         title: "مفتاح API مطلوب",
-        description: "يرجى إدخال مفتاح Gemini API الخاص بك للمتابعة.",
+        description: "يرجى إضافة مفتاح Gemini API من إعدادات القائمة الجانبية للمتابعة.",
         variant: "destructive",
       });
-      setShowKeyInput(true);
       return;
     }
 
@@ -145,8 +137,7 @@ export default function ImageToPromptPage() {
       
       if (errorMessage.includes('API key not valid')) {
         title = "المفتاح غير صالح 🔑";
-        errorMsg = "يبدو أن مفتاح API الذي أدخلته غير صحيح. يرجى التأكد من نسخه بشكل صحيح من Google AI Studio.";
-        setShowKeyInput(true);
+        errorMsg = "يبدو أن مفتاح API الذي أدخلته غير صحيح. يرجى التأكد من نسخه بشكل صحيح من Google AI Studio ومحاولة تحديثه في الإعدادات.";
       }
 
       setErrorInfo({ title, message: errorMsg });
@@ -179,108 +170,60 @@ export default function ImageToPromptPage() {
       <Header title="تحويل الصورة لبرومبت" showBackButton compact />
       
       <main className="flex-1 px-6 pb-32 pt-4 container max-w-2xl mx-auto space-y-6">
-        <header className="text-center space-y-1">
+        <ApiKeyGate 
+          title="تحويل الصورة لبرومبت"
+          description="حلّل صورك واستخرج منها أوصافاً دقيقة (Prompts) لتحسين عملك الإبداعي."
+        >
+          <header className="text-center space-y-1">
             <h1 className="text-xl font-black text-foreground">ذكاء اصطناعي (API)</h1>
             <p className="text-muted-foreground text-xs">حوّل صورك إلى أوصاف دقيقة باستخدام Gemini API</p>
-        </header>
-
-        {/* API Key Settings Toggle */}
-        <div className="bg-card/50 border border-border rounded-2xl overflow-hidden shadow-sm">
-            <button 
-                onClick={() => setShowKeyInput(!showKeyInput)}
-                className="w-full px-5 py-3 flex items-center justify-between text-sm font-bold text-foreground hover:bg-accent/5 transition-colors"
-            >
-                <div className="flex items-center gap-2">
-                    <Settings2 className="h-4 w-4 text-primary" />
-                    <span>إعدادات مفتاح API</span>
-                </div>
-                <div className={cn(
-                    "px-2 py-0.5 rounded-full text-[10px] uppercase font-black",
-                    userApiKey ? "bg-green-500/10 text-green-500" : "bg-primary/10 text-primary"
-                )}>
-                    {userApiKey ? "تم الضبط" : "مطلوب"}
-                </div>
-            </button>
-            
-            <AnimatePresence>
-                {showKeyInput && (
-                    <motion.div 
-                        initial={{ height: 0 }}
-                        animate={{ height: 'auto' }}
-                        exit={{ height: 0 }}
-                        className="overflow-hidden border-t border-border"
-                    >
-                        <div className="p-4 space-y-3 bg-accent/5">
-                            <div className="relative">
-                                <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                <input 
-                                    type="password"
-                                    value={userApiKey}
-                                    onChange={(e) => setUserApiKey(e.target.value)}
-                                    placeholder="أدخل مفتاح Gemini API هنا"
-                                    className="w-full pl-10 pr-4 py-2 bg-background border border-border rounded-xl text-xs focus:ring-1 focus:ring-primary outline-none"
-                                />
-                            </div>
-                            
-                            <div className="p-3 bg-primary/5 rounded-xl border border-primary/10 space-y-2">
-                                <p className="text-[10px] font-bold text-primary flex items-center gap-1">
-                                    <Info className="h-3 w-3" />
-                                    كيف تحصل على مفتاح API مجاني؟
-                                </p>
-                                <ol className="text-[9px] text-muted-foreground list-decimal list-inside space-y-1 leading-tight">
-                                    <li>اذهب إلى موقع <a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-primary underline">Google AI Studio</a>.</li>
-                                    <li>اضغط على زر <b>&quot;Create API key&quot;</b>.</li>
-                                    <li>انسخ المفتاح وضعه في الخانة أعلاه.</li>
-                                </ol>
-                            </div>
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-        </div>
+          </header>
 
         <div className="space-y-5">
           {/* Upload Area */}
-          <motion.div 
-            whileHover={{ scale: 1.01 }}
-            whileTap={{ scale: 0.99 }}
-            onClick={() => fileInputRef.current?.click()}
-            className={cn(
-               "relative aspect-video rounded-[2.5rem] border-4 border-dashed border-muted flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden group",
-               image ? "border-primary/30" : "bg-card hover:bg-accent/5"
-            )}
-          >
-            {image ? (
-                <div className="relative w-full h-full">
-                    <Image 
-                      src={image} 
-                      alt="Selected Image" 
-                      fill 
-                      className="object-cover" 
-                      referrerPolicy="no-referrer"
-                      unoptimized
-                    />
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <RefreshCw className="text-white h-8 w-8 animate-spin-slow" />
-                    </div>
-                </div>
-            ) : (
-                <>
-                    <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                        <Upload className="text-primary h-7 w-7" />
-                    </div>
-                    <span className="text-foreground font-bold text-sm">اضغط لاختيار صورة</span>
-                    <span className="text-muted-foreground text-[10px] mt-1">PNG, JPG حتى 5 ميجابايت</span>
-                </>
-            )}
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              onChange={handleFileChange} 
-              accept="image/*" 
-              className="hidden" 
-            />
-          </motion.div>
+          <label htmlFor="image-upload" className="block cursor-pointer">
+            <motion.div 
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.99 }}
+              className={cn(
+                 "relative aspect-video rounded-[2.5rem] border-4 border-dashed border-muted flex flex-col items-center justify-center transition-all overflow-hidden group",
+                 image ? "border-primary/30" : "bg-card hover:bg-accent/5"
+              )}
+            >
+              {image ? (
+                  <div className="relative w-full h-full">
+                      <Image 
+                        src={image} 
+                        alt="Selected Image" 
+                        fill 
+                        className="object-cover" 
+                        referrerPolicy="no-referrer"
+                        unoptimized
+                      />
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <RefreshCw className="text-white h-8 w-8 animate-spin-slow" />
+                      </div>
+                  </div>
+              ) : (
+                  <>
+                      <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                          <Upload className="text-primary h-7 w-7" />
+                      </div>
+                      <span className="text-foreground font-bold text-sm">اضغط لاختيار صورة</span>
+                      <span className="text-muted-foreground text-[10px] mt-1">PNG, JPG حتى 5 ميجابايت</span>
+                  </>
+              )}
+              <input 
+                id="image-upload"
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleFileChange} 
+                accept="image/*" 
+                className="sr-only" 
+                aria-hidden="true"
+              />
+            </motion.div>
+          </label>
 
           {/* Transformation Mode Selector */}
           <div className="space-y-3">
@@ -560,6 +503,7 @@ export default function ImageToPromptPage() {
             </div>
           )}
         </AnimatePresence>
+        </ApiKeyGate>
       </main>
     </div>
   );

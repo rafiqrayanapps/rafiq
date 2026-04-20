@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Slider } from '@/components/ui/slider';
 import useLocalStorage from '@/hooks/use-local-storage';
-import { cn, getDirectDriveLink } from '@/lib/utils';
+import { cn, getDirectLink } from '@/lib/utils';
 import { useUserProfile } from '@/hooks/use-user-profile';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
@@ -45,19 +45,15 @@ const AudioPlayerRow = ({
     const [loadError, setLoadError] = useState(false);
     const audioRef = useRef<HTMLAudioElement | null>(null);
 
-    const directAudioUrl = useMemo(() => getDirectDriveLink(item.audioUrl || item.downloadUrl), [item.audioUrl, item.downloadUrl]);
+    const directAudioUrl = useMemo(() => getDirectLink(item.audioUrl || item.downloadUrl), [item.audioUrl, item.downloadUrl]);
 
     useEffect(() => {
         if (audioRef.current) {
             audioRef.current.load();
             setLoadError(false);
             setCurrentTime(0);
-            if (isPlaying) {
-                setIsPlaying(false);
-                if (activeId === item.id) onPlay(null);
-            }
         }
-    }, [directAudioUrl, activeId, isPlaying, item.id, onPlay]);
+    }, [directAudioUrl]);
 
     useEffect(() => {
         if (activeId !== item.id && isPlaying) {
@@ -100,7 +96,10 @@ const AudioPlayerRow = ({
                 await audioRef.current.play();
                 setIsPlaying(true);
                 onPlay(item.id);
-            } catch (err) { setLoadError(true); }
+            } catch (err) { 
+                console.error("Audio Playback Error:", err);
+                setLoadError(true); 
+            }
         }
     };
 
@@ -116,8 +115,8 @@ const AudioPlayerRow = ({
                 </button>
                 <div className="flex-1 min-w-0 text-center">
                     <p className="font-black text-sm truncate leading-tight">{item.title}</p>
-                    <p className="text-[10px] font-mono text-muted-foreground mt-0.5">
-                        {Math.floor(currentTime / 60)}:{Math.floor(currentTime % 60).toString().padStart(2, '0')} / {duration ? `${Math.floor(duration / 60)}:${Math.floor(duration % 60).toString().padStart(2, '0')}` : '--:--'}
+                    <p className="text-[10px] font-mono text-muted-foreground mt-0.5" dir="ltr">
+                        {Math.floor(currentTime / 60)}:{Math.floor(currentTime % 60).toString().padStart(2, '0')} / {duration && isFinite(duration) ? `${Math.floor(duration / 60)}:${Math.floor(duration % 60).toString().padStart(2, '0')}` : '--:--'}
                     </p>
                 </div>
                 <div className="h-12 w-12 rounded-[1.2rem] bg-primary/10 flex items-center justify-center text-primary shrink-0">
@@ -131,7 +130,7 @@ const AudioPlayerRow = ({
                     </button>
                     {item.downloadUrl && <button onClick={() => onAction(() => window.open(item.downloadUrl, '_blank'))} className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground"><Download className="h-3.5 w-3.5" /></button>}
                 </div>
-                <Slider value={[currentTime]} max={duration || 100} step={0.1} onValueChange={(v) => { if(audioRef.current) audioRef.current.currentTime = v[0]; }} className="flex-1" />
+                <Slider dir="ltr" value={[isNaN(currentTime) ? 0 : currentTime]} max={isNaN(duration) || !isFinite(duration) || duration === 0 ? 100 : duration} step={0.1} onValueChange={(v) => { if(audioRef.current) audioRef.current.currentTime = v[0]; }} className="flex-1" />
             </div>
         </div>
     );
@@ -167,7 +166,7 @@ export default function FavoritesTab() {
                     <div className="relative aspect-square rounded-[2rem] overflow-hidden bg-card shadow-lg group">
                         {item.imageUrl && (
                             <Image 
-                                src={item.imageUrl} 
+                                src={getDirectLink(item.imageUrl)} 
                                 alt="" 
                                 fill 
                                 className="object-cover group-hover:scale-110 transition-transform duration-700" 
@@ -199,7 +198,7 @@ export default function FavoritesTab() {
                     <div className="relative rounded-[2.5rem] overflow-hidden bg-card shadow-xl group aspect-video">
                         {item.imageUrl && (
                             <Image 
-                                src={item.imageUrl} 
+                                src={getDirectLink(item.imageUrl)} 
                                 alt="" 
                                 fill
                                 className="object-cover group-hover:scale-105 transition-transform duration-1000" 
@@ -226,7 +225,7 @@ export default function FavoritesTab() {
                 <div key={`${item.id}-${idx}`} className="bg-card rounded-[2.5rem] p-6 shadow-xl border-4 border-white/5 space-y-6 animate-in fade-in zoom-in-95 duration-500">
                     <div className="flex items-center gap-4">
                         <div className="relative h-16 w-16 rounded-2xl overflow-hidden shadow-md border-2 border-white/10">
-                            {item.imageUrl && <Image src={item.imageUrl} alt="" fill className="object-cover" referrerPolicy="no-referrer" />}
+                            {item.imageUrl && <Image src={getDirectLink(item.imageUrl)} alt="" fill className="object-cover" referrerPolicy="no-referrer" />}
                         </div>
                         <div className="flex-1">
                             <h3 className="font-black text-lg leading-tight">{item.title}</h3>
@@ -242,7 +241,7 @@ export default function FavoritesTab() {
                             <div className="flex gap-3">
                                 {item.screenshots.map((src: string, sIdx: number) => (
                                     <div key={`${src}-${sIdx}`} className="relative h-48 w-32 rounded-xl overflow-hidden shadow-sm border border-white/5">
-                                        <Image src={src} alt="" fill className="object-cover" referrerPolicy="no-referrer" />
+                                        <Image src={getDirectLink(src)} alt="" fill className="object-cover" referrerPolicy="no-referrer" />
                                     </div>
                                 ))}
                             </div>
@@ -281,7 +280,7 @@ export default function FavoritesTab() {
                     <div className="relative aspect-video w-full group">
                         {item.imageUrl && (
                             <Image 
-                                src={item.imageUrl} 
+                                src={getDirectLink(item.imageUrl)} 
                                 alt="" 
                                 fill 
                                 className="object-cover group-hover:scale-105 transition-transform duration-700" 
@@ -331,12 +330,41 @@ export default function FavoritesTab() {
                     </div>
                 </div>
             );
+        case 'style8': // Video Style
+            const videoId = item.videoUrl?.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/)?.[1];
+            const thumbUrl = videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : (item.imageUrl || 'https://picsum.photos/seed/video/800/450');
+            return (
+                <div key={`${item.id}-${idx}`} className="flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full">
+                    <div className="px-2">
+                        <h3 className="font-black text-lg text-foreground leading-tight">{item.title}</h3>
+                        {item.description && <p className="text-[10px] font-bold text-muted-foreground mt-1">{item.description}</p>}
+                    </div>
+                    <div 
+                        className="relative rounded-[2.5rem] overflow-hidden bg-card shadow-xl group aspect-video cursor-pointer border-4 border-white/5"
+                        onClick={() => handleAction(item, () => item.videoUrl && window.open(item.videoUrl, '_blank'))}
+                    >
+                        <Image 
+                            src={getDirectLink(thumbUrl)} 
+                            alt="" 
+                            fill
+                            className="object-cover group-hover:scale-110 transition-transform duration-1000" 
+                            referrerPolicy="no-referrer"
+                        />
+                        <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+                            <div className="h-20 w-20 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
+                                <Play className="h-10 w-10 text-white fill-white ml-1 shadow-2xl" />
+                            </div>
+                        </div>
+                        <FavoriteButton isFavorite={isFav} onClick={(e) => { e.stopPropagation(); toggleFavorite(item); }} />
+                    </div>
+                </div>
+            );
         default:
             return (
                 <div key={`${item.id}-${idx}`} className="relative bg-card rounded-[2.2rem] flex flex-col items-center justify-center cursor-pointer hover:bg-card/90 transition-all shadow-lg hover:shadow-primary/20 aspect-square text-center active:scale-95 group overflow-hidden border-4 border-white/5 animate-in fade-in zoom-in-95 duration-500">
                     {item.imageUrl && (
                         <Image 
-                            src={item.imageUrl} 
+                            src={getDirectLink(item.imageUrl)} 
                             alt="" 
                             fill 
                             className="object-cover opacity-30 group-hover:scale-105 transition-transform duration-700" 

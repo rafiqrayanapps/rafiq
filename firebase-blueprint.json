@@ -38,7 +38,11 @@
         "categoryId": { "type": "string" },
         "name": { "type": "string" },
         "description": { "type": "string" },
-        "order": { "type": "number" }
+        "displayStyle": { "type": "string" },
+        "fileTypes": { "type": "string" },
+        "order": { "type": "number" },
+        "accentColor": { "type": "string" },
+        "useCustomAccent": { "type": "boolean" }
       },
       "required": ["categoryId", "name"]
     },

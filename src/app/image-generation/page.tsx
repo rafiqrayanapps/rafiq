@@ -8,7 +8,8 @@ import Header from '@/components/Header';
 import { GoogleGenAI } from "@google/genai";
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import useLocalStorage from '@/hooks/use-local-storage';
+import { useApiKey } from '@/components/providers/ApiKeyProvider';
+import ApiKeyGate from '@/components/ApiKeyGate';
 
 export default function ImageGenerationPage() {
   const [prompt, setPrompt] = useState<string>('');
@@ -20,17 +21,9 @@ export default function ImageGenerationPage() {
   const [editPrompt, setEditPrompt] = useState<string>('');
   const [aspectRatio, setAspectRatio] = useState<string>('1:1');
   const [selectedStyle, setSelectedStyle] = useState<string>('cinematic');
-  const [userApiKey, setUserApiKey] = useLocalStorage<string>('user-gemini-api-key', '');
-  const [showKeyInput, setShowKeyInput] = useState(false);
+  const { apiKey: userApiKey, hasKey } = useApiKey();
   
   const { toast } = useToast();
-
-  // Initialize showKeyInput based on whether a key exists
-  useEffect(() => {
-    if (!userApiKey) {
-      setShowKeyInput(true);
-    }
-  }, [userApiKey]);
 
   const generateImage = async () => {
     if (!prompt.trim()) {
@@ -42,13 +35,12 @@ export default function ImageGenerationPage() {
       return;
     }
 
-    if (!userApiKey || userApiKey.trim() === '') {
+    if (!hasKey) {
       toast({
         title: "مفتاح API مطلوب",
-        description: "يرجى إدخال مفتاح Gemini API الخاص بك للمتابعة. لا يمكن استخدام الميزة بدون مفتاحك الخاص.",
+        description: "يرجى إضافة مفتاح Gemini API من إعدادات القائمة الجانبية للمتابعة.",
         variant: "destructive",
       });
-      setShowKeyInput(true);
       return;
     }
 
@@ -112,8 +104,7 @@ export default function ImageGenerationPage() {
       
       if (errorMessage.includes('API key not valid')) {
         title = "المفتاح غير صالح 🔑";
-        errorMsg = "يبدو أن مفتاح API الذي أدخلته غير صحيح. يرجى التأكد من نسخه بشكل صحيح من Google AI Studio ومحاولة إدخاله مرة أخرى. 😊";
-        setShowKeyInput(true);
+        errorMsg = "يبدو أن مفتاح API الذي أدخلته غير صحيح. يرجى التأكد من نسخه بشكل صحيح من Google AI Studio ومحاولة تحديثه في الإعدادات. 😊";
       } else if (errorMessage.includes('quota') || errorMessage.includes('Resource has been exhausted') || error?.status === 429 || errorMessage.includes('permission denied') || error?.status === 403) {
         title = "نفدت النقاط اليومية ⏳";
         errorMsg = "لقد نفدت النقاط الخاصة بك لهذا اليوم. يرجى المحاولة مجدداً لاحقاً أو استخدام مفتاح API جديد. 😊";
@@ -135,13 +126,12 @@ export default function ImageGenerationPage() {
   const editImage = async () => {
     if (!editPrompt.trim() || !generatedImage) return;
 
-    if (!userApiKey || userApiKey.trim() === '') {
+    if (!hasKey) {
       toast({
         title: "مفتاح API مطلوب",
-        description: "يرجى إدخال مفتاح Gemini API الخاص بك للمتابعة.",
+        description: "يرجى إضافة مفتاح Gemini API من إعدادات القائمة الجانبية للمتابعة.",
         variant: "destructive",
       });
-      setShowKeyInput(true);
       return;
     }
 
@@ -240,69 +230,16 @@ export default function ImageGenerationPage() {
       <Header title="توليد الصور الذكي" showBackButton compact />
       
       <main className="flex-1 px-6 pb-32 pt-8 container max-w-2xl mx-auto space-y-8">
-        <header className="text-center space-y-3">
+        <ApiKeyGate 
+          title="توليد الصور بالذكاء الاصطناعي"
+          description="حول كلماتك إلى صور مذهلة باستخدام أقوى نماذج الذكاء الاصطناعي من Google."
+        >
+          <header className="text-center space-y-3">
             <h1 className="text-3xl font-black text-[#1A1C1E] tracking-tight">توليد الصور</h1>
             <div className="inline-flex bg-white/80 backdrop-blur-sm px-4 py-1.5 rounded-full border border-blue-100 shadow-sm">
                 <p className="text-[#64748B] text-[11px] font-bold">حوّل خيالاتك إلى واقع بصري مذهل</p>
             </div>
-        </header>
-
-        {/* API Key Settings Toggle - Redesigned to match Notification Card */}
-        <div className="bg-white border border-blue-100 rounded-[2.5rem] overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
-            <button 
-                onClick={() => setShowKeyInput(!showKeyInput)}
-                className="w-full px-6 py-5 flex items-center justify-between transition-colors hover:bg-blue-50/50"
-            >
-                <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-[#6366F1] rounded-2xl flex items-center justify-center text-white shadow-lg shadow-indigo-200">
-                        <Settings2 className="h-6 w-6" />
-                    </div>
-                    <div className="text-right">
-                        <h4 className="text-sm font-black text-[#1A1C1E]">إعدادات المفتاح</h4>
-                        <p className="text-[10px] text-gray-400 font-bold">إدارة مفتاح Gemini API الخاص بك</p>
-                    </div>
-                </div>
-                <div className={cn(
-                    "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider",
-                    userApiKey ? "bg-green-50 text-green-500 border border-green-100" : "bg-red-50 text-red-500 border border-red-100"
-                )}>
-                    {userApiKey ? "نشط" : "مطلوب"}
-                </div>
-            </button>
-            
-            <AnimatePresence>
-                {showKeyInput && (
-                    <motion.div 
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        className="overflow-hidden bg-[#FBFCFF] border-t border-blue-50"
-                    >
-                        <div className="p-6 space-y-4">
-                            <div className="relative group">
-                                <Key className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-primary transition-colors" />
-                                <input 
-                                    type="password"
-                                    value={userApiKey}
-                                    onChange={(e) => setUserApiKey(e.target.value)}
-                                    placeholder="AI-XXXX-XXXX-XXXX"
-                                    className="w-full pr-12 pl-4 py-3.5 bg-white border border-blue-100 rounded-2xl text-xs font-bold focus:ring-2 focus:ring-primary/20 outline-none transition-all placeholder:text-gray-300"
-                                />
-                            </div>
-                            <div className="p-4 bg-blue-50/30 rounded-2xl border border-blue-100/50 flex gap-3">
-                                <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
-                                <div className="space-y-1">
-                                    <p className="text-[10px] font-black text-[#1A1C1E]">كيفية الحصول على المفتاح؟</p>
-                                    <p className="text-[9px] text-gray-500 leading-relaxed font-medium">
-                                        توجه إلى Google AI Studio وأنشئ مفتاح API يدعم طرازات Gemini 1.5 أو 2.0. الميزة تتطلب صلاحيات توليد الصور.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-        </div>
+          </header>
 
         <div className="space-y-6">
           {/* Prompt Input Card */}
@@ -513,6 +450,7 @@ export default function ImageGenerationPage() {
             )}
           </AnimatePresence>
         </div>
+        </ApiKeyGate>
       </main>
 
       {/* Professional Error Dialog */}

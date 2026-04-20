@@ -19,11 +19,10 @@ const AppLogo = () => {
 };
 
 const WelcomeLoader = () => (
-   // New bouncing dots loader
    <div className="flex gap-2">
-       <div className="h-2.5 w-2.5 bg-primary-foreground/60 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
-       <div className="h-2.5 w-2.5 bg-primary-foreground/60 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }}></div>
-       <div className="h-2.5 w-2.5 bg-primary-foreground/60 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }}></div>
+       <div className="h-2.5 w-2.5 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
+       <div className="h-2.5 w-2.5 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }}></div>
+       <div className="h-2.5 w-2.5 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }}></div>
    </div>
 );
 
@@ -35,36 +34,40 @@ const WelcomeMessage = () => {
    )
 };
 
-
 export default function SplashPage() {
- const router = useRouter();
- const [splashState, setSplashState] = useState<SplashState>('loading');
- 
+  const router = useRouter();
+  const [splashState, setSplashState] = useState<SplashState>('loading');
+  
+  useEffect(() => {
+    // Safety timer to force redirect if Next.js router hangs
+    const safetyTimer = setTimeout(() => {
+      window.location.href = '/home';
+    }, 4000);
 
- useEffect(() => {
-   const loadingTimer = setTimeout(() => {
-     setSplashState('welcoming');
-   }, 1500); // Show loading dots for 1.5 seconds
+    const loadingTimer = setTimeout(() => {
+      setSplashState('welcoming');
+    }, 1200);
 
-   const redirectTimer = setTimeout(() => {
-       router.replace('/home');
-   }, 2500); // Show welcome message for 1 second, then redirect. Total time: 2.5s
+    const redirectTimer = setTimeout(() => {
+      router.push('/home');
+    }, 2200);
 
-   return () => {
-       clearTimeout(loadingTimer);
-       clearTimeout(redirectTimer);
-   };
- }, [router]);
+    return () => {
+      clearTimeout(loadingTimer);
+      clearTimeout(redirectTimer);
+      clearTimeout(safetyTimer);
+    };
+  }, [router]);
 
- return (
-   <div className="relative flex h-dvh w-full flex-col items-center justify-center overflow-hidden p-6" style={{ background: 'var(--primary-gradient)' }}>
-       <div className="z-10 flex flex-col items-center justify-center gap-20">
-           <AppLogo />
-           
-           <div className="h-12 flex items-center justify-center">
-               {splashState === 'loading' ? <WelcomeLoader /> : <WelcomeMessage />}
-           </div>
-       </div>
-   </div>
- );
+  return (
+    <div className="relative flex h-dvh w-full flex-col items-center justify-center overflow-hidden p-6 bg-primary" style={{ background: 'var(--primary-gradient, linear-gradient(135deg, #3B82F6, #2563EB))' }}>
+        <div className="z-10 flex flex-col items-center justify-center gap-20">
+            <AppLogo />
+            
+            <div className="h-12 flex items-center justify-center">
+                {splashState === 'loading' ? <WelcomeLoader /> : <WelcomeMessage />}
+            </div>
+        </div>
+    </div>
+  );
 }

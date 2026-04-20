@@ -1,12 +1,31 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Bell, Loader2 } from 'lucide-react';
 import { useCollection } from '@/hooks/useFirebase';
+import { db } from '@/firebase';
+import { doc, updateDoc, writeBatch } from 'firebase/firestore';
 
 export default function NotificationsTab() {
   const { data: notifications, loading } = useCollection('notifications');
+
+  // Mark unread as read when mounting
+  useEffect(() => {
+    if (!loading && notifications && notifications.length > 0) {
+      const unread = notifications.filter(n => n.read === false || n.isNew === true);
+      if (unread.length > 0) {
+        const batch = writeBatch(db);
+        unread.forEach(notif => {
+          batch.update(doc(db, 'notifications', notif.id), {
+            read: true,
+            isNew: false
+          });
+        });
+        batch.commit().catch(err => console.error("Error marking as read:", err));
+      }
+    }
+  }, [notifications, loading]);
 
   // Sort notifications by createdAt descending
   const sortedNotifications = useMemo(() => {
@@ -81,7 +100,7 @@ export default function NotificationsTab() {
                         </span>
                       </div>
                     </div>
-                    {notif.isNew !== false && (
+                    {notif.read === false && (
                       <div className="w-3 h-3 rounded-full bg-primary shadow-lg shadow-primary/50 animate-pulse" />
                     )}
                   </div>

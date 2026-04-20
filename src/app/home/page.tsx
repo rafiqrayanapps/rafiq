@@ -128,7 +128,7 @@ function HomeContent() {
                       >
                         <div className={cn(
                             "w-full h-full relative text-primary-foreground p-4 rounded-[2.2rem] flex flex-col items-center justify-center cursor-pointer transition-all shadow-lg hover:shadow-primary/20 text-center group overflow-hidden border-4 border-white/5",
-                        )} style={{ background: 'var(--primary-gradient)' }}>
+                        )} style={{ background: cat.useCustomAccent && cat.accentColor ? `linear-gradient(135deg, ${cat.accentColor}, ${cat.accentColor}dd)` : 'var(--primary-gradient)' }}>
                           <div className="absolute -bottom-4 -right-4 bg-white/10 w-16 h-16 rounded-full group-hover:scale-150 transition-transform duration-700" />
                           
                           {isUnderMaintenance && (

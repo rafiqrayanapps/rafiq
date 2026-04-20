@@ -23,6 +23,18 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'suar.me',
       },
+      {
+        protocol: 'https',
+        hostname: 'i.pinimg.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'img.youtube.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'i.ytimg.com',
+      },
     ],
   },
 };

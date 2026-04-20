@@ -1,7 +1,7 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ShieldCheck, LogIn, ChevronLeft, Home, Palette, Info, Crown, Settings, User, LayoutGrid, HelpCircle, MessageSquare, Share2, LogOut, Rocket, Zap, Sparkles, Wand2, Scissors, Maximize2, ArrowRight } from 'lucide-react';
+import { X, ShieldCheck, LogIn, ChevronLeft, Home, Palette, Info, Crown, Settings, User, LayoutGrid, HelpCircle, MessageSquare, Share2, LogOut, Rocket, Zap, Sparkles, Wand2, Scissors, Maximize2, ArrowRight, Key } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAuth } from '@/hooks/useFirebase';
@@ -9,6 +9,8 @@ import { useState, useEffect, Fragment } from 'react';
 import { cn } from '@/lib/utils';
 import { useCategories } from '@/components/providers/CategoryProvider';
 import LoginModal from './LoginModal';
+import ApiSettingsModal from './ApiSettingsModal';
+import { useApiKey } from './providers/ApiKeyProvider';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -18,7 +20,9 @@ interface SidebarProps {
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { user, isAdmin, logout } = useAuth();
   const { mainCategories } = useCategories();
+  const { hasKey } = useApiKey();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [isApiSettingsOpen, setIsApiSettingsOpen] = useState(false);
   const [isProToolsOpen, setIsProToolsOpen] = useState(false);
 
   const mainNav = [
@@ -27,8 +31,6 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   const toolsNav = [
     { label: 'توليد محتوى بالذكاء', href: '/ai-story-generator', icon: Wand2 },
-    { label: 'إزالة الخلفية', href: '/remove-background', icon: Scissors },
-    { label: 'تحسين جودة الصور', href: '/upscaler', icon: Maximize2 },
     { label: 'منسق الألوان', href: '/colors', icon: Palette },
     { label: 'تحويل الصور إلى برومبت', href: '/image-to-prompt', icon: Zap },
     { label: 'توليد الصور بالذكاء', href: '/image-generation', icon: Sparkles },
@@ -130,35 +132,48 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 </section>
 
                 {/* Professional Tools Section (Collapsible) */}
-                <section>
-                  <button 
-                    onClick={() => setIsProToolsOpen(!isProToolsOpen)}
-                    className={cn(
-                      "w-full flex items-center justify-between py-4 px-5 rounded-2xl transition-all duration-300 border border-transparent",
-                      isProToolsOpen ? "bg-primary/5 border-primary/10 shadow-sm" : "hover:bg-gray-50"
-                    )}
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className={cn(
-                        "w-11 h-11 rounded-xl flex items-center justify-center transition-all",
-                        isProToolsOpen ? "bg-white shadow-md text-primary" : "bg-gray-50 text-gray-400 group-hover:bg-white"
-                      )}>
-                        <LayoutGrid size={22} className={cn(isProToolsOpen && "text-primary")} />
-                      </div>
-                      <span className={cn(
-                        "text-base font-black transition-colors",
-                        isProToolsOpen ? "text-primary" : "text-gray-700"
-                      )}>
-                        أدوات احترافية
-                      </span>
-                    </div>
-                    <motion.div
-                      animate={{ rotate: isProToolsOpen ? -90 : 0 }}
-                      transition={{ duration: 0.2 }}
+                <section className="space-y-3">
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => setIsProToolsOpen(!isProToolsOpen)}
+                      className={cn(
+                        "flex-[3] flex items-center justify-between py-4 px-5 rounded-2xl transition-all duration-300 border border-transparent",
+                        isProToolsOpen ? "bg-primary/5 border-primary/10 shadow-sm" : "hover:bg-gray-50"
+                      )}
                     >
-                      <ChevronLeft size={18} className={cn(isProToolsOpen ? "text-primary" : "text-gray-300")} />
-                    </motion.div>
-                  </button>
+                      <div className="flex items-center gap-4">
+                        <div className={cn(
+                          "w-11 h-11 rounded-xl flex items-center justify-center transition-all",
+                          isProToolsOpen ? "bg-white shadow-md text-primary" : "bg-gray-50 text-gray-400 group-hover:bg-white"
+                        )}>
+                          <LayoutGrid size={22} className={cn(isProToolsOpen && "text-primary")} />
+                        </div>
+                        <span className={cn(
+                          "text-base font-black transition-colors",
+                          isProToolsOpen ? "text-primary" : "text-gray-700"
+                        )}>
+                          أدوات احترافية
+                        </span>
+                      </div>
+                      <motion.div
+                        animate={{ rotate: isProToolsOpen ? -90 : 0 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <ChevronLeft size={18} className={cn(isProToolsOpen ? "text-primary" : "text-gray-300")} />
+                      </motion.div>
+                    </button>
+
+                    <button 
+                      onClick={() => setIsApiSettingsOpen(true)}
+                      className={cn(
+                        "flex-1 flex flex-col items-center justify-center rounded-2xl transition-all border",
+                        hasKey ? "bg-green-50 border-green-100 text-green-600" : "bg-orange-50 border-orange-100 text-orange-600"
+                      )}
+                    >
+                      <Key size={18} />
+                      <span className="text-[8px] font-black mt-1 uppercase tracking-tighter">مفتاح API</span>
+                    </button>
+                  </div>
 
                   <AnimatePresence>
                     {isProToolsOpen && (
@@ -277,6 +292,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       )}
     </AnimatePresence>
       <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
+      <ApiSettingsModal isOpen={isApiSettingsOpen} onClose={() => setIsApiSettingsOpen(false)} />
     </>
   );
 }

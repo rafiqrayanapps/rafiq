@@ -4,13 +4,20 @@ import { Home, Heart, Bell, Moon, Sun } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useCollection } from '@/hooks/useFirebase';
 
 export default function BottomNav() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [isDark, setIsDark] = useState(false);
+  const { data: notifications } = useCollection('notifications');
+
+  const unreadCount = useMemo(() => {
+    if (!notifications) return 0;
+    return notifications.filter(n => n.read === false || n.isNew === true).length;
+  }, [notifications]);
 
   useEffect(() => {
     // Check initial state
@@ -54,15 +61,33 @@ export default function BottomNav() {
               href={item.path}
               className="flex-1 flex flex-col items-center justify-center relative group"
             >
-              <div 
+              <motion.div 
+                animate={item.icon === Bell && unreadCount > 0 ? {
+                  rotate: [0, -10, 10, -10, 10, 0],
+                  scale: [1, 1.1, 1]
+                } : {}}
+                transition={item.icon === Bell && unreadCount > 0 ? {
+                  duration: 0.5,
+                  repeat: Infinity,
+                  repeatDelay: 2
+                } : {}}
                 className={cn(
-                  "p-2 rounded-2xl transition-all duration-300",
+                  "p-2 rounded-2xl transition-all duration-300 relative",
                   isActive ? "text-primary" : "text-gray-400 hover:text-gray-600"
                 )}
                 style={isActive ? { color: 'var(--primary)' } : {}}
               >
                 <item.icon size={24} />
-              </div>
+                
+                {item.icon === Bell && unreadCount > 0 && (
+                  <span className="absolute top-1 right-1 flex h-4 w-4">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 text-[8px] font-black text-white items-center justify-center">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  </span>
+                )}
+              </motion.div>
               {isActive && (
                 <motion.div 
                   initial={{ opacity: 0 }}

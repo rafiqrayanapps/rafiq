@@ -10,6 +10,8 @@ export interface Category {
   fileTypes?: string;
   displayStyle?: string;
   subCategoryLayout?: 'horizontal' | 'vertical';
+  accentColor?: string;
+  useCustomAccent?: boolean;
 }
 
 export interface ContentItem {
@@ -27,6 +29,13 @@ export interface ContentItem {
   order?: number;
   visibility?: 'public';
   status?: 'pending' | 'approved' | 'rejected';
+  // App Store specific fields
+  rating?: string;
+  reviewCount?: string;
+  ageRating?: string;
+  version?: string;
+  size?: string;
+  screenshots?: string[];
 }
 
 export interface UserProfile {

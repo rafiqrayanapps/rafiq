@@ -5,7 +5,8 @@ import { useParams, useRouter } from 'next/navigation';
 import { useFirestore, useCollection, useDoc, useMemoFirebase, WithId } from '@/firebase';
 import { collection, query, doc, orderBy } from 'firebase/firestore';
 import type { Category as CategoryType, ContentItem } from '@/lib/definitions';
-import { ArrowLeft, Download, Search, Heart, Hammer, ExternalLink, PlayCircle, X, Music, Play, Pause, RefreshCw, Settings, Wrench, Package, Rocket, Copy, Check, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Download, Search, Heart, Hammer, ExternalLink, PlayCircle, X, Music, Play, Pause, RefreshCw, Settings, Wrench, Package, Rocket, Copy, Check, ChevronLeft, ChevronRight, Star, ArrowDownToLine, Sparkles } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
@@ -16,7 +17,7 @@ import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import MaintenanceView from '@/components/MaintenanceView';
 import useLocalStorage from '@/hooks/use-local-storage';
-import { cn, getDirectDriveLink } from '@/lib/utils';
+import { cn, getDirectLink } from '@/lib/utils';
 import CategorySkeleton from '@/components/skeletons/CategorySkeleton';
 import { useUserProfile } from '@/hooks/use-user-profile';
 import { useCategories } from '@/components/providers/CategoryProvider';
@@ -56,19 +57,15 @@ const AudioPlayerRow = ({
     const [loadError, setLoadError] = useState(false);
     const audioRef = useRef<HTMLAudioElement | null>(null);
 
-    const directAudioUrl = useMemo(() => getDirectDriveLink(item.audioUrl || item.downloadUrl), [item.audioUrl, item.downloadUrl]);
+    const directAudioUrl = useMemo(() => getDirectLink(item.audioUrl || item.downloadUrl), [item.audioUrl, item.downloadUrl]);
 
     useEffect(() => {
         if (audioRef.current) {
             audioRef.current.load();
             setLoadError(false);
             setCurrentTime(0);
-            if (isPlaying) {
-                setIsPlaying(false);
-                if (activeId === item.id) onPlay(null);
-            }
         }
-    }, [directAudioUrl, activeId, isPlaying, item.id, onPlay]);
+    }, [directAudioUrl]);
 
     useEffect(() => {
         if (activeId !== item.id && isPlaying) {
@@ -111,7 +108,10 @@ const AudioPlayerRow = ({
                 await audioRef.current.play();
                 setIsPlaying(true);
                 onPlay(item.id);
-            } catch (err) { setLoadError(true); }
+            } catch (err) { 
+                console.error("Audio Playback Error:", err);
+                setLoadError(true); 
+            }
         }
     };
 
@@ -127,8 +127,8 @@ const AudioPlayerRow = ({
                 </button>
                 <div className="flex-1 min-w-0 text-center">
                     <p className="font-black text-sm truncate leading-tight">{item.title}</p>
-                    <p className="text-[10px] font-mono text-muted-foreground mt-0.5">
-                        {Math.floor(currentTime / 60)}:{Math.floor(currentTime % 60).toString().padStart(2, '0')} / {duration ? `${Math.floor(duration / 60)}:${Math.floor(duration % 60).toString().padStart(2, '0')}` : '--:--'}
+                    <p className="text-[10px] font-mono text-muted-foreground mt-0.5" dir="ltr">
+                        {Math.floor(currentTime / 60)}:{Math.floor(currentTime % 60).toString().padStart(2, '0')} / {duration && isFinite(duration) ? `${Math.floor(duration / 60)}:${Math.floor(duration % 60).toString().padStart(2, '0')}` : '--:--'}
                     </p>
                 </div>
                 <div className="h-12 w-12 rounded-[1.2rem] bg-primary/10 flex items-center justify-center text-primary shrink-0">
@@ -150,8 +150,9 @@ const AudioPlayerRow = ({
                     )}
                 </div>
                 <Slider 
+                    dir="ltr"
                     value={[isNaN(currentTime) ? 0 : currentTime]} 
-                    max={isNaN(duration) || duration === 0 ? 100 : duration} 
+                    max={isNaN(duration) || !isFinite(duration) || duration === 0 ? 100 : duration} 
                     step={0.1} 
                     onValueChange={(v) => { if(audioRef.current) audioRef.current.currentTime = v[0]; }} 
                     className="flex-1" 
@@ -186,7 +187,7 @@ export default function CategoryPage() {
       return subCategories.get(id) || [];
   }, [subCategories, id, category]);
 
-  const itemsQuery = useMemoFirebase(() => id ? query(collection(firestore!, 'categories', id, 'items'), orderBy('order', 'asc')) : null, [firestore, id]);
+  const itemsQuery = useMemoFirebase(() => id ? collection(firestore!, 'categories', id, 'items') : null, [firestore, id]);
   const { data: rawItems, isLoading: areItemsLoading } = useCollection<any>(itemsQuery);
 
   const toggleFavorite = (item: WithId<any>) => {
@@ -220,10 +221,13 @@ export default function CategoryPage() {
                         <h3 className="text-xs font-black truncate">{item.title}</h3>
                         <p className="text-[10px] font-bold text-muted-foreground truncate">{item.description}</p>
                     </div>
-                    <div className="relative aspect-square rounded-[2rem] overflow-hidden bg-card shadow-lg group">
+                    <div 
+                        className="relative aspect-square rounded-[2rem] overflow-hidden bg-card shadow-lg group cursor-pointer"
+                        onClick={() => setSelectedImage(getDirectLink(item.imageUrl))}
+                    >
                         {item.imageUrl && (
                             <Image 
-                                src={item.imageUrl} 
+                                src={getDirectLink(item.imageUrl)} 
                                 alt="" 
                                 fill 
                                 className="object-cover group-hover:scale-110 transition-transform duration-700" 
@@ -252,10 +256,13 @@ export default function CategoryPage() {
                         <h3 className="font-black text-lg text-foreground leading-tight">{item.title}</h3>
                         {item.description && <p className="text-[10px] font-bold text-muted-foreground mt-1">{item.description}</p>}
                     </div>
-                    <div className="relative rounded-[2.5rem] overflow-hidden bg-card shadow-xl group aspect-video">
+                    <div 
+                        className="relative rounded-[2.5rem] overflow-hidden bg-card shadow-xl group aspect-video cursor-pointer"
+                        onClick={() => setSelectedImage(getDirectLink(item.imageUrl))}
+                    >
                         {item.imageUrl && (
                             <Image 
-                                src={item.imageUrl} 
+                                src={getDirectLink(item.imageUrl)} 
                                 alt="" 
                                 fill
                                 className="object-cover group-hover:scale-105 transition-transform duration-1000" 
@@ -277,45 +284,93 @@ export default function CategoryPage() {
                     </Button>
                 </div>
             );
-        case 'style3': // Apps Style
+        case 'style3': // Apps Style - App Store Look
             return (
-                <div key={`${item.id}-${idx}`} className="bg-card rounded-[2.5rem] p-6 shadow-xl border-4 border-white/5 space-y-6 animate-in fade-in zoom-in-95 duration-500">
-                    <div className="flex items-center gap-4">
-                        <div className="relative h-16 w-16 rounded-2xl overflow-hidden shadow-md border-2 border-white/10">
-                            {item.imageUrl && <Image src={item.imageUrl} alt="" fill className="object-cover" referrerPolicy="no-referrer" />}
+                <div key={`${item.id}-${idx}`} className="bg-card rounded-[2.5rem] p-6 shadow-xl space-y-6 animate-in fade-in zoom-in-95 duration-500">
+                    {/* Top Section: Title and Icon */}
+                    <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 space-y-1">
+                            <h3 className="font-black text-2xl leading-tight text-foreground">{item.title}</h3>
+                            <p className="text-sm font-bold text-red-600">{item.description || 'تطبيق مميز'}</p>
+                            <div className="flex items-center gap-2 pt-3">
+                                <button 
+                                    onClick={() => toggleFavorite(item)} 
+                                    className="h-11 px-6 rounded-full bg-secondary/80 flex items-center justify-center gap-3 active:scale-95 transition-all text-sm font-black text-foreground shadow-sm group"
+                                >
+                                    <span className="group-active:scale-125 transition-transform">
+                                        <Heart className={cn("h-5 w-5", isFav ? "fill-red-500 text-red-500" : "text-gray-400")} />
+                                    </span>
+                                    {isFav ? 'في المفضلة' : 'أضف للمفضلة'}
+                                </button>
+                            </div>
                         </div>
-                        <div className="flex-1">
-                            <h3 className="font-black text-lg leading-tight">{item.title}</h3>
-                            <p className="text-xs text-muted-foreground font-bold">إصدار {item.version || '1.0.0'}</p>
+                        <div 
+                            className="relative h-24 w-24 rounded-[1.8rem] overflow-hidden shadow-2xl cursor-pointer shrink-0 border-4 border-white/5"
+                            onClick={() => setSelectedImage(getDirectLink(item.imageUrl))}
+                        >
+                            {item.imageUrl && <Image src={getDirectLink(item.imageUrl)} alt="" fill className="object-cover" referrerPolicy="no-referrer" />}
                         </div>
-                        <button onClick={() => toggleFavorite(item)} className="h-10 w-10 rounded-full bg-secondary flex items-center justify-center active:scale-90 transition-transform">
-                            <Heart className={cn("h-5 w-5", isFav ? "fill-primary text-primary" : "text-gray-400")} />
-                        </button>
+                    </div>
+
+                    {/* Stats Row */}
+                    <div className="flex items-center justify-between py-2 border-y border-primary/5">
+                        <div className="flex flex-col items-center flex-1">
+                            <div className="flex items-center gap-1 font-black text-sm text-foreground">
+                                <span>{item.rating || '4.8'}</span>
+                                <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                            </div>
+                            <span className="text-[10px] text-muted-foreground font-bold">{item.reviewCount || '12 ألف مراجعة'}</span>
+                        </div>
+                        <div className="w-px h-8 bg-primary/10" />
+                        <div className="flex flex-col items-center flex-1">
+                            <div className="h-6 w-6 bg-primary/10 rounded flex items-center justify-center text-[10px] font-black text-foreground">
+                                {item.ageRating || '+3'}
+                            </div>
+                            <span className="text-[10px] text-muted-foreground font-bold">مناسب للكل</span>
+                        </div>
+                        <div className="w-px h-8 bg-primary/10" />
+                        <div className="flex flex-col items-center flex-1">
+                            <div className="flex items-center gap-1 font-black text-sm text-foreground">
+                                <ArrowDownToLine className="h-3 w-3" />
+                                <span>{item.size || '15MB'}</span>
+                            </div>
+                            <span className="text-[10px] text-muted-foreground font-bold">حجم الملف</span>
+                        </div>
                     </div>
                     
-                    {item.screenshots && item.screenshots.length > 0 && (
-                        <ScrollArea className="w-full whitespace-nowrap pb-2">
-                            <div className="flex gap-3">
-                                {item.screenshots.map((src: string, sIdx: number) => (
-                                    <div key={`${src}-${sIdx}`} className="relative h-48 w-32 rounded-xl overflow-hidden shadow-sm border border-white/5">
-                                        <Image src={src} alt="" fill className="object-cover" referrerPolicy="no-referrer" />
-                                    </div>
-                                ))}
-                            </div>
-                            <ScrollBar orientation="horizontal" />
-                        </ScrollArea>
-                    )}
-
+                    {/* Primary Action Button */}
                     <Button 
                         className={cn(
-                            "w-full rounded-2xl h-14 font-black text-lg gap-3 shadow-xl shadow-primary/20 active:scale-95 transition-transform",
+                            "w-full rounded-full h-14 font-black text-lg gap-3 shadow-lg shadow-red-500/20 bg-red-600 hover:bg-red-700 text-white active:scale-95 transition-all",
                             item.showDownloadButton === false && "hidden"
                         )}
                         onClick={() => handleAction(item, () => item.downloadUrl && window.open(item.downloadUrl, '_blank'))}
                     >
-                        <Download className="h-6 w-6" />
-                        تحميل الآن
+                        تثبيت
                     </Button>
+
+                    {/* Screenshots */}
+                    {item.screenshots && item.screenshots.length > 0 && (
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between px-1">
+                                <span className="text-xs font-black">نظرة عامة</span>
+                            </div>
+                            <ScrollArea className="w-full whitespace-nowrap pb-2" dir="rtl">
+                                <div className="flex gap-3 px-1">
+                                    {item.screenshots.map((src: string, sIdx: number) => (
+                                        <div 
+                                            key={`${src}-${sIdx}`} 
+                                            className="relative h-64 w-36 rounded-[1.5rem] overflow-hidden shadow-sm cursor-pointer"
+                                            onClick={() => setSelectedImage(getDirectLink(src))}
+                                        >
+                                            <Image src={getDirectLink(src)} alt="" fill className="object-cover" referrerPolicy="no-referrer" />
+                                        </div>
+                                    ))}
+                                </div>
+                                <ScrollBar orientation="horizontal" />
+                            </ScrollArea>
+                        </div>
+                    )}
                 </div>
             );
         case 'style4': // Audio Style
@@ -333,10 +388,13 @@ export default function CategoryPage() {
         case 'style5': // Prompt Style
             return (
                 <div key={`${item.id}-${idx}`} className="bg-card rounded-[2.5rem] overflow-hidden shadow-xl border-4 border-white/5 animate-in fade-in zoom-in-95 duration-500">
-                    <div className="relative aspect-video w-full group">
+                    <div 
+                        className="relative aspect-video w-full group cursor-pointer"
+                        onClick={() => setSelectedImage(getDirectLink(item.imageUrl))}
+                    >
                         {item.imageUrl && (
                             <Image 
-                                src={item.imageUrl} 
+                                src={getDirectLink(item.imageUrl)} 
                                 alt="" 
                                 fill 
                                 className="object-cover group-hover:scale-105 transition-transform duration-700" 
@@ -367,7 +425,8 @@ export default function CategoryPage() {
                                 readOnly 
                                 value={item.prompt || ''} 
                                 onCopy={(e) => e.preventDefault()}
-                                className="h-32 bg-muted/50 rounded-2xl text-xs font-mono p-4 shadow-inner border-none resize-none focus-visible:ring-0 select-none" 
+                                tabIndex={-1}
+                                className="h-32 bg-muted/50 rounded-2xl text-xs font-mono p-4 shadow-inner border-none resize-none focus-visible:ring-0 select-none pointer-events-none" 
                                 dir="ltr" 
                             />
                             {item.showCopyButton !== false && (
@@ -400,12 +459,41 @@ export default function CategoryPage() {
                     onPlay={setActiveAudioId}
                 />
             );
+        case 'style8': // Video Style
+            const videoId = item.videoUrl?.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/)?.[1];
+            const thumbUrl = videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : (item.imageUrl || 'https://picsum.photos/seed/video/800/450');
+            return (
+                <div key={`${item.id}-${idx}`} className="flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full">
+                    <div className="px-2">
+                        <h3 className="font-black text-lg text-foreground leading-tight">{item.title}</h3>
+                        {item.description && <p className="text-[10px] font-bold text-muted-foreground mt-1">{item.description}</p>}
+                    </div>
+                    <div 
+                        className="relative rounded-[2.5rem] overflow-hidden bg-card shadow-xl group aspect-video cursor-pointer border-4 border-white/5"
+                        onClick={() => handleAction(item, () => item.videoUrl && window.open(item.videoUrl, '_blank'))}
+                    >
+                        <Image 
+                            src={getDirectLink(thumbUrl)} 
+                            alt="" 
+                            fill
+                            className="object-cover group-hover:scale-110 transition-transform duration-1000" 
+                            referrerPolicy="no-referrer"
+                        />
+                        <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+                            <div className="h-20 w-20 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
+                                <Play className="h-10 w-10 text-white fill-white ml-1 shadow-2xl" />
+                            </div>
+                        </div>
+                        <FavoriteButton isFavorite={isFav} onClick={(e) => { e.stopPropagation(); toggleFavorite(item); }} />
+                    </div>
+                </div>
+            );
         default:
             return (
                 <div key={`${item.id}-${idx}`} className="relative bg-card rounded-[2.2rem] flex flex-col items-center justify-center cursor-pointer hover:bg-card/90 transition-all shadow-lg hover:shadow-primary/20 aspect-square text-center active:scale-95 group overflow-hidden border-4 border-white/5 animate-in fade-in zoom-in-95 duration-500">
                     {item.imageUrl && (
                         <Image 
-                            src={item.imageUrl} 
+                            src={getDirectLink(item.imageUrl)} 
                             alt="" 
                             fill 
                             className="object-cover opacity-30 group-hover:scale-105 transition-transform duration-700" 
@@ -445,6 +533,14 @@ export default function CategoryPage() {
 
   return (
     <div className="flex flex-col bg-background">
+      {category?.useCustomAccent && category?.accentColor && (
+          <style dangerouslySetInnerHTML={{ __html: `
+              :root {
+                  --primary: ${category.accentColor} !important;
+                  --primary-gradient: linear-gradient(135deg, ${category.accentColor}, ${category.accentColor}dd) !important;
+              }
+          `}} />
+      )}
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       <Header 
         title={category.name} 
@@ -514,7 +610,10 @@ export default function CategoryPage() {
                                          className="animate-in fade-in zoom-in-95 duration-500 fill-mode-both w-full aspect-square"
                                          style={{ animationDelay: `${idx * 50}ms` }}
                                      >
-                                         <div className="w-full h-full relative bg-primary text-primary-foreground p-4 rounded-[2.2rem] flex flex-col items-center justify-center cursor-pointer hover:bg-primary/90 transition-all shadow-lg hover:shadow-primary/20 text-center active:scale-95 group overflow-hidden border-4 border-white/5">
+                                             <div 
+                                               className="w-full h-full relative text-primary-foreground p-4 rounded-[2.2rem] flex flex-col items-center justify-center cursor-pointer transition-all shadow-lg hover:shadow-primary/20 text-center active:scale-95 group overflow-hidden border-4 border-white/5"
+                                               style={{ background: subCat.useCustomAccent && subCat.accentColor ? `linear-gradient(135deg, ${subCat.accentColor}, ${subCat.accentColor}dd)` : 'var(--primary-gradient)' }}
+                                             >
                                              <div className="absolute -bottom-4 -right-4 bg-white/10 w-16 h-16 rounded-full group-hover:scale-150 transition-transform duration-700" />
                                              {subCat.fileTypes && (
                                                  <div className="absolute top-4 right-4 bg-black/20 text-[9px] font-black px-2 py-0.5 rounded-full text-white uppercase backdrop-blur-sm z-20">
@@ -544,17 +643,54 @@ export default function CategoryPage() {
                             category?.displayStyle === 'style3' ? "grid-cols-1 md:grid-cols-2" :
                             category?.displayStyle === 'style4' ? "grid-cols-1" :
                             category?.displayStyle === 'style5' ? "grid-cols-1" :
+                            category?.displayStyle === 'style8' ? "grid-cols-1 md:grid-cols-2" :
                             "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
                         )}>
                             {filteredItems.map(renderItem)}
                         </div>
                     </div>
                 ) : (
-                    !currentSubCategories.length && (
-                        <div className="flex flex-col items-center justify-center p-8 text-center text-muted-foreground">
-                            <Package className="h-16 w-16 mb-4 text-primary/60" />
-                            <h2 className="text-xl font-bold mb-2">لا يوجد محتوى</h2>
-                            <p>عذراً، لا يوجد محتوى مطابق لمعايير البحث في هذا القسم.</p>
+                    !areItemsLoading && !currentSubCategories.length && (
+                        <div className="flex flex-col items-center justify-center py-20 px-8 text-center animate-in fade-in zoom-in-95 duration-700">
+                             <motion.div
+                                animate={{ 
+                                    scale: [1, 1.1, 1],
+                                    rotate: [0, 5, -5, 0]
+                                }}
+                                transition={{ 
+                                    duration: 4, 
+                                    repeat: Infinity,
+                                    ease: "easeInOut" 
+                                }}
+                                className="relative mb-8"
+                             >
+                                <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full" />
+                                <Package className="h-24 w-24 relative text-primary/40 stroke-[1.5px]" />
+                                <motion.div 
+                                    animate={{ opacity: [0, 1, 0], y: [0, -20, -40] }}
+                                    transition={{ duration: 2, repeat: Infinity }}
+                                    className="absolute -top-4 -right-4"
+                                >
+                                    <Sparkles className="h-8 w-8 text-yellow-400" />
+                                </motion.div>
+                             </motion.div>
+                             
+                             <h2 className="text-2xl font-black text-foreground mb-3">
+                                {searchTerm ? "عذراً، لا توجد نتائج" : "نعمل على إضافة المحتوى"}
+                             </h2>
+                             <p className="text-muted-foreground text-sm font-medium leading-relaxed max-w-xs mx-auto">
+                                {searchTerm 
+                                    ? `لم نجد أي نتائج تطابق "${searchTerm}" في هذا القسم حالياً.` 
+                                    : "هذا القسم فارغ حالياً، فريقنا يعمل بكل جهد لجمع وإضافة أفضل المصادر والأدوات لك قريباً!"
+                                }
+                             </p>
+                             
+                             {!searchTerm && (
+                                 <div className="mt-8 flex items-center gap-2 text-[10px] font-black text-primary/40 uppercase tracking-[0.2em] animate-pulse">
+                                     <Hammer className="h-3 w-3" />
+                                     <span>في طور التحديث المستمر</span>
+                                 </div>
+                             )}
                         </div>
                     )
                 )}
@@ -565,20 +701,21 @@ export default function CategoryPage() {
       </main>
 
       <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
-        <DialogContent className="max-w-3xl p-0 overflow-hidden bg-transparent border-none shadow-none">
+        <DialogContent className="max-w-[98vw] sm:max-w-5xl p-0 overflow-hidden bg-black/60 backdrop-blur-xl border-none shadow-none flex items-center justify-center">
           <DialogTitle className="sr-only">Image Preview</DialogTitle>
           {selectedImage && (
-            <Image 
-                src={selectedImage} 
-                alt="Preview" 
-                width={1200} 
-                height={800} 
-                className="w-full h-auto rounded-lg" 
-                referrerPolicy="no-referrer"
-            />
+            <div className="relative w-full h-[90vh] flex items-center justify-center">
+              <Image 
+                  src={selectedImage} 
+                  alt="Preview" 
+                  fill
+                  className="object-contain" 
+                  referrerPolicy="no-referrer"
+              />
+            </div>
           )}
-          <Button variant="ghost" size="icon" className="absolute top-2 right-2 text-white hover:bg-white/20" onClick={() => setSelectedImage(null)}>
-            <X className="h-6 w-6" />
+          <Button variant="ghost" size="icon" className="absolute top-4 right-4 text-white bg-black/40 hover:bg-black/60 rounded-full h-12 w-12 z-[100] backdrop-blur-md" onClick={() => setSelectedImage(null)}>
+            <X className="h-7 w-7" />
           </Button>
         </DialogContent>
       </Dialog>

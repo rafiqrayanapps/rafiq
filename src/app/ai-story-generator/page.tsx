@@ -31,7 +31,8 @@ import Header from '@/components/Header';
 import { GoogleGenAI, Type } from "@google/genai";
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import useLocalStorage from '@/hooks/use-local-storage';
+import { useApiKey } from '@/components/providers/ApiKeyProvider';
+import ApiKeyGate from '@/components/ApiKeyGate';
 import Image from 'next/image';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -76,8 +77,7 @@ export default function AIStoryGenerator() {
   const [sceneCount, setSceneCount] = useState(5);
   const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16'>('16:9');
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
-  const [userApiKey, setUserApiKey] = useLocalStorage<string>('user-gemini-api-key', '');
-  const [showKeyInput, setShowKeyInput] = useState(false);
+  const { apiKey: userApiKey, hasKey } = useApiKey();
   const [isExporting, setIsExporting] = useState(false);
   const pdfRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
@@ -96,13 +96,12 @@ export default function AIStoryGenerator() {
       return;
     }
 
-    if (!userApiKey) {
+    if (!hasKey) {
       toast({ 
-        title: "تنبيه: مفتاح API مطلوب", 
-        description: "لتوليد الصور والقصص بجودة عالية وبدون قيود، يرجى إضافة مفتاح API الخاص بك أولاً.", 
+        title: "مفتاح API مطلوب", 
+        description: "يرجى إضافة مفتاح Gemini API من إعدادات القائمة الجانبية للمتابعة.", 
         variant: "destructive" 
       });
-      setShowKeyInput(true);
       return;
     }
 
@@ -212,13 +211,12 @@ export default function AIStoryGenerator() {
       resetScenes[index].isGeneratingImage = false;
       setScenes(resetScenes);
       
-      if (error?.message?.includes('403') || error?.message?.includes('permission')) {
+      if (error?.message?.includes('403') || error?.message?.includes('permission') || error?.message?.includes('API key')) {
         toast({ 
           title: "خطأ في الصلاحيات", 
-          description: "يبدو أنك بحاجة لاستخدام مفتاح API خاص بك لتوليد الصور. يرجى إضافته من الإعدادات.", 
+          description: "يبدو أنك بحاجة لتحديث مفتاح API الخاص بك في الإعدادات.", 
           variant: "destructive" 
         });
-        setShowKeyInput(true);
       } else {
         toast({ title: "خطأ", description: "تعذر توليد الصورة لهذا المشهد.", variant: "destructive" });
       }
@@ -295,52 +293,18 @@ export default function AIStoryGenerator() {
       <Header title="توليد محتوى بالذكاء" showBackButton compact />
 
       <main className="flex-1 container max-w-4xl mx-auto px-6 py-8 pb-32 space-y-8">
-        {/* Input Section */}
-        <section className="bg-white rounded-[3rem] p-8 shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-blue-50 space-y-6">
+        <ApiKeyGate 
+          title="مولد القصص والمحتوى"
+          description="أطلق العنان لخيالك ودع الذكاء الاصطناعي يساعدك في كتابة قصص ومحتوى إبداعي فريد."
+        >
+          {/* Input Section */}
+          <section className="bg-white rounded-[3rem] p-8 shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-blue-50 space-y-6">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-3 text-primary">
               <Sparkles className="h-6 w-6" />
               <h2 className="text-xl font-black">ما هي فكرتك اليوم؟</h2>
             </div>
-            <button 
-              onClick={() => setShowKeyInput(!showKeyInput)}
-              className={cn(
-                "p-2 rounded-xl transition-all",
-                userApiKey ? "text-green-500 bg-green-50 hover:bg-green-100" : "text-gray-400 bg-gray-50 hover:bg-gray-100"
-              )}
-              title="إعدادات مفتاح API"
-            >
-              <Key size={18} />
-            </button>
           </div>
-
-          <AnimatePresence>
-            {showKeyInput && (
-              <motion.div 
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                className="overflow-hidden"
-              >
-                <div className="p-6 bg-blue-50/50 rounded-2xl space-y-3 mb-4">
-                  <div className="flex items-center gap-2 text-primary font-bold text-xs">
-                    <Key size={14} />
-                    <span>Gemini API Key (اختياري)</span>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground font-medium">
-                    إذا واجهت أخطاء في توليد الصور، يرجى إضافة مفتاح API الخاص بك. يتم حفظ المفتاح محلياً في متصفحك فقط.
-                  </p>
-                  <input 
-                    type="password"
-                    value={userApiKey}
-                    onChange={(e) => setUserApiKey(e.target.value)}
-                    placeholder="Enter your API key..."
-                    className="w-full bg-white border border-blue-100 rounded-xl px-4 py-2 text-xs font-mono outline-none focus:ring-1 focus:ring-primary"
-                  />
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
           
           <textarea 
             value={idea}
@@ -623,6 +587,7 @@ export default function AIStoryGenerator() {
               </div>
            </motion.div>
         )}
+        </ApiKeyGate>
       </main>
 
       {/* Hidden PDF Export Template */}
