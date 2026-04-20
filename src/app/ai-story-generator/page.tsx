@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Wand2, 
   Sparkles, 
@@ -28,16 +28,17 @@ import {
   Palette
 } from 'lucide-react';
 import Header from '@/components/Header';
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useApiKey } from '@/components/providers/ApiKeyProvider';
 import ApiKeyGate from '@/components/ApiKeyGate';
+import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
-const defaultAi = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY });
+const defaultAi = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY || "" });
 
 const dialects = [
   { label: 'العربية الفصحى', value: 'Modern Standard Arabic' },
@@ -126,21 +127,21 @@ export default function AIStoryGenerator() {
       `;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-1.5-flash",
         contents: [{ role: "user", parts: [{ text: idea }] }],
         config: {
           systemInstruction,
           responseMimeType: "application/json",
           responseSchema: {
-            type: Type.OBJECT,
+            type: "object",
             properties: {
               scenes: {
-                type: Type.ARRAY,
+                type: "array",
                 items: {
-                  type: Type.OBJECT,
+                  type: "object",
                   properties: {
-                    narration: { type: Type.STRING },
-                    imagePrompt: { type: Type.STRING }
+                    narration: { type: "string" },
+                    imagePrompt: { type: "string" }
                   },
                   required: ["narration", "imagePrompt"]
                 }
@@ -178,7 +179,7 @@ export default function AIStoryGenerator() {
     try {
       const ai = getAi();
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash-image",
+        model: "gemini-3.1-flash-image-preview",
         contents: [{ role: "user", parts: [{ text: scene.imagePrompt }] }],
         config: {
           imageConfig: {
