@@ -32,10 +32,10 @@ export default function ColorExtractor() {
       }
 
       const extractedColors = Object.entries(palette)
-        .filter(([_, swatch]) => swatch && typeof swatch === 'object' && typeof swatch.getHex === 'function')
+        .filter(([_, swatch]) => swatch && typeof swatch === 'object' && typeof (swatch as any).getHex === 'function')
         .map(([name, swatch]) => ({
           name,
-          hex: swatch!.getHex()
+          hex: (swatch as any).getHex()
         }));
       
       if (extractedColors.length === 0) {
