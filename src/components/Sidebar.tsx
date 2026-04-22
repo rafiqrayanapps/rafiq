@@ -1,7 +1,7 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ShieldCheck, LogIn, ChevronLeft, Home, Palette, Info, Crown, Settings, User, LayoutGrid, HelpCircle, MessageSquare, Share2, LogOut, Rocket, Zap, Sparkles, Wand2, Scissors, Maximize2, ArrowRight, Key } from 'lucide-react';
+import { X, ShieldCheck, LogIn, ChevronLeft, Home, Palette, Info, Crown, Settings, User, LayoutGrid, HelpCircle, MessageSquare, Share2, LogOut, Rocket, Zap, Sparkles, Wand2, Scissors, Maximize2, ArrowRight, Key, Contrast, QrCode, Calculator, Type } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAuth } from '@/hooks/useFirebase';
@@ -11,6 +11,7 @@ import { useCategories } from '@/components/providers/CategoryProvider';
 import LoginModal from './LoginModal';
 import ApiSettingsModal from './ApiSettingsModal';
 import { useApiKey } from './providers/ApiKeyProvider';
+import { useTool } from './providers/ToolProvider';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -21,19 +22,31 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { user, isAdmin, logout } = useAuth();
   const { mainCategories } = useCategories();
   const { hasKey } = useApiKey();
+  const { openTool } = useTool();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isApiSettingsOpen, setIsApiSettingsOpen] = useState(false);
   const [isProToolsOpen, setIsProToolsOpen] = useState(false);
+  const [isFreeToolsOpen, setIsFreeToolsOpen] = useState(false);
 
   const mainNav = [
     { label: 'الرئيسية', href: '/home', icon: Home },
   ];
 
-  const toolsNav = [
+  const proToolsNav = [
     { label: 'توليد محتوى بالذكاء', href: '/ai-story-generator', icon: Wand2 },
-    { label: 'منسق الألوان', href: '/colors', icon: Palette },
     { label: 'تحويل الصور إلى برومبت', href: '/image-to-prompt', icon: Zap },
     { label: 'توليد الصور بالذكاء', href: '/image-generation', icon: Sparkles },
+  ];
+
+  const freeToolsNav = [
+    { label: 'إزالة خلفية الصور', tool: 'remove-bg', icon: Scissors },
+    { label: 'فاحص تباين الألوان', tool: 'contrast', icon: Contrast },
+    { label: 'استخراج الألوان من الصور', tool: 'palette', icon: Palette },
+    { label: 'وصف الصور (ذكاء محلي)', tool: 'local-ai', icon: Wand2 },
+    { label: 'مولد رمز QR', tool: 'qr', icon: QrCode },
+    { label: 'حاسبة أبعاد الصور', tool: 'ratio', icon: Calculator },
+    { label: 'مولد نصوص وهمية', tool: 'lorem', icon: Type },
+    { label: 'منسق الألوان الاحترافي', href: '/colors', icon: Palette },
   ];
 
   const infoNav = [
@@ -98,36 +111,28 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 {/* Main Navigation */}
                 <section>
                   <ul className="space-y-2">
-                    {mainNav.map((item, index) => {
-                      const isActive = false; // Add logic if needed
-                      return (
-                        <li key={item.href}>
-                          <Link 
-                            href={item.href}
-                            onClick={onClose}
-                            className={cn(
-                              "flex items-center justify-between group py-3.5 px-4 rounded-2xl transition-all duration-300",
-                              "hover:bg-gray-50 hover:shadow-sm"
-                            )}
-                          >
-                            <div className="flex items-center gap-4">
-                              <div className="w-11 h-11 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-white group-hover:shadow-md transition-all" style={{ '--tw-text-opacity': '1' } as any}>
-                                <style jsx>{`
-                                  .group:hover .group-hover-custom-color { color: var(--primary); }
-                                `}</style>
-                                <div className="group-hover-custom-color">
-                                  <item.icon size={22} />
-                                </div>
-                              </div>
-                              <span className="text-base font-bold text-gray-700 transition-colors group-hover-custom-color">
-                                {item.label}
-                              </span>
+                    {mainNav.map((item, index) => (
+                      <li key={item.href}>
+                        <Link 
+                          href={item.href}
+                          onClick={onClose}
+                          className={cn(
+                            "flex items-center justify-between group py-3.5 px-4 rounded-2xl transition-all duration-300",
+                            "hover:bg-gray-50 hover:shadow-sm"
+                          )}
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className="w-11 h-11 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-white group-hover:shadow-md transition-all">
+                              <item.icon size={22} className="group-hover:text-primary transition-colors" />
                             </div>
-                            <ChevronLeft size={18} className="text-gray-300 transition-all group-hover:translate-x-[-4px] group-hover-custom-color" />
-                          </Link>
-                        </li>
-                      );
-                    })}
+                            <span className="text-base font-bold text-gray-700 transition-colors group-hover:text-primary">
+                              {item.label}
+                            </span>
+                          </div>
+                          <ChevronLeft size={18} className="text-gray-300 transition-all group-hover:translate-x-[-4px] group-hover:text-primary" />
+                        </Link>
+                      </li>
+                    ))}
                   </ul>
                 </section>
 
@@ -146,7 +151,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                           "w-11 h-11 rounded-xl flex items-center justify-center transition-all",
                           isProToolsOpen ? "bg-white shadow-md text-primary" : "bg-gray-50 text-gray-400 group-hover:bg-white"
                         )}>
-                          <LayoutGrid size={22} className={cn(isProToolsOpen && "text-primary")} />
+                          <Rocket size={22} className={cn(isProToolsOpen && "text-primary")} />
                         </div>
                         <span className={cn(
                           "text-base font-black transition-colors",
@@ -185,7 +190,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                         className="overflow-hidden mr-4 mt-2 border-r-2 border-primary/10"
                       >
                         <ul className="space-y-1 pr-2 py-1">
-                          {toolsNav.map((item) => (
+                          {proToolsNav.map((item) => (
                             <li key={item.href}>
                               <Link 
                                 href={item.href}
@@ -210,6 +215,94 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                   </AnimatePresence>
                 </section>
 
+                {/* Free Tools Section (Collapsible) */}
+                <section className="space-y-2">
+                  <button 
+                    onClick={() => setIsFreeToolsOpen(!isFreeToolsOpen)}
+                    className={cn(
+                      "w-full flex items-center justify-between py-4 px-5 rounded-2xl transition-all duration-300 border border-transparent",
+                      isFreeToolsOpen ? "bg-primary/5 border-primary/10 shadow-sm" : "hover:bg-gray-50"
+                    )}
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className={cn(
+                        "w-11 h-11 rounded-xl flex items-center justify-center transition-all",
+                        isFreeToolsOpen ? "bg-white shadow-md text-primary" : "bg-gray-50 text-gray-400 group-hover:bg-white"
+                      )}>
+                        <LayoutGrid size={22} className={cn(isFreeToolsOpen && "text-primary")} />
+                      </div>
+                      <span className={cn(
+                        "text-base font-black transition-colors",
+                        isFreeToolsOpen ? "text-primary" : "text-gray-700"
+                      )}>
+                        أدوات مجانية
+                      </span>
+                    </div>
+                    <motion.div
+                      animate={{ rotate: isFreeToolsOpen ? -90 : 0 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <ChevronLeft size={18} className={cn(isFreeToolsOpen ? "text-primary" : "text-gray-300")} />
+                    </motion.div>
+                  </button>
+
+                  <AnimatePresence>
+                    {isFreeToolsOpen && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.3, ease: "easeInOut" }}
+                        className="overflow-hidden mr-4 mt-2 border-r-2 border-primary/10"
+                      >
+                        <ul className="space-y-1 pr-2 py-1">
+                          {freeToolsNav.map((item) => (
+                            <li key={item.label}>
+                              {item.href ? (
+                                <Link 
+                                  href={item.href}
+                                  onClick={onClose}
+                                  className="flex items-center justify-between group py-3 px-4 rounded-xl hover:bg-gray-50 transition-all text-right w-full"
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <div className="text-gray-400 group-hover:text-primary transition-colors">
+                                      <item.icon size={18} />
+                                    </div>
+                                    <span className="text-sm font-bold text-gray-600 group-hover:text-gray-900 transition-colors">
+                                      {item.label}
+                                    </span>
+                                  </div>
+                                  <ArrowRight size={14} className="text-gray-200 group-hover:text-primary transition-all opacity-0 group-hover:opacity-100 group-hover:translate-x-[-4px]" />
+                                </Link>
+                              ) : (
+                                <button 
+                                  onClick={() => {
+                                    openTool(item.tool as any);
+                                    onClose();
+                                  }}
+                                  className="flex items-center justify-between group py-3 px-4 rounded-xl hover:bg-gray-50 transition-all text-right w-full"
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <div className="text-gray-400 group-hover:text-primary transition-colors">
+                                      <item.icon size={18} />
+                                    </div>
+                                    <span className="text-sm font-bold text-gray-600 group-hover:text-gray-900 transition-colors">
+                                      {item.label}
+                                    </span>
+                                  </div>
+                                  <div className="w-5 h-5 rounded-full bg-blue-50 text-[8px] font-black flex items-center justify-center text-blue-500 opacity-60 group-hover:opacity-100 transition-opacity">
+                                    POP
+                                  </div>
+                                </button>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </section>
+
                 {/* Info & Contact */}
                 <section>
                   <ul className="space-y-2">
@@ -222,15 +315,15 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                         >
                           <div className="flex items-center gap-4">
                             <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-white transition-all">
-                              <div className="group-hover-custom-color">
+                              <div className="group-hover:text-primary">
                                 <item.icon size={20} />
                               </div>
                             </div>
-                            <span className="text-sm font-bold text-gray-600 transition-colors group-hover-custom-color">
+                            <span className="text-sm font-bold text-gray-600 transition-colors group-hover:text-primary">
                               {item.label}
                             </span>
                           </div>
-                          <ChevronLeft size={16} className="text-gray-300 transition-all group-hover:translate-x-[-4px] group-hover-custom-color" />
+                          <ChevronLeft size={16} className="text-gray-300 transition-all group-hover:translate-x-[-4px] group-hover:text-primary" />
                         </Link>
                       </li>
                     ))}

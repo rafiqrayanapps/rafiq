@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Image as ImageIcon, Zap, Download, RefreshCw, Key, Settings2, Info, Rocket, Palette, Edit3, Wand2, AlertCircle, Share2, Copy } from 'lucide-react';
 import Image from 'next/image';
 import Header from '@/components/Header';

@@ -86,7 +86,7 @@ export default function Header({ title = "رفيق المصمم", showBackButton
         {extraContent}
       </div>
       {/* Spacer to push content down since header is fixed */}
-      <div className={extraContent ? "h-[240px]" : compact ? "h-[120px]" : "h-[180px]"} />
+      <div className={extraContent ? "h-[200px]" : compact ? "h-[100px]" : "h-[160px]"} />
     </>
   );
 }

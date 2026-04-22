@@ -4,6 +4,7 @@ import { Suspense, useEffect } from 'react';
 import { FirebaseClientProvider } from "@/firebase/client-provider";
 import { CategoryProvider } from "@/components/providers/CategoryProvider";
 import { ApiKeyProvider } from "@/components/providers/ApiKeyProvider";
+import { ToolProvider } from "@/components/providers/ToolProvider";
 import { Toaster } from "@/components/ui/toaster";
 import ThemeApplier from "@/components/ThemeApplier";
 import GlobalDialog from "@/components/GlobalDialog";
@@ -48,21 +49,23 @@ export default function ClientLayout({
   return (
     <FirebaseClientProvider>
       <ApiKeyProvider>
-        <CategoryProvider>
-          <ServiceWorkerRegister />
-          <ThemeApplier />
-          <GlobalDialog />
-          <FloatingButton />
-          <div className="relative min-h-screen flex flex-col">
-              <main className="flex-1">
-                  {children}
-              </main>
-              <Suspense fallback={null}>
-                <BottomNav />
-              </Suspense>
-          </div>
-          <Toaster />
-        </CategoryProvider>
+        <ToolProvider>
+          <CategoryProvider>
+            <ServiceWorkerRegister />
+            <ThemeApplier />
+            <GlobalDialog />
+            <FloatingButton />
+            <div className="relative min-h-screen flex flex-col">
+                <main className="flex-1">
+                    {children}
+                </main>
+                <Suspense fallback={null}>
+                  <BottomNav />
+                </Suspense>
+            </div>
+            <Toaster />
+          </CategoryProvider>
+        </ToolProvider>
       </ApiKeyProvider>
     </FirebaseClientProvider>
   );

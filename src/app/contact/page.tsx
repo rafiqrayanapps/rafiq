@@ -1,6 +1,6 @@
 'use client';
 
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import Header from '@/components/Header';
 import { cn } from '@/lib/utils';
 import { MessageCircle, Mail, Phone, ExternalLink, RefreshCw, Send, MapPin, Clock, Instagram, Twitter, Github, Globe, Settings, Shield, Palette, Bell, Info, User, Users, Target, Rocket, Award } from 'lucide-react';

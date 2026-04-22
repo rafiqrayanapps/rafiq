@@ -33,7 +33,6 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useApiKey } from '@/components/providers/ApiKeyProvider';
 import ApiKeyGate from '@/components/ApiKeyGate';
-import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
