@@ -168,6 +168,7 @@ export default function CategoryPage() {
   const id = params?.id as string;
   const firestore = useFirestore();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedAiTool, setSelectedAiTool] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [favorites, setFavorites] = useLocalStorage<any[]>('favorites', []);
   const { toast } = useToast();
@@ -488,6 +489,32 @@ export default function CategoryPage() {
                     </div>
                 </div>
             );
+        case 'style9': // AI Tools Style
+            return (
+                <div 
+                    key={`${item.id}-${idx}`} 
+                    className="flex flex-col gap-3 items-center group cursor-pointer animate-in fade-in zoom-in-95 duration-500"
+                    onClick={() => setSelectedAiTool(item)}
+                >
+                    <div className="relative w-full aspect-square bg-card rounded-[2.5rem] overflow-hidden shadow-lg border-4 border-white/5 transition-all duration-500 group-hover:shadow-primary/30">
+                        {item.imageUrl && (
+                            <div className="absolute inset-0 p-4 flex items-center justify-center">
+                                <div className="relative w-full h-full transform -rotate-12 group-hover:rotate-0 transition-transform duration-500">
+                                     <Image 
+                                        src={getDirectLink(item.imageUrl)} 
+                                        alt="" 
+                                        fill 
+                                        className="object-contain" 
+                                        referrerPolicy="no-referrer"
+                                    />
+                                </div>
+                            </div>
+                        )}
+                        <FavoriteButton isFavorite={isFav} onClick={(e) => { e.stopPropagation(); toggleFavorite(item); }} className="top-3 left-3 h-8 w-8" />
+                    </div>
+                    <h3 className="text-sm font-black text-center leading-tight group-hover:text-primary transition-colors">{item.title}</h3>
+                </div>
+            );
         default:
             return (
                 <div key={`${item.id}-${idx}`} className="relative bg-card rounded-[2.2rem] flex flex-col items-center justify-center cursor-pointer hover:bg-card/90 transition-all shadow-lg hover:shadow-primary/20 aspect-square text-center active:scale-95 group overflow-hidden border-4 border-white/5 animate-in fade-in zoom-in-95 duration-500">
@@ -644,6 +671,7 @@ export default function CategoryPage() {
                             category?.displayStyle === 'style4' ? "grid-cols-1" :
                             category?.displayStyle === 'style5' ? "grid-cols-1" :
                             category?.displayStyle === 'style8' ? "grid-cols-1 md:grid-cols-2" :
+                            category?.displayStyle === 'style9' ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4" :
                             "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
                         )}>
                             {filteredItems.map(renderItem)}
@@ -717,6 +745,59 @@ export default function CategoryPage() {
           <Button variant="ghost" size="icon" className="absolute top-4 right-4 text-white bg-black/40 hover:bg-black/60 rounded-full h-12 w-12 z-[100] backdrop-blur-md" onClick={() => setSelectedImage(null)}>
             <X className="h-7 w-7" />
           </Button>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!selectedAiTool} onOpenChange={() => setSelectedAiTool(null)}>
+        <DialogContent className="max-w-[90vw] sm:max-w-lg p-0 overflow-hidden bg-card rounded-[3rem] border-none shadow-2xl">
+          <DialogTitle className="sr-only">{selectedAiTool?.title}</DialogTitle>
+          {selectedAiTool && (
+            <div className="flex flex-col">
+                <div className="relative aspect-video w-full">
+                    {selectedAiTool.imageUrl && (
+                        <Image 
+                            src={getDirectLink(selectedAiTool.imageUrl)} 
+                            alt="" 
+                            fill 
+                            className="object-cover" 
+                            referrerPolicy="no-referrer"
+                        />
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                    <button 
+                        onClick={() => setSelectedAiTool(null)}
+                        className="absolute top-4 right-4 h-10 w-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-white/40 transition-colors"
+                    >
+                        <X size={20} />
+                    </button>
+                </div>
+                <div className="p-8 space-y-6">
+                    <div className="space-y-2">
+                        <h2 className="text-2xl font-black text-foreground">{selectedAiTool.title}</h2>
+                        <p className="text-muted-foreground font-bold text-sm leading-relaxed">{selectedAiTool.description || 'أداة ذكاء اصطناعي احترافية للمصممين.'}</p>
+                    </div>
+                    
+                    <div className="flex flex-col gap-3">
+                        {selectedAiTool.sourceUrl && (
+                            <Button 
+                                className="w-full h-14 rounded-2xl font-black text-lg gap-3 shadow-lg shadow-primary/20"
+                                onClick={() => window.open(selectedAiTool.sourceUrl, '_blank')}
+                            >
+                                <ExternalLink className="h-5 w-5" />
+                                زيارة الموقع
+                            </Button>
+                        )}
+                        <Button 
+                            variant="secondary"
+                            className="w-full h-14 rounded-2xl font-black text-lg gap-3"
+                            onClick={() => setSelectedAiTool(null)}
+                        >
+                            إغلاق
+                        </Button>
+                    </div>
+                </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

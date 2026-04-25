@@ -488,6 +488,7 @@ export default function AdminPage() {
         size: editingItem.size || '',
         screenshots: editingItem.screenshots || [],
         prompt: editingItem.prompt || '',
+        sourceUrl: editingItem.sourceUrl || '',
         showCopyButton: editingItem.showCopyButton !== false,
         showDownloadButton: editingItem.showDownloadButton !== false,
         order: items.length,
@@ -570,6 +571,7 @@ export default function AdminPage() {
         size: editingItem.size || '',
         screenshots: editingItem.screenshots || [],
         prompt: editingItem.prompt || '',
+        sourceUrl: editingItem.sourceUrl || '',
         showCopyButton: editingItem.showCopyButton !== false,
         showDownloadButton: editingItem.showDownloadButton !== false,
         updatedAt: new Date().toISOString()
@@ -2269,6 +2271,7 @@ export default function AdminPage() {
                                   <option value="style5">نسخ نصوص (Prompts)</option>
                                   <option value="style6">قائمة صوتيات متقدمة</option>
                                   <option value="style8">نمط الفيديو (Video)</option>
+                                  <option value="style9">أدوات الذكاء الاصطناعي (AI)</option>
                                 </select>
                               </div>
                               <div className="space-y-2 sm:space-y-3">
@@ -2422,6 +2425,7 @@ export default function AdminPage() {
                                   <option value="style5">نسخ نصوص (Prompts)</option>
                                   <option value="style6">قائمة صوتيات متقدمة</option>
                                   <option value="style8">نمط الفيديو (Video)</option>
+                                  <option value="style9">أدوات الذكاء الاصطناعي (AI)</option>
                                 </select>
                               </div>
                               <div className="space-y-2 sm:space-y-3">
@@ -2576,6 +2580,20 @@ export default function AdminPage() {
                                     type="url" 
                                     value={editingItem.downloadUrl || ''}
                                     onChange={(e) => setEditingItem({...editingItem, downloadUrl: e.target.value})}
+                                    className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all"
+                                    placeholder="https://..."
+                                  />
+                                </div>
+                              )}
+
+                              {/* Source URL for AI Tools */}
+                              {currentParentStyle === 'style9' && (
+                                <div className="space-y-2 sm:space-y-3">
+                                  <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">رابط موقع الأداة</label>
+                                  <input 
+                                    type="url" 
+                                    value={editingItem.sourceUrl || ''}
+                                    onChange={(e) => setEditingItem({...editingItem, sourceUrl: e.target.value})}
                                     className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all"
                                     placeholder="https://..."
                                   />

@@ -39,7 +39,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   ];
 
   const freeToolsNav = [
-    { label: 'إزالة خلفية الصور', tool: 'remove-bg', icon: Scissors },
+    { label: 'إزالة خلفية الصور', href: '/remove-bg', icon: Scissors },
     { label: 'فاحص تباين الألوان', tool: 'contrast', icon: Contrast },
     { label: 'استخراج الألوان من الصور', tool: 'palette', icon: Palette },
     { label: 'وصف الصور (ذكاء محلي)', tool: 'local-ai', icon: Wand2 },
