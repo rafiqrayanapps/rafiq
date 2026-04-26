@@ -121,7 +121,7 @@ export default function BackgroundRemovalPage() {
               <div className="px-2 py-0.5 bg-white/20 backdrop-blur-md rounded-full text-[8px] font-black uppercase tracking-tighter">خاص بالمجموعة</div>
             </div>
             <h2 className="text-2xl font-black leading-tight">أقوى أداة إزالة خلفية<br/> بدون استهلاك نقاطك!</h2>
-            <p className="text-xs font-bold text-blue-50 leading-relaxed opacity-90 max-w-[80%]">تتم المعالجة بالكامل داخل جهازك، المرة الأولى قد تتطلب ثوانٍ لتحميل "المحرك الذكي" وبعدها ستكون فورية.</p>
+            <p className="text-xs font-bold text-blue-50 leading-relaxed opacity-90 max-w-[80%]">تتم المعالجة بالكامل داخل جهازك، المرة الأولى قد تتطلب ثوانٍ لتحميل &quot;المحرك الذكي&quot; وبعدها ستكون فورية.</p>
           </div>
           <Scissors className="absolute -bottom-4 -left-4 text-white/10 w-32 h-32 rotate-12" />
         </motion.div>
