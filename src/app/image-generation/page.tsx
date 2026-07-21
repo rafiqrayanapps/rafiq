@@ -2,17 +2,20 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Image as ImageIcon, Zap, Download, RefreshCw, Key, Settings2, Info, Rocket, Palette, Edit3, Wand2, AlertCircle, Share2, Copy } from 'lucide-react';
+import { Sparkles, Image as ImageIcon, Zap, Download, RefreshCw, Key, Settings2, Info, Rocket, Palette, Edit3, Wand2, AlertCircle, Share2, Copy, Check, User } from 'lucide-react';
 import Image from 'next/image';
 import Header from '@/components/Header';
 import { GoogleGenAI } from "@google/genai";
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import { useApiKey } from '@/components/providers/ApiKeyProvider';
-import ApiKeyGate from '@/components/ApiKeyGate';
+import { useToolConfig } from '@/hooks/useToolConfig';
+import ToolGate from '@/components/ToolGate';
+import { useUsageLimit } from '@/hooks/useUsageLimit';
 
 export default function ImageGenerationPage() {
   const [prompt, setPrompt] = useState<string>('');
+  const [styleImage, setStyleImage] = useState<string | null>(null);
+  const [personImage, setPersonImage] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [errorInfo, setErrorInfo] = useState<{title: string, message: string} | null>(null);
@@ -21,9 +24,66 @@ export default function ImageGenerationPage() {
   const [editPrompt, setEditPrompt] = useState<string>('');
   const [aspectRatio, setAspectRatio] = useState<string>('1:1');
   const [selectedStyle, setSelectedStyle] = useState<string>('cinematic');
-  const { apiKey: userApiKey, hasKey } = useApiKey();
+  const [qualityMode, setQualityMode] = useState<'standard' | 'ultra' | 'imagen4'>('standard');
+  const [hasApiKey, setHasApiKey] = useState(false);
+  const [customApiKey, setCustomApiKey] = useState<string>('');
+  const [showSettings, setShowSettings] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const personFileInputRef = useRef<HTMLInputElement>(null);
+  const { config, loading: configLoading } = useToolConfig();
+  const { checkLimit, incrementUsage, limits } = useUsageLimit();
   
   const { toast } = useToast();
+
+  useEffect(() => {
+    const savedKey = localStorage.getItem('user_gemini_api_key');
+    if (savedKey) {
+      setCustomApiKey(savedKey);
+      setHasApiKey(true);
+    }
+
+    const checkKey = async () => {
+      if (typeof window !== 'undefined' && (window as any).aistudio?.hasSelectedApiKey) {
+        const selected = await (window as any).aistudio.hasSelectedApiKey();
+        setHasApiKey(selected);
+      }
+    };
+    checkKey();
+  }, []);
+
+  const handleOpenSelectKey = async () => {
+    if (typeof window !== 'undefined' && (window as any).aistudio?.openSelectKey) {
+      await (window as any).aistudio.openSelectKey();
+      // Assume success as per skill instructions
+      setHasApiKey(true);
+      setQualityMode('ultra');
+      toast({
+        title: "تم اختيار المفتاح",
+        description: "يمكنك الآن استهلاك جودة Ultra المتقدمة.",
+      });
+    } else {
+      setShowSettings(true);
+    }
+  };
+
+  const saveCustomKey = (key: string) => {
+    setCustomApiKey(key);
+    if (key) {
+      localStorage.setItem('user_gemini_api_key', key);
+      setHasApiKey(true);
+      toast({
+        title: "تم حفظ المفتاح",
+        description: "سيتم استخدام مفتاحك الخاص في عمليات التوليد.",
+      });
+    } else {
+      localStorage.removeItem('user_gemini_api_key');
+      setHasApiKey(false);
+      toast({
+        title: "تم إزالة المفتاح",
+        description: "سيتم العودة لاستخدام المفتاح الافتراضي.",
+      });
+    }
+  };
 
   const generateImage = async () => {
     if (!prompt.trim()) {
@@ -35,12 +95,21 @@ export default function ImageGenerationPage() {
       return;
     }
 
-    if (!hasKey) {
+    if (!config.imageGenId && qualityMode !== 'imagen4') {
       toast({
-        title: "مفتاح API مطلوب",
-        description: "يرجى إضافة مفتاح Gemini API من إعدادات القائمة الجانبية للمتابعة.",
+        title: "الأداة غير مفعلة",
+        description: "يرجى الانتظار لحين تفعيل هذه الأداة من قبل الإدارة.",
         variant: "destructive",
       });
+      return;
+    }
+
+    if (!checkLimit('imageGen')) {
+      setErrorInfo({
+        title: "وصلت للحد اليومي",
+        message: "لقد استنفدت محاولاتك الـ 10 لهذا اليوم في توليد الصور. يتم التجديد تلقائياً كل يوم جديد. 😊"
+      });
+      setIsErrorDialogOpen(true);
       return;
     }
 
@@ -49,32 +118,131 @@ export default function ImageGenerationPage() {
     setErrorInfo(null);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: userApiKey });
+      if (qualityMode === 'imagen4') {
+        // Use Cloudflare Imagen-4 API Route
+        const response = await fetch('/api/generate-image', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ prompt }),
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || 'فشل توليد الصورة عبر Imagen-4');
+        }
+
+        if (data.image) {
+          setGeneratedImage(data.image);
+          await incrementUsage('imageGen');
+        } else {
+          throw new Error("لم يتم تلقي صورة من خوادم Imagen-4");
+        }
+        return;
+      }
+
+      // Logic for selecting model and API key (Gemini):
+      const usePremium = qualityMode === 'ultra' && hasApiKey;
+      const apiKey = customApiKey || process.env.NEXT_PUBLIC_GEMINI_API_KEY || config.imageGenId;
+      const modelName = (usePremium || customApiKey) ? "gemini-3.1-flash-image-preview" : "gemini-2.5-flash-image";
+
+      if (!apiKey) {
+        throw new Error("Authentication error: Gemini API key is missing. Please provide a custom API key in settings.");
+      }
+
+      const ai = new GoogleGenAI({ apiKey: apiKey as string });
       
       const stylePrompts: Record<string, string> = {
-        'cinematic': 'PRO PHOTOGRAPHY STYLE: Professional cinematic film still, shot on 35mm lens, blockbuster movie lighting, high contrast, dramatic shadows, realistic textures, volumetric lighting. MANDATORY: The resulting image MUST be a realistic cinematic photo, ignore any conflicting style requests in the subject text.',
-        'anime': 'ANIME STYLE: High-quality modern anime illustration, Studio Ghibli vibes, hand-drawn aesthetic, vibrant colors, clean line art. MANDATORY: The resulting image MUST be an anime illustration, ignore any conflicting style requests in the subject text.',
-        '3d-render': '3D RENDER STYLE: Hyper-detailed 3D octane render, Raytraced, Unreal Engine 5 aesthetic, plastic and metallic textures, ambient occlusion. MANDATORY: The resulting image MUST be a 3D digital render.',
-        'oil-painting': 'OIL PAINTING STYLE: Classical oil on canvas, heavy impasto brushstrokes, artistic textures, fine art masterpiece. MANDATORY: The resulting image MUST be a traditional oil painting.',
-        'hyper-realistic': 'PHOTOREALISM: Hyper-realistic 8k photography, sharp focus, macro details, national geographic style, natural materials. MANDATORY: The resulting image MUST be a real-world photograph.',
-        'neon-cyberpunk': 'CYBERPUNK STYLE: Neon-drenched futuristic aesthetic, synthwave colors, rainy night city, bioluminescence, glowing accents. MANDATORY: The resulting image MUST be in a neon cyberpunk style.',
-        'digital-art': 'DIGITAL ART STYLE: Highly polished digital illustration, smooth shading, professional concept art, fantasy aesthetic. MANDATORY: The resulting image MUST be a digital painting.',
-        'minimalist': 'MINIMALIST STYLE: Clean flat design, pastel color palette, simple geometric shapes, high negative space, elegant composition. MANDATORY: The resulting image MUST be a minimalist graphic.',
+        'cinematic': 'CINEMATIC PHOTOGRAPHY: Professional film still, shot on 35mm lens, blockbuster lighting, realistic textures.',
+        'anime': 'ANIME ILLUSTRATION: High-quality modern anime, hand-drawn aesthetic, vibrant colors, clean line art.',
+        '3d-render': '3D DIGITAL RENDER: Hyper-detailed octane render, Raytraced, Unreal Engine 5 aesthetic, plastic and metallic textures.',
+        'oil-painting': 'TRADITIONAL OIL PAINTING: Classical canvas, heavy impasto brushstrokes, fine art masterpiece.',
+        'hyper-realistic': 'HYPER-REALISTIC PHOTOGRAPHY: 8k sharp focus, macro details, national geographic style.',
+        'neon-cyberpunk': 'CYBERPUNK NEON: Futuristic aesthetic, synthwave colors, rainy night city, glowing bioluminescence.',
+        'digital-art': 'PROFESSIONAL DIGITAL ART: Polished illustration, smooth shading, concept art style.',
+        'minimalist': 'MINIMALIST GRAPHIC: Clean flat design, pastel palette, simple geometric shapes, elegant composition.',
       };
 
-      const finalPrompt = `
-        IMAGE STYLE INSTRUCTION: ${stylePrompts[selectedStyle] || 'Natural artistic style'}.
-        IMAGE SUBJECT: ${prompt}.
-        STRICT REQUIREMENT: Strictly follow the IMAGE STYLE INSTRUCTION. If the IMAGE SUBJECT text contains style-related keywords (like "anime", "cartoon", "drawing") that conflict with the chosen ${selectedStyle} style, you MUST IGNORE those subject keywords and apply the ${selectedStyle} style to the core subject entities.
-      `;
+      let finalPrompt = "";
+      
+      if (styleImage && personImage) {
+        finalPrompt = `
+          IMAGE GENERATION REQUEST: IDENTITY SWAP.
+          
+          I have provided two reference images:
+          1. [STYLE_REFERENCE]: This image shows the background, lighting, artistic style, and clothing.
+          2. [IDENTITY_REFERENCE]: This image shows the EXACT PERSON (identity and face) who must be the subject.
+          
+          TASK: Create a single image that realistically places the person from [IDENTITY_REFERENCE] into the environment and clothing of [STYLE_REFERENCE].
+          
+          REQUIREMENTS:
+          - The face and identity MUST be matching the person in Image 2.
+          - The style, environment, and clothes MUST come from Image 1.
+          - Render this in the ${selectedStyle} style.
+          - Prompt context: ${prompt}.
+          - MANDATORY: Do not use the face from the first image.
+        `;
+      } else if (styleImage) {
+        finalPrompt = `
+          IMAGE GENERATION REQUEST: STYLE REFERENCE.
+          
+          I have provided a [STYLE_REFERENCE] image. Use its colors, composition, and aesthetic as a very strong guide.
+          
+          TASK: Generate a new image with this subject: ${prompt}.
+          STYLE: ${stylePrompts[selectedStyle] || 'Natural artistic style'}.
+          GUIDE: Follow the provided image's style and mood.
+        `;
+      } else if (personImage) {
+        finalPrompt = `
+          IMAGE GENERATION REQUEST: IDENTITY REFERENCE.
+          
+          I have provided an [IDENTITY_REFERENCE] image of a person. 
+          
+          TASK: Generate a new image featuring this EXACT person in the following situation: ${prompt}.
+          STYLE: ${stylePrompts[selectedStyle] || 'Natural artistic style'}.
+          GUIDE: Maintain the face, identity, and features of the person from the provided image.
+        `;
+      } else {
+        finalPrompt = `
+          IMAGE GENERATION REQUEST.
+          SUBJECT: ${prompt}.
+          STYLE: ${stylePrompts[selectedStyle] || 'Natural artistic style'}.
+        `;
+      }
+
+      const contents: any[] = [{ 
+        role: "user", 
+        parts: [
+          { text: finalPrompt },
+          ...(styleImage ? [
+            { text: "IMAGE 1 [STYLE_REFERENCE]:" },
+            { 
+              inlineData: { 
+                mimeType: styleImage.split(';')[0].split(':')[1], 
+                data: styleImage.split(',')[1] 
+              } 
+            }
+          ] : []),
+          ...(personImage ? [
+            { text: "IMAGE 2 [IDENTITY_REFERENCE]:" },
+            { 
+              inlineData: { 
+                mimeType: personImage.split(';')[0].split(':')[1], 
+                data: personImage.split(',')[1] 
+              } 
+            }
+          ] : [])
+        ] 
+      }];
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.1-flash-image-preview",
-        contents: [{ role: "user", parts: [{ text: finalPrompt }] }],
+        model: modelName,
+        contents: contents,
         config: {
           imageConfig: {
             aspectRatio: aspectRatio as any,
-            imageSize: "1K"
+            ...(usePremium ? { imageSize: "1K" } : {})
           }
         }
       });
@@ -92,6 +260,7 @@ export default function ImageGenerationPage() {
 
       if (foundImage) {
         setGeneratedImage(foundImage);
+        await incrementUsage('imageGen');
       } else {
         throw new Error("لم يتم العثور على صورة في استجابة الذكاء الاصطناعي.");
       }
@@ -126,10 +295,10 @@ export default function ImageGenerationPage() {
   const editImage = async () => {
     if (!editPrompt.trim() || !generatedImage) return;
 
-    if (!hasKey) {
+    if (!config.imageGenId) {
       toast({
-        title: "مفتاح API مطلوب",
-        description: "يرجى إضافة مفتاح Gemini API من إعدادات القائمة الجانبية للمتابعة.",
+        title: "الأداة غير مفعلة",
+        description: "يرجى الانتظار لحين تفعيل هذه الأداة من قبل الإدارة.",
         variant: "destructive",
       });
       return;
@@ -139,7 +308,15 @@ export default function ImageGenerationPage() {
     setErrorInfo(null);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: userApiKey });
+      const usePremium = qualityMode === 'ultra' && hasApiKey;
+      const apiKey = customApiKey || process.env.NEXT_PUBLIC_GEMINI_API_KEY || config.imageGenId;
+      const modelName = (usePremium || customApiKey) ? "gemini-3.1-flash-image-preview" : "gemini-2.5-flash-image";
+
+      if (!apiKey) {
+        throw new Error("Authentication error: Gemini API key is missing.");
+      }
+
+      const ai = new GoogleGenAI({ apiKey: apiKey as string });
       const base64Data = generatedImage.split(',')[1];
       const mimeType = generatedImage.split(';')[0].split(':')[1];
 
@@ -159,12 +336,12 @@ export default function ImageGenerationPage() {
       };
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.1-flash-image-preview",
+        model: modelName,
         contents: { parts: [imagePart, textPart] },
         config: {
           imageConfig: {
             aspectRatio: aspectRatio as any,
-            imageSize: "1K"
+            ...(usePremium ? { imageSize: "1K" } : {})
           }
         }
       });
@@ -190,7 +367,7 @@ export default function ImageGenerationPage() {
     } catch (error: any) {
       console.error('Error editing image:', error);
       let title = "خطأ في التعديل";
-      let errorMsg = "تعذر تعديل الصورة. يرجى التحقق من المفتاح أو المحاولة لاحقاً. 😊";
+      let errorMsg = "تعذر تعديل الصورة. يرجى التحقق من الإعدادات أو المحاولة لاحقاً. 😊";
 
       if (error?.message?.includes('quota') || error?.status === 429 || error?.message?.includes('permission denied') || error?.status === 403) {
         title = "نفدت النقاط اليومية ⏳";
@@ -207,6 +384,46 @@ export default function ImageGenerationPage() {
       });
     } finally {
       setIsEditing(false);
+    }
+  };
+
+  const handleStyleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setStyleImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handlePersonImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPersonImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeStyleImage = () => {
+    setStyleImage(null);
+  };
+
+  const removePersonImage = () => {
+    setPersonImage(null);
+  };
+
+  const applyQuickAction = (type: 'swap' | 'colors') => {
+    if (type === 'swap') {
+      setPrompt("قم بدمج ملامح الشخص في الصورة الثانية مع النمط والجو العام للصورة الأولى بشكل احترافي.");
+      toast({ title: "تم تطبيق الاقتراح", description: "سيتم دمج هويتك مع النمط المرفوع." });
+    } else if (type === 'colors') {
+      setPrompt("أعد تصميم المشهد في الصورة الأولى بشكل جديد تماماً مع الحفاظ على نفس لوحة الألوان والإضاءة الأصلية.");
+      toast({ title: "تم تطبيق الاقتراح", description: "سيتم الحفاظ على تناسق الألوان المرفوع." });
     }
   };
 
@@ -230,11 +447,60 @@ export default function ImageGenerationPage() {
       <Header title="توليد الصور الذكي" showBackButton compact />
       
       <main className="flex-1 px-6 pb-32 pt-8 container max-w-2xl mx-auto space-y-8">
-        <ApiKeyGate 
+        <ToolGate 
+          toolIdKey="imageGenId"
           title="توليد الصور بالذكاء الاصطناعي"
           description="حول كلماتك إلى صور مذهلة باستخدام أقوى نماذج الذكاء الاصطناعي من Google."
         >
-          <header className="text-center space-y-3">
+            {/* Usage Badge */}
+            <div className="flex justify-between items-center mb-4">
+              <button 
+                onClick={() => setShowSettings(!showSettings)}
+                className="bg-white/80 backdrop-blur-sm p-2 rounded-full border border-blue-100 shadow-sm text-gray-400 hover:text-primary transition-colors"
+                title="إعدادات المفتاح"
+              >
+                <Settings2 size={16} />
+              </button>
+              <div className="bg-white/80 backdrop-blur-sm px-3 py-1 rounded-full border border-blue-100 shadow-sm flex items-center gap-2">
+                <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                <span className="text-[10px] font-black text-gray-500">
+                  الاستخدام اليومي: {limits.imageGen} / 10
+                </span>
+              </div>
+            </div>
+
+            {/* API Key settings panel */}
+            <AnimatePresence>
+              {showSettings && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="overflow-hidden mb-6"
+                >
+                  <div className="bg-blue-50/50 rounded-3xl p-6 border border-blue-100 space-y-4">
+                    <div className="flex items-center gap-2 text-blue-600">
+                      <Key size={16} />
+                      <span className="text-xs font-black">مفتاح API الخاص بك (Gemini)</span>
+                    </div>
+                    <div className="relative">
+                      <input 
+                        type="password"
+                        value={customApiKey}
+                        onChange={(e) => saveCustomKey(e.target.value)}
+                        placeholder="أدخل مفتاح Gemini API هنا..."
+                        className="w-full bg-white border border-blue-100 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-primary/20"
+                      />
+                    </div>
+                    <p className="text-[9px] text-gray-400 font-bold leading-relaxed">
+                      * باستخدام مفتاحك الخاص، يمكنك تجاوز الحدود اليومية واستخدام نماذج أكثر تطوراً. يتم حفظ المفتاح محلياً على جهازك فقط.
+                    </p>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <header className="text-center space-y-3">
             <h1 className="text-3xl font-black text-[#1A1C1E] tracking-tight">توليد الصور</h1>
             <div className="inline-flex bg-white/80 backdrop-blur-sm px-4 py-1.5 rounded-full border border-blue-100 shadow-sm">
                 <p className="text-[#64748B] text-[11px] font-bold">حوّل خيالاتك إلى واقع بصري مذهل</p>
@@ -258,8 +524,155 @@ export default function ImageGenerationPage() {
                 placeholder="مثلاً: مدينة مستقبلية تحت الماء بأسلوب السايبربانك..."
                 className="w-full h-36 p-5 bg-[#F9FBFF] border border-blue-50 rounded-2xl text-xs font-bold leading-relaxed resize-none focus:ring-2 focus:ring-primary/10 outline-none transition-all placeholder:text-gray-300"
             />
+
+            {/* Quick Suggestions based on uploads */}
+            {(styleImage || personImage) && (
+              <div className="flex flex-wrap gap-2 pt-2">
+                {styleImage && personImage && (
+                  <button 
+                    onClick={() => applyQuickAction('swap')}
+                    className="px-3 py-2 bg-primary/5 text-primary rounded-xl text-[10px] font-black hover:bg-primary/10 transition-all flex items-center gap-2 border border-primary/10"
+                  >
+                    <User size={12} />
+                    <span>وجهي في النمط</span>
+                  </button>
+                )}
+                {styleImage && (
+                  <button 
+                    onClick={() => applyQuickAction('colors')}
+                    className="px-3 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-[10px] font-black hover:bg-indigo-100 transition-all flex items-center gap-2 border border-indigo-100"
+                  >
+                    <Palette size={12} />
+                    <span>تصميم بأسلوب الألوان</span>
+                  </button>
+                )}
+              </div>
+            )}
+            
+            {/* Dual Image Attachment */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Style Image */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between px-1">
+                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">صورة النمط (Style)</span>
+                  {styleImage && (
+                    <button onClick={removeStyleImage} className="text-[10px] font-black text-red-500 hover:opacity-70">
+                      حذف
+                    </button>
+                  )}
+                </div>
+                {!styleImage ? (
+                  <button 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full aspect-[4/3] border-2 border-dashed border-blue-50 rounded-2xl flex flex-col items-center justify-center gap-2 hover:bg-blue-50/50 transition-all group"
+                  >
+                    <div className="w-8 h-8 bg-blue-50 rounded-full flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform">
+                      <Palette size={16} />
+                    </div>
+                    <span className="text-[9px] font-black text-gray-400">ارفع النمط المطلوب</span>
+                  </button>
+                ) : (
+                  <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden border border-blue-100 bg-gray-50">
+                    <Image src={styleImage} alt="Style" fill className="object-cover" unoptimized />
+                  </div>
+                )}
+                <input type="file" ref={fileInputRef} onChange={handleStyleImageUpload} accept="image/*" className="hidden" />
+              </div>
+
+              {/* Person Image */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between px-1">
+                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">صورة الشخص (Person)</span>
+                  {personImage && (
+                    <button onClick={removePersonImage} className="text-[10px] font-black text-red-500 hover:opacity-70">
+                      حذف
+                    </button>
+                  )}
+                </div>
+                {!personImage ? (
+                  <button 
+                    onClick={() => personFileInputRef.current?.click()}
+                    className="w-full aspect-[4/3] border-2 border-dashed border-blue-50 rounded-2xl flex flex-col items-center justify-center gap-2 hover:bg-blue-50/50 transition-all group"
+                  >
+                    <div className="w-8 h-8 bg-orange-50 rounded-full flex items-center justify-center text-orange-400 group-hover:scale-110 transition-transform">
+                      <User size={16} />
+                    </div>
+                    <span className="text-[9px] font-black text-gray-400">ارفع صورة الشخص</span>
+                  </button>
+                ) : (
+                  <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden border border-blue-100 bg-gray-50">
+                    <Image src={personImage} alt="Person" fill className="object-cover" unoptimized />
+                  </div>
+                )}
+                <input type="file" ref={personFileInputRef} onChange={handlePersonImageUpload} accept="image/*" className="hidden" />
+              </div>
+            </div>
           </div>
 
+          {/* Quality Mode */}
+          <div className="bg-white p-6 rounded-[2.5rem] border border-blue-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-4">
+            <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-amber-50 rounded-xl flex items-center justify-center text-amber-500">
+                        <Sparkles className="h-4 w-4" />
+                    </div>
+                    <label className="text-sm font-black text-[#1A1C1E]">
+                        جودة ونموذج الصور
+                    </label>
+                </div>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => setQualityMode('standard')}
+                    className={cn(
+                      "px-3 py-1.5 rounded-full text-[10px] font-black transition-all",
+                      qualityMode === 'standard' ? "bg-primary text-white" : "bg-gray-100 text-gray-400"
+                    )}
+                  >
+                    Standard
+                  </button>
+                  <button 
+                    onClick={() => {
+                      if (!hasApiKey) {
+                        handleOpenSelectKey();
+                      } else {
+                        setQualityMode('ultra');
+                      }
+                    }}
+                    className={cn(
+                      "px-3 py-1.5 rounded-full text-[10px] font-black transition-all flex items-center gap-1",
+                      qualityMode === 'ultra' ? "bg-amber-500 text-white" : "bg-gray-100 text-gray-400"
+                    )}
+                  >
+                    Ultra {qualityMode === 'ultra' && <Check className="h-3 w-3" />}
+                  </button>
+                  <button 
+                    onClick={() => setQualityMode('imagen4')}
+                    className={cn(
+                      "px-3 py-1.5 rounded-full text-[10px] font-black transition-all flex items-center gap-1",
+                      qualityMode === 'imagen4' ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-400"
+                    )}
+                  >
+                    Imagen-4 {qualityMode === 'imagen4' && <Check className="h-3 w-3" />}
+                  </button>
+                </div>
+            </div>
+            {qualityMode === 'ultra' && !hasApiKey && (
+              <p className="text-[10px] text-amber-600 font-bold bg-amber-50 p-3 rounded-xl border border-amber-100">
+                ⚠️ جودة Ultra تتطلب ربط مفتاح API مدفوع خاص بك.
+              </p>
+            )}
+            {qualityMode === 'ultra' && hasApiKey && (
+              <p className="text-[10px] text-green-600 font-bold bg-green-50 p-3 rounded-xl border border-green-100">
+                ✨ جودة Ultra مفعلة عبر مفتاحك الخاص (Gemini 3.1 Preview).
+              </p>
+            )}
+            {qualityMode === 'imagen4' && (
+              <p className="text-[10px] text-indigo-600 font-bold bg-indigo-50 p-3 rounded-xl border border-indigo-100">
+                🚀 نموذج Imagen-4 (Beta): يتميز بدقة عالية في تنفيذ التفاصيل المعقدة والنصوص.
+              </p>
+            )}
+          </div>
+          
           {/* Style Selection - Horizontal Scrollable or Grid capsules */}
           <div className="bg-white p-6 rounded-[2.5rem] border border-blue-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-4">
             <div className="flex items-center gap-3 px-1">
@@ -391,14 +804,24 @@ export default function ImageGenerationPage() {
                         </div>
 
                         {/* Image Actions Bar */}
-                        <div className="p-6 bg-white/80 backdrop-blur-md border-t border-blue-50 flex items-center justify-center gap-4">
+                        <div className="p-6 bg-white/80 backdrop-blur-md border-t border-blue-50 flex flex-wrap items-center justify-center gap-3">
                             <button 
                                 onClick={downloadImage}
-                                className="flex-1 max-w-[140px] flex items-center justify-center gap-2 bg-[#F8FAFF] text-[#64748B] py-3.5 rounded-2xl text-[10px] font-black hover:bg-blue-50 transition-colors border border-blue-100 shadow-sm"
+                                className="flex-1 min-w-[120px] flex items-center justify-center gap-2 bg-[#F8FAFF] text-[#64748B] py-3.5 rounded-2xl text-[10px] font-black hover:bg-blue-50 transition-colors border border-blue-100 shadow-sm"
                             >
                                 <Download className="h-4 w-4" />
-                                <span>حفظ الصورة</span>
+                                <span>تحميل الصورة</span>
                             </button>
+                            
+                            <button 
+                                onClick={generateImage}
+                                disabled={isGenerating}
+                                className="flex-1 min-w-[120px] flex items-center justify-center gap-2 bg-primary/10 text-primary py-3.5 rounded-2xl text-[10px] font-black hover:bg-primary/20 transition-colors border border-primary/20 shadow-sm"
+                            >
+                                <RefreshCw className={cn("h-4 w-4", isGenerating && "animate-spin")} />
+                                <span>توليد مرة أخرى</span>
+                            </button>
+
                             <button 
                                 className="w-12 h-12 flex items-center justify-center bg-[#F8FAFF] text-[#64748B] rounded-2xl border border-blue-100 hover:bg-blue-50 transition-colors"
                             >
@@ -450,7 +873,7 @@ export default function ImageGenerationPage() {
             )}
           </AnimatePresence>
         </div>
-        </ApiKeyGate>
+        </ToolGate>
       </main>
 
       {/* Professional Error Dialog */}

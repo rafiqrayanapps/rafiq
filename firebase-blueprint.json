@@ -1,5 +1,14 @@
 {
   "entities": {
+    "AIConfig": {
+      "title": "AI Configuration",
+      "description": "Settings for different AI models",
+      "type": "object",
+      "properties": {
+        "model_id": { "type": "string" },
+        "prompt_template": { "type": "string" }
+      }
+    },
     "AppConfig": {
       "title": "App Configuration",
       "description": "Global application configuration",
@@ -86,9 +95,39 @@
         "active": { "type": "boolean" }
       },
       "required": ["type", "label", "value", "actionUrl"]
+    },
+    "UserStats": {
+      "title": "User Stats",
+      "description": "Tracking user tool usage and limits",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "lastReset": { "type": "string", "format": "date" },
+        "imageGenCount": { "type": "number" },
+        "chatCount": { "type": "number" },
+        "promptGenCount": { "type": "number" }
+      },
+      "required": ["userId", "lastReset"]
+    },
+    "ToolSettings": {
+      "title": "Tool Settings",
+      "description": "Global settings for tool IDs (e.g. Cloudflare Worker IDs)",
+      "type": "object",
+      "properties": {
+        "chatId": { "type": "string" },
+        "imageGenId": { "type": "string" },
+        "promptGenId": { "type": "string" },
+        "storyGenId": { "type": "string" },
+        "globalApiKey": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
     }
   },
   "firestore": {
+    "/toolConfig/global": {
+      "schema": "ToolSettings",
+      "description": "Global configuration for tool IDs"
+    },
     "/appConfig/{configId}": {
       "schema": "AppConfig",
       "description": "Collection for application configuration"
@@ -112,6 +151,14 @@
     "/contacts/{contactId}": {
       "schema": "ContactItem",
       "description": "Collection of contact methods"
+    },
+    "/userStats/{userId}": {
+      "schema": "UserStats",
+      "description": "Collection of user-specific tool usage statistics"
+    },
+    "/settings/{configId}": {
+      "schema": "AIConfig",
+      "description": "Dynamic AI model configurations"
     }
   }
 }

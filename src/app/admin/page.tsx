@@ -43,7 +43,7 @@ export default function AdminPage() {
   const { user, isAdmin, isEditor, loading, loginWithGoogle, logout } = useAuth();
   const [currentDomain, setCurrentDomain] = useState('');
   const [copySuccess, setCopySuccess] = useState(false);
-  const [activeTab, setActiveTab] = useState<'menu' | 'users' | 'content' | 'colors' | 'notifications' | 'dialog' | 'floatingButton' | 'about' | 'contact'>('menu');
+  const [activeTab, setActiveTab] = useState<'menu' | 'users' | 'content' | 'colors' | 'notifications' | 'dialog' | 'floatingButton' | 'about' | 'contact' | 'tools' | 'ads'>('menu');
   const [viewLevel, setViewLevel] = useState<'categories' | 'subcategories' | 'items'>('categories');
   const router = useRouter();
 
@@ -167,6 +167,22 @@ export default function AdminPage() {
   const [fbDuration, setFbDuration] = useState(30);
   const [isFbActive, setIsFbActive] = useState(false);
 
+  // Tool Config State
+  const { data: toolConfig } = useDoc('toolConfig', 'global');
+  const [chatId, setChatId] = useState('');
+  const [imageGenId, setImageGenId] = useState('');
+  const [promptGenId, setPromptGenId] = useState('');
+  const [storyGenId, setStoryGenId] = useState('');
+  const [globalApiKey, setGlobalApiKey] = useState('');
+
+  // Ads Config State
+  const { data: adsConfig } = useDoc('appConfig', 'ads');
+  const [showAds, setShowAds] = useState(false);
+  const [showHomeAd, setShowHomeAd] = useState(true);
+  const [showContentAds, setShowContentAds] = useState(true);
+  const [adScript, setAdScript] = useState('');
+  const [inlineAdFrequency, setInlineAdFrequency] = useState(4);
+
   // Dynamic Contacts State
   const { data: contactsData } = useCollection('contacts');
   const [editingContact, setEditingContact] = useState<any>(null);
@@ -213,6 +229,26 @@ export default function AdminPage() {
       setIsFbActive(fbConfig.isActive || false);
     }
   }, [fbConfig]);
+
+  useEffect(() => {
+    if (toolConfig) {
+      setChatId(toolConfig.chatId || '');
+      setImageGenId(toolConfig.imageGenId || '');
+      setPromptGenId(toolConfig.promptGenId || '');
+      setStoryGenId(toolConfig.storyGenId || '');
+      setGlobalApiKey(toolConfig.globalApiKey || '');
+    }
+  }, [toolConfig]);
+
+  useEffect(() => {
+    if (adsConfig) {
+      setShowAds(adsConfig.showAds ?? false);
+      setShowHomeAd(adsConfig.showHomeAd ?? true);
+      setShowContentAds(adsConfig.showContentAds ?? true);
+      setAdScript(adsConfig.adScript ?? '');
+      setInlineAdFrequency(adsConfig.inlineAdFrequency ?? 4);
+    }
+  }, [adsConfig]);
 
   const { data: allCategoriesData } = useCollection('categories');
   const { data: notifications } = useCollection('notifications');
@@ -396,6 +432,44 @@ export default function AdminPage() {
       toast({ title: "تم النجاح", description: "تم تحديث إعدادات الزر العائم بنجاح!" });
     } catch (error: any) {
       handleFirestoreError(error, OperationType.UPDATE, 'appConfig/floatingButton');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleUpdateTools = async () => {
+    setIsSaving(true);
+    try {
+      await setDoc(doc(db, 'toolConfig', 'global'), {
+        chatId,
+        imageGenId,
+        promptGenId,
+        storyGenId,
+        globalApiKey,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+      toast({ title: "تم النجاح", description: "تم تحديث معرفات الأدوات بنجاح!" });
+    } catch (error: any) {
+      handleFirestoreError(error, OperationType.UPDATE, 'toolConfig/global');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleUpdateAds = async () => {
+    setIsSaving(true);
+    try {
+      await setDoc(doc(db, 'appConfig', 'ads'), {
+        showAds,
+        showHomeAd,
+        showContentAds,
+        adScript,
+        inlineAdFrequency,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+      toast({ title: "تم النجاح", description: "تم تحديث إعدادات الإعلانات بنجاح!" });
+    } catch (error: any) {
+      handleFirestoreError(error, OperationType.UPDATE, 'appConfig/ads');
     } finally {
       setIsSaving(false);
     }
@@ -687,6 +761,8 @@ export default function AdminPage() {
       case 'floatingButton': return 'الزر العائم';
       case 'about': return 'من نحن';
       case 'contact': return 'تواصل معنا';
+      case 'tools': return 'إعدادات الأدوات الاحترافية';
+      case 'ads': return 'إعدادات الإعلانات';
       default: return 'لوحة التحكم';
     }
   };
@@ -784,12 +860,14 @@ export default function AdminPage() {
                         items: [
                           { id: 'content', label: 'المحتوى والأقسام', icon: Home, desc: 'إدارة الأقسام والمنشورات' },
                           { id: 'users', label: 'المستخدمين', icon: Users, desc: 'إدارة صلاحيات الوصول' },
+                          { id: 'tools', label: 'إعدادات الأدوات', icon: Hammer, desc: 'تغيير معرفات Cloudflare للادوات' },
                         ]
                       },
                       {
                         title: 'المظهر والهوية',
                         items: [
                           { id: 'colors', label: 'ألوان الموقع', icon: Palette, desc: 'تخصيص ألوان الواجهة' },
+                          { id: 'ads', label: 'إعلانات الموقع', icon: Award, desc: 'إدارة إعلانات Adsterra وشفراتها' },
                         ]
                       },
                       {
@@ -1848,6 +1926,243 @@ export default function AdminPage() {
                         className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-sm hover:opacity-90 transition-all shadow-lg active:scale-95 disabled:opacity-50"
                       >
                         {isSaving ? 'جاري الحفظ...' : 'حفظ إعدادات الزر العائم'}
+                      </button>
+                    </div>
+                  </section>
+                </motion.div>
+              ) : activeTab === 'tools' ? (
+                <motion.div
+                  key="tools"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="space-y-8"
+                >
+                  <section className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100">
+                    <div className="flex items-center gap-3 mb-8">
+                      <div className="w-10 h-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center">
+                        <Hammer size={20} />
+                      </div>
+                      <h2 className="text-xl font-bold">إعدادات الأدوات (Copy ID)</h2>
+                    </div>
+
+                    <div className="space-y-6">
+                      <div className="p-6 bg-red-50 border border-red-100 rounded-2xl flex items-start gap-4 mb-4">
+                        <AlertTriangle className="text-red-500 shrink-0 mt-1" size={20} />
+                        <div className="space-y-1">
+                          <p className="text-sm font-black text-red-900">تنبيه هام</p>
+                          <p className="text-xs text-red-700 leading-relaxed font-bold">هذه المعرفات هي مفاتيح تشغيل الأدوات. إذا تركت الحقل فارغاً، سيتم تعطيل الأداة تلقائياً للمستخدمين مع رسالة تخبرهم بأن الأداة معطلة من قبل الإدارة.</p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-6">
+                        <div className="space-y-2">
+                          <label className="text-xs font-black text-gray-400 uppercase tracking-wider block ml-2">معرف أداة الدردشة الذكية (Chat Worker ID)</label>
+                          <div className="relative">
+                            <input 
+                              type="text" 
+                              value={chatId}
+                              onChange={(e) => setChatId(e.target.value)}
+                              className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all ltr"
+                              dir="ltr"
+                              placeholder="أدخل Copy ID من Cloudflare..."
+                            />
+                            {chatId && <div className="absolute left-4 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-green-500 shadow-sm shadow-green-200" />}
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-xs font-black text-gray-400 uppercase tracking-wider block ml-2">معرف أداة توليد الصور (Image Gen ID)</label>
+                          <div className="relative">
+                            <input 
+                              type="text" 
+                              value={imageGenId}
+                              onChange={(e) => setImageGenId(e.target.value)}
+                              className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all ltr"
+                              dir="ltr"
+                              placeholder="أدخل Copy ID من Cloudflare..."
+                            />
+                            {imageGenId && <div className="absolute left-4 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-green-500 shadow-sm shadow-green-200" />}
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-xs font-black text-gray-400 uppercase tracking-wider block ml-2">معرف أداة تحليل الصور (Prompt Gen ID)</label>
+                          <div className="relative">
+                            <input 
+                              type="text" 
+                              value={promptGenId}
+                              onChange={(e) => setPromptGenId(e.target.value)}
+                              className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all ltr"
+                              dir="ltr"
+                              placeholder="أدخل Copy ID من Cloudflare..."
+                            />
+                            {promptGenId && <div className="absolute left-4 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-green-500 shadow-sm shadow-green-200" />}
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-xs font-black text-gray-400 uppercase tracking-wider block ml-2">معرف مولد القصص (Story Gen ID)</label>
+                          <div className="relative">
+                            <input 
+                              type="text" 
+                              value={storyGenId}
+                              onChange={(e) => setStoryGenId(e.target.value)}
+                              className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all ltr"
+                              dir="ltr"
+                              placeholder="أدخل مفتاح Gemini المخصص..."
+                            />
+                            {storyGenId && <div className="absolute left-4 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-green-500 shadow-sm shadow-green-200" />}
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-xs font-black text-gray-400 uppercase tracking-wider block ml-2">مفتاح API العالمي (Global Gemini Key)</label>
+                          <div className="relative">
+                            <input 
+                              type="password" 
+                              value={globalApiKey}
+                              onChange={(e) => setGlobalApiKey(e.target.value)}
+                              className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all ltr"
+                              dir="ltr"
+                              placeholder="مفتاح احتياطي لكل الأدوات..."
+                            />
+                            {globalApiKey && <div className="absolute left-4 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-green-500 shadow-sm shadow-green-200" />}
+                          </div>
+                        </div>
+                      </div>
+
+                      <button 
+                        onClick={handleUpdateTools}
+                        disabled={isSaving}
+                        className="w-full text-white h-14 rounded-2xl font-black text-sm hover:opacity-90 transition-all shadow-xl active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 mt-4"
+                        style={{ background: 'var(--primary-gradient)' }}
+                      >
+                        {isSaving ? (
+                          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        ) : <ShieldCheck size={20} />}
+                        {isSaving ? 'جاري الحفظ...' : 'حفظ وإرسال التغييرات'}
+                      </button>
+                    </div>
+                  </section>
+                </motion.div>
+              ) : activeTab === 'ads' ? (
+                <motion.div
+                  key="ads"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="space-y-8"
+                >
+                  <section className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100">
+                    <div className="flex items-center gap-3 mb-8">
+                      <div className="w-10 h-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center">
+                        <Award size={20} />
+                      </div>
+                      <h2 className="text-xl font-bold">إدارة الإعلانات وشبكة Adsterra</h2>
+                    </div>
+
+                    <div className="space-y-6">
+                      <div className="flex items-center justify-between p-6 bg-gray-50 rounded-2xl border border-gray-100">
+                        <div>
+                          <p className="font-bold">تفعيل الإعلانات على الموقع</p>
+                          <p className="text-xs text-gray-400">تشغيل أو إيقاف الإعلانات ديناميكياً لجميع المستخدمين</p>
+                        </div>
+                        <button 
+                          onClick={() => setShowAds(!showAds)}
+                          className={cn(
+                            "w-14 h-8 rounded-full transition-all relative",
+                            showAds ? "bg-primary" : "bg-gray-300"
+                          )}
+                        >
+                          <span className={cn(
+                            "w-6 h-6 bg-white rounded-full absolute top-1 transition-all shadow-sm",
+                            showAds ? "left-1" : "right-1"
+                          )} />
+                        </button>
+                      </div>
+
+                      {showAds && (
+                        <div className="mr-6 pr-6 border-r-2 border-gray-100 space-y-4">
+                          <div className="flex items-center justify-between p-4 bg-gray-50/50 rounded-2xl border border-gray-100/50">
+                            <div>
+                              <p className="font-bold text-sm">عرض الإعلان في الصفحة الرئيسية</p>
+                              <p className="text-xs text-gray-400">يظهر الإعلان بشكل ثابت في أسفل الشاشة الرئيسية دون حجب المحتوى</p>
+                            </div>
+                            <button 
+                              onClick={() => setShowHomeAd(!showHomeAd)}
+                              className={cn(
+                                "w-12 h-7 rounded-full transition-all relative",
+                                showHomeAd ? "bg-primary" : "bg-gray-300"
+                              )}
+                            >
+                              <span className={cn(
+                                "w-5 h-5 bg-white rounded-full absolute top-1 transition-all shadow-sm",
+                                showHomeAd ? "left-1" : "right-1"
+                              )} />
+                            </button>
+                          </div>
+
+                          <div className="flex items-center justify-between p-4 bg-gray-50/50 rounded-2xl border border-gray-100/50">
+                            <div>
+                              <p className="font-bold text-sm">عرض الإعلانات في المحتوى</p>
+                              <p className="text-xs text-gray-400">عرض الإعلانات داخل الأقسام والتصنيفات بين المنشورات</p>
+                            </div>
+                            <button 
+                              onClick={() => setShowContentAds(!showContentAds)}
+                              className={cn(
+                                "w-12 h-7 rounded-full transition-all relative",
+                                showContentAds ? "bg-primary" : "bg-gray-300"
+                              )}
+                            >
+                              <span className={cn(
+                                "w-5 h-5 bg-white rounded-full absolute top-1 transition-all shadow-sm",
+                                showContentAds ? "left-1" : "right-1"
+                              )} />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="space-y-2">
+                        <label className="text-xs font-black text-gray-400 uppercase tracking-wider block ml-2">شفرة إعلانات Adsterra الأساسية (adScript)</label>
+                        <p className="text-xs text-gray-400 leading-relaxed font-bold mb-2">أدخل الكود البرمجي (Script) المستلم من لوحة تحكم Adsterra. سيتم حقنه تلقائياً في أماكن الإعلانات عند تفعيل الخيار أعلاه.</p>
+                        <textarea 
+                          value={adScript}
+                          onChange={(e) => setAdScript(e.target.value)}
+                          rows={8}
+                          className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-mono outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all ltr"
+                          dir="ltr"
+                          placeholder={`<!-- Example Adsterra Code -->\n<script type="text/javascript">\n\tatOptions = {\n\t\t'key' : 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',\n\t\t'format' : 'iframe',\n\t\t'height' : 250,\n\t\t'width' : 300,\n\t\t'params' : {}\n\t};\n</script>\n<script type="text/javascript" src="//www.highperformanceformat.com/xxxxxxxx/invoke.js"></script>`}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-xs font-black text-gray-400 uppercase tracking-wider block ml-2">تكرار الإعلانات المدمجة في الأقسام</label>
+                        <p className="text-xs text-gray-400 leading-relaxed font-bold mb-2">اختر عدد المنشورات التي تظهر بين كل إعلان مدمج (مثلاً: كل 4 أو 6 أو 8 منشورات).</p>
+                        <select 
+                          value={inlineAdFrequency}
+                          onChange={(e) => setInlineAdFrequency(parseInt(e.target.value))}
+                          className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all appearance-none"
+                        >
+                          <option value={4}>كل 4 منشورات</option>
+                          <option value={6}>كل 6 منشورات</option>
+                          <option value={8}>كل 8 منشورات</option>
+                          <option value={10}>كل 10 منشورات</option>
+                          <option value={12}>كل 12 منشوراً</option>
+                        </select>
+                      </div>
+
+                      <button 
+                        onClick={handleUpdateAds}
+                        disabled={isSaving}
+                        className="w-full text-white h-14 rounded-2xl font-black text-sm hover:opacity-90 transition-all shadow-xl active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 mt-4"
+                        style={{ background: 'var(--primary-gradient)' }}
+                      >
+                        {isSaving ? (
+                          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        ) : <ShieldCheck size={20} />}
+                        {isSaving ? 'جاري الحفظ...' : 'حفظ إعدادات الإعلانات'}
                       </button>
                     </div>
                   </section>

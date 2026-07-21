@@ -22,6 +22,7 @@ const tajawal = Tajawal({
 export const metadata: Metadata = {
   title: "رفيق المصمم",
   description: "تطبيق رفيق المصمم - كل ما يحتاجه المصمم في مكان واحد",
+  manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

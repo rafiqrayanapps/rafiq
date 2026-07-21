@@ -8,8 +8,9 @@ import Image from 'next/image';
 import { GoogleGenAI } from "@google/genai";
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import { useApiKey } from '@/components/providers/ApiKeyProvider';
-import ApiKeyGate from '@/components/ApiKeyGate';
+import { useToolConfig } from '@/hooks/useToolConfig';
+import ToolGate from '@/components/ToolGate';
+import { useUsageLimit } from '@/hooks/useUsageLimit';
 
 export default function ImageToPromptPage() {
   const [image, setImage] = useState<string | null>(null);
@@ -21,13 +22,40 @@ export default function ImageToPromptPage() {
   const [targetText, setTargetText] = useState<string>('');
   const [aspectRatio, setAspectRatio] = useState<string>('1:1');
   const [selectedStyle, setSelectedStyle] = useState<string>('default');
-  const { apiKey: userApiKey, hasKey } = useApiKey();
+  const [customApiKey, setCustomApiKey] = useState<string>('');
+  const [showSettings, setShowSettings] = useState(false);
+  const { config, loading: configLoading } = useToolConfig();
+  const { checkLimit, incrementUsage, limits } = useUsageLimit();
   
   const [isErrorDialogOpen, setIsErrorDialogOpen] = useState(false);
   const [errorInfo, setErrorInfo] = useState<{title: string, message: string} | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    const savedKey = localStorage.getItem('user_gemini_api_key');
+    if (savedKey) {
+      setCustomApiKey(savedKey);
+    }
+  }, []);
+
+  const saveCustomKey = (key: string) => {
+    setCustomApiKey(key);
+    if (key) {
+      localStorage.setItem('user_gemini_api_key', key);
+      toast({
+        title: "تم حفظ المفتاح",
+        description: "سيتم استخدام مفتاح Gemini الخاص بك في تحليل الصور.",
+      });
+    } else {
+      localStorage.removeItem('user_gemini_api_key');
+      toast({
+        title: "تم إزالة المفتاح",
+        description: "سيتم العودة للمفتاح الافتراضي.",
+      });
+    }
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -48,12 +76,21 @@ export default function ImageToPromptPage() {
   const generatePrompt = async () => {
     if (!image) return;
 
-    if (!hasKey) {
+    if (!config.promptGenId) {
       toast({
-        title: "مفتاح API مطلوب",
-        description: "يرجى إضافة مفتاح Gemini API من إعدادات القائمة الجانبية للمتابعة.",
+        title: "الأداة غير مفعلة",
+        description: "يرجى الانتظار لحين تفعيل هذه الأداة من قبل الإدارة.",
         variant: "destructive",
       });
+      return;
+    }
+
+    if (!checkLimit('promptGen')) {
+      setErrorInfo({
+        title: "وصلت للحد اليومي",
+        message: "لقد استنفدت محاولاتك الـ 10 لهذا اليوم في تحويل الصور لبرومبت. يتم التجديد تلقائياً كل يوم جديد. 😊"
+      });
+      setIsErrorDialogOpen(true);
       return;
     }
 
@@ -61,7 +98,13 @@ export default function ImageToPromptPage() {
     setPrompt(null);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: userApiKey });
+      const apiKey = customApiKey || process.env.NEXT_PUBLIC_GEMINI_API_KEY || config.promptGenId;
+      
+      if (!apiKey) {
+        throw new Error("Authentication error: Gemini API key is missing.");
+      }
+
+      const ai = new GoogleGenAI({ apiKey: apiKey as string });
       
       const base64Data = image.split(',')[1];
       const mimeType = image.split(';')[0].split(':')[1];
@@ -73,8 +116,7 @@ export default function ImageToPromptPage() {
         },
       };
 
-      const textPart = {
-        text: activeMode === 'logo_swap' 
+      const promptText = activeMode === 'logo_swap' 
           ? `TASK: Logo/Sign Replacement. 
              1. Content Update: Change the primary logo, text, or sign in the image to say exactly: "${targetText}".
              2. Contextual Preservation: The new text "${targetText}" must perfectly match the lighting, texture, material, and perspective of the original logo/sign area. 
@@ -117,16 +159,16 @@ export default function ImageToPromptPage() {
              
              Final output must include the aspect ratio: --ar ${aspectRatio}
              
-             Output format: Provide a single, long, comma-separated descriptive prompt string in English. End with the aspect ratio parameter. Just the raw prompt content.`,
-      };
+             Output format: Provide a single, long, comma-separated descriptive prompt string in English. End with the aspect ratio parameter. Just the raw prompt content.`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview", 
-        contents: { parts: [imagePart, textPart] },
+        model: "gemini-3-flash-preview",
+        contents: { parts: [imagePart, { text: promptText }] },
       });
 
-      const result = response.text;
-      setPrompt(result || "فشل في إنشاء الوصف. حاول مرة أخرى.");
+      const responseText = response.text;
+      setPrompt(responseText || "فشل في إنشاء الوصف. حاول مرة أخرى.");
+      await incrementUsage('promptGen');
       toast({ title: "اكتمل التحليل", description: "تم استخراج الوصف من الصورة بنجاح." });
     } catch (error: any) {
       console.error('Error generating prompt:', error);
@@ -170,10 +212,59 @@ export default function ImageToPromptPage() {
       <Header title="تحويل الصورة لبرومبت" showBackButton compact />
       
       <main className="flex-1 px-6 pb-32 pt-4 container max-w-2xl mx-auto space-y-6">
-        <ApiKeyGate 
+        <ToolGate 
+          toolIdKey="promptGenId"
           title="تحويل الصورة لبرومبت"
           description="حلّل صورك واستخرج منها أوصافاً دقيقة (Prompts) لتحسين عملك الإبداعي."
         >
+          {/* Settings Toggle and Usage */}
+          <div className="flex justify-between items-center mb-6">
+            <button 
+                onClick={() => setShowSettings(!showSettings)}
+                className="bg-card hover:bg-accent/5 p-3 rounded-[1.5rem] border border-border shadow-sm text-muted-foreground hover:text-primary transition-all flex items-center gap-2"
+                title="إعدادات المفتاح"
+              >
+                <Settings2 size={18} />
+                <span className="text-[10px] font-black uppercase tracking-widest">إعدادات API</span>
+            </button>
+            <div className="bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full border border-blue-100 shadow-sm flex items-center gap-2">
+              <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+              <span className="text-[10px] font-black text-gray-500">
+                الاستخدام اليومي: {limits.promptGen} / 10
+              </span>
+            </div>
+          </div>
+
+          <AnimatePresence>
+            {showSettings && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="overflow-hidden mb-8"
+              >
+                <div className="bg-primary/5 rounded-[2.5rem] p-8 border border-primary/10 space-y-4">
+                  <div className="flex items-center gap-2 text-primary">
+                    <Key size={18} />
+                    <span className="text-xs font-black">مفتاح API الخاص بك (Gemini)</span>
+                  </div>
+                  <div className="relative">
+                    <input 
+                      type="password"
+                      value={customApiKey}
+                      onChange={(e) => saveCustomKey(e.target.value)}
+                      placeholder="أدخل مفتاح Gemini API هنا..."
+                      className="w-full bg-card border border-border rounded-xl px-6 py-4 text-xs font-bold outline-none focus:ring-2 focus:ring-primary/20"
+                    />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground font-bold leading-relaxed px-2">
+                    * استخدام مفاتيحك الخاصة يضمن لك خدمة أسرع وحدود استخدام أكبر. المعلومات مشفرة ومحفوظة محلياً فقط.
+                  </p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <header className="text-center space-y-1">
             <h1 className="text-xl font-black text-foreground">ذكاء اصطناعي (API)</h1>
             <p className="text-muted-foreground text-xs">حوّل صورك إلى أوصاف دقيقة باستخدام Gemini API</p>
@@ -502,7 +593,7 @@ export default function ImageToPromptPage() {
             </div>
           )}
         </AnimatePresence>
-        </ApiKeyGate>
+        </ToolGate>
       </main>
     </div>
   );

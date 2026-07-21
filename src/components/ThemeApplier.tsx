@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useDoc, useMemoFirebase, useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
 
@@ -8,10 +8,35 @@ export default function ThemeApplier() {
   const firestore = useFirestore();
   const themeRef = useMemoFirebase(() => doc(firestore, 'appConfig', 'theme'), [firestore]);
   const { data: theme } = useDoc(themeRef);
+  const [activeTheme, setActiveTheme] = useState<any>(null);
 
+  // 1. Initial load from localStorage (Offline Fallback)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem('cached-app-theme');
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          setActiveTheme(parsed);
+        } catch (e) {
+          console.error("Error parsing cached theme", e);
+        }
+      }
+    }
+  }, []);
+
+  // 2. Save fetched Firestore theme to localStorage and set it as active
   useEffect(() => {
     if (theme) {
-      const mode = theme.themeMode || 'light';
+      localStorage.setItem('cached-app-theme', JSON.stringify(theme));
+      setActiveTheme(theme);
+    }
+  }, [theme]);
+
+  // 3. Apply active theme settings
+  useEffect(() => {
+    if (activeTheme) {
+      const mode = activeTheme.themeMode || 'light';
       const isDarkFirestore = mode === 'dark';
       const isHighContrast = mode === 'high-contrast';
       
@@ -22,30 +47,41 @@ export default function ThemeApplier() {
 
       const updateColors = () => {
         const isDark = document.documentElement.classList.contains('dark');
-        const primaryColor = isDark ? (theme.darkPrimaryColor || theme.primaryColor || '#3B82F6') : (theme.primaryColor || '#3B82F6');
+        const primaryColor = isDark ? (activeTheme.darkPrimaryColor || activeTheme.primaryColor || '#3B82F6') : (activeTheme.primaryColor || '#3B82F6');
         
         document.documentElement.style.setProperty('--primary', primaryColor);
         document.documentElement.style.setProperty('--accent', primaryColor);
         document.documentElement.style.setProperty('--ring', primaryColor);
 
+        // Dynamically update browser's theme-color meta tag
+        const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+        if (metaThemeColor) {
+          metaThemeColor.setAttribute('content', primaryColor);
+        } else {
+          const meta = document.createElement('meta');
+          meta.name = 'theme-color';
+          meta.content = primaryColor;
+          document.head.appendChild(meta);
+        }
+
         // Apply gradient if enabled
-        if (theme.useGradient) {
-          const start = isDark ? (theme.darkGradientStart || theme.gradientStart || primaryColor) : (theme.gradientStart || primaryColor);
-          const end = isDark ? (theme.darkGradientEnd || theme.gradientEnd || primaryColor) : (theme.gradientEnd || primaryColor);
+        if (activeTheme.useGradient) {
+          const start = isDark ? (activeTheme.darkGradientStart || activeTheme.gradientStart || primaryColor) : (activeTheme.gradientStart || primaryColor);
+          const end = isDark ? (activeTheme.darkGradientEnd || activeTheme.gradientEnd || primaryColor) : (activeTheme.gradientEnd || primaryColor);
           document.documentElement.style.setProperty('--primary-gradient', `linear-gradient(135deg, ${start}, ${end})`);
         } else {
           document.documentElement.style.setProperty('--primary-gradient', primaryColor);
         }
 
         // Apply background and card colors if they exist in theme
-        if (theme.backgroundColor) {
-          document.documentElement.style.setProperty('--background', isDark ? (theme.darkBackgroundColor || '#020617') : theme.backgroundColor);
+        if (activeTheme.backgroundColor) {
+          document.documentElement.style.setProperty('--background', isDark ? (activeTheme.darkBackgroundColor || '#020617') : activeTheme.backgroundColor);
         }
-        if (theme.cardColor) {
-          document.documentElement.style.setProperty('--card', isDark ? (theme.darkCardColor || '#020617') : theme.cardColor);
+        if (activeTheme.cardColor) {
+          document.documentElement.style.setProperty('--card', isDark ? (activeTheme.darkCardColor || '#020617') : activeTheme.cardColor);
         }
-        if (theme.bottomNavColor || theme.darkBottomNavColor) {
-          document.documentElement.style.setProperty('--bottom-nav', isDark ? (theme.darkBottomNavColor || '#020617') : (theme.bottomNavColor || '#ffffff'));
+        if (activeTheme.bottomNavColor || activeTheme.darkBottomNavColor) {
+          document.documentElement.style.setProperty('--bottom-nav', isDark ? (activeTheme.darkBottomNavColor || '#020617') : (activeTheme.bottomNavColor || '#ffffff'));
         }
 
         // Simple brightness check to set foreground
@@ -84,10 +120,10 @@ export default function ThemeApplier() {
       if (existingCustomStyle) {
         existingCustomStyle.remove();
       }
-      if (theme.customCss) {
+      if (activeTheme.customCss) {
         const styleEl = document.createElement('style');
         styleEl.id = 'custom-theme-css';
-        styleEl.innerHTML = theme.customCss;
+        styleEl.innerHTML = activeTheme.customCss;
         document.head.appendChild(styleEl);
       }
 
@@ -103,7 +139,7 @@ export default function ThemeApplier() {
       observer.observe(document.documentElement, { attributes: true });
       return () => observer.disconnect();
     }
-  }, [theme]);
+  }, [activeTheme]);
 
   return null;
 }

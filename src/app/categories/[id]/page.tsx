@@ -23,6 +23,7 @@ import { useUserProfile } from '@/hooks/use-user-profile';
 import { useCategories } from '@/components/providers/CategoryProvider';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { AffiliateAdSlot, useAffiliateAds } from '@/components/ads/AffiliateAdsManager';
+import AdBanner from '@/components/AdBanner';
 
 const FavoriteButton = ({ isFavorite, onClick, className }: { isFavorite: boolean, onClick: (e: any) => void, className?: string }) => (
     <button 
@@ -180,6 +181,9 @@ export default function CategoryPage() {
 
   const categoryRef = useMemoFirebase(() => id ? doc(firestore!, 'categories', id) : null, [firestore, id]);
   const { data: category, isLoading: isCategoryLoading } = useDoc<CategoryType>(categoryRef);
+  
+  const adsConfigRef = useMemoFirebase(() => doc(firestore!, 'appConfig', 'ads'), [firestore]);
+  const { data: adsConfig } = useDoc<any>(adsConfigRef);
   const { subCategories } = useCategories();
   
   const currentSubCategories = useMemo(() => {
@@ -674,7 +678,30 @@ export default function CategoryPage() {
                             category?.displayStyle === 'style9' ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4" :
                             "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
                         )}>
-                            {filteredItems.map(renderItem)}
+                            {(() => {
+                                const frequency = adsConfig?.inlineAdFrequency || 4;
+                                const showAds = adsConfig?.showAds ?? false;
+                                const showContentAds = adsConfig?.showContentAds ?? true;
+                                const elements: React.ReactNode[] = [];
+                                
+                                filteredItems.forEach((item, index) => {
+                                    elements.push(renderItem(item, index));
+                                    
+                                    const showAdHere = showAds && showContentAds && adsConfig?.adScript && ((index + 1) % frequency === 0);
+                                    if (showAdHere) {
+                                        elements.push(
+                                            <div 
+                                                key={`inline-ad-${item.id || index}`} 
+                                                className="col-span-full w-full flex justify-center items-center py-1 border-y border-gray-100/10 dark:border-white/5 my-1.5 overflow-hidden"
+                                            >
+                                                <AdBanner />
+                                            </div>
+                                        );
+                                    }
+                                });
+                                
+                                return elements;
+                            })()}
                         </div>
                     </div>
                 ) : (

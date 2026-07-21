@@ -15,6 +15,7 @@ import MaintenanceModal from '@/components/MaintenanceModal';
 import Sidebar from '@/components/Sidebar';
 import FavoritesTab from '@/components/tabs/FavoritesTab';
 import NotificationsTab from '@/components/tabs/NotificationsTab';
+import AdBanner from '@/components/AdBanner';
 
 function HomeContent() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -63,6 +64,7 @@ function HomeContent() {
         onMenuClick={activeTab === 'home' ? () => setIsSidebarOpen(true) : undefined} 
         showBackButton={activeTab !== 'home'}
         onBackClick={() => router.push('/home')}
+        showAd={false}
         extraContent={activeTab === 'home' ? (
           <div className="relative z-[55] -mt-2">
             <div className="pb-0 px-6 max-w-2xl mx-auto">

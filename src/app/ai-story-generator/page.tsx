@@ -31,8 +31,8 @@ import Header from '@/components/Header';
 import { GoogleGenAI } from "@google/genai";
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import { useApiKey } from '@/components/providers/ApiKeyProvider';
-import ApiKeyGate from '@/components/ApiKeyGate';
+import { useToolConfig } from '@/hooks/useToolConfig';
+import ToolGate from '@/components/ToolGate';
 import Image from 'next/image';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -77,16 +77,43 @@ export default function AIStoryGenerator() {
   const [sceneCount, setSceneCount] = useState(5);
   const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16'>('16:9');
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
-  const { apiKey: userApiKey, hasKey } = useApiKey();
+  const [customApiKey, setCustomApiKey] = useState<string>('');
+  const [showSettings, setShowSettings] = useState(false);
+  const { config, loading: configLoading } = useToolConfig();
   const [isExporting, setIsExporting] = useState(false);
   const pdfRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
-  const getAi = () => {
-    if (userApiKey && userApiKey.trim() !== '') {
-      return new GoogleGenAI({ apiKey: userApiKey });
+  useEffect(() => {
+    const savedKey = localStorage.getItem('user_gemini_api_key');
+    if (savedKey) {
+      setCustomApiKey(savedKey);
     }
-    // Fallback to default if user hasn't provided one yet, but UI will strongly suggest adding it
+  }, []);
+
+  const saveCustomKey = (key: string) => {
+    setCustomApiKey(key);
+    if (key) {
+      localStorage.setItem('user_gemini_api_key', key);
+      toast({
+        title: "تم حفظ المفتاح",
+        description: "سيتم استخدام مفتاح Gemini الخاص بك في توليد القصص.",
+      });
+    } else {
+      localStorage.removeItem('user_gemini_api_key');
+      toast({
+        title: "تم إزالة المفتاح",
+        description: "سيتم العودة للمفتاح الافتراضي.",
+      });
+    }
+  };
+
+  const getAi = () => {
+    const apiKey = customApiKey || config.storyGenId || config.globalApiKey || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+    if (apiKey && apiKey.trim() !== '') {
+      return new GoogleGenAI({ apiKey });
+    }
+    // Fallback to default if user hasn't provided one yet
     return defaultAi;
   };
 
@@ -96,10 +123,10 @@ export default function AIStoryGenerator() {
       return;
     }
 
-    if (!hasKey) {
+    if (!config.storyGenId && !config.globalApiKey) {
       toast({ 
-        title: "مفتاح API مطلوب", 
-        description: "يرجى إضافة مفتاح Gemini API من إعدادات القائمة الجانبية للمتابعة.", 
+        title: "الأداة غير مفعلة", 
+        description: "يرجى الانتظار لحين تفعيل هذه الأداة من قبل الإدارة.", 
         variant: "destructive" 
       });
       return;
@@ -293,10 +320,53 @@ export default function AIStoryGenerator() {
       <Header title="توليد محتوى بالذكاء" showBackButton compact />
 
       <main className="flex-1 container max-w-4xl mx-auto px-6 py-8 pb-32 space-y-8">
-        <ApiKeyGate 
+        <ToolGate 
+          toolIdKey="storyGenId"
           title="مولد القصص والمحتوى"
           description="أطلق العنان لخيالك ودع الذكاء الاصطناعي يساعدك في كتابة قصص ومحتوى إبداعي فريد."
         >
+          {/* Settings / API Key Panel */}
+          <div className="flex justify-end mb-6">
+            <button 
+              onClick={() => setShowSettings(!showSettings)}
+              className="bg-white/80 backdrop-blur-sm p-3 rounded-[1.5rem] border border-blue-100 shadow-sm text-gray-400 hover:text-primary transition-all flex items-center gap-2"
+              title="إعدادات المفتاح"
+            >
+              <Settings2 size={18} />
+              <span className="text-[10px] font-black uppercase tracking-widest">إعدادات API</span>
+            </button>
+          </div>
+
+          <AnimatePresence>
+            {showSettings && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="overflow-hidden mb-8"
+              >
+                <div className="bg-primary/5 rounded-[2.5rem] p-8 border border-primary/10 space-y-4">
+                  <div className="flex items-center gap-2 text-primary">
+                    <Key size={18} />
+                    <span className="text-xs font-black">مفتاح API الخاص بك (Gemini)</span>
+                  </div>
+                  <div className="relative">
+                    <input 
+                      type="password"
+                      value={customApiKey}
+                      onChange={(e) => saveCustomKey(e.target.value)}
+                      placeholder="أدخل مفتاح Gemini API هنا..."
+                      className="w-full bg-white border border-blue-50 rounded-2xl px-6 py-4 text-xs font-bold outline-none focus:ring-2 focus:ring-primary/20"
+                    />
+                  </div>
+                  <p className="text-[10px] text-gray-400 font-bold leading-relaxed px-2">
+                    * يتيح لك استخدام مفتاحك الخاص من Google AI Studio الحصول على حدود استخدام أعلى وضمان استمرارية الخدمة.
+                  </p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {/* Input Section */}
           <section className="bg-white rounded-[3rem] p-8 shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-blue-50 space-y-6">
           <div className="flex items-center justify-between mb-2">
@@ -587,7 +657,7 @@ export default function AIStoryGenerator() {
               </div>
            </motion.div>
         )}
-        </ApiKeyGate>
+        </ToolGate>
       </main>
 
       {/* Hidden PDF Export Template */}

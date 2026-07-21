@@ -8,6 +8,75 @@ import { useCollection } from '@/hooks/useFirebase';
 export default function NotificationsTab() {
   const { data: notifications, loading } = useCollection('notifications');
   const [readIds, setReadIds] = useState<string[]>([]);
+  const [permission, setPermission] = useState<string>('default');
+  const [fcmToken, setFcmToken] = useState<string>('');
+  const [permissionLoading, setPermissionLoading] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      setPermission(Notification.permission);
+      
+      // Try to load any previously saved FCM token
+      const storedToken = localStorage.getItem('fcm_token');
+      if (storedToken) {
+        setFcmToken(storedToken);
+      }
+    }
+  }, []);
+
+  const handleRequestPermission = async () => {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      alert('الإشعارات غير مدعومة في هذا المتصفح أو في البيئة الحالية.');
+      return;
+    }
+
+    setPermissionLoading(true);
+    try {
+      const reqPermission = await Notification.requestPermission();
+      setPermission(reqPermission);
+
+      if (reqPermission === 'granted') {
+        const { getMessaging, getToken, isSupported } = await import('firebase/messaging');
+        const messagingSupported = await isSupported();
+        
+        if (messagingSupported) {
+          const { app } = await import('@/firebase/init');
+          const messaging = getMessaging(app);
+          
+          // Note: You must replace 'YOUR_PUBLIC_VAPID_KEY' with your actual key from 
+          // the Firebase Console -> Project Settings -> Cloud Messaging -> Web Configuration (Key Pair)
+          const token = await getToken(messaging, {
+            vapidKey: 'YOUR_PUBLIC_VAPID_KEY'
+          });
+
+          if (token) {
+            setFcmToken(token);
+            localStorage.setItem('fcm_token', token);
+            console.log('FCM Token successfully generated:', token);
+            
+            // Save token to Firestore under fcmTokens collection
+            const { db, auth } = await import('@/firebase');
+            const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
+            
+            const userId = auth.currentUser?.uid || 'anonymous';
+            await setDoc(doc(db, 'fcmTokens', token), {
+              token,
+              userId,
+              deviceType: 'web',
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+            });
+          }
+        } else {
+          console.warn("FCM is not supported on this browser.");
+        }
+      }
+    } catch (error) {
+      console.error('Error enabling notifications:', error);
+    } finally {
+      setPermissionLoading(false);
+    }
+  };
 
   // Load read status from local storage
   useEffect(() => {
@@ -60,6 +129,55 @@ export default function NotificationsTab() {
 
   return (
     <div className="w-full space-y-8 animate-in fade-in duration-500 pt-10">
+        {/* PWA / FCM Push Notification Management Card */}
+        {permission !== 'granted' ? (
+          <div className="bg-gradient-to-br from-primary/10 to-primary/5 p-6 rounded-[2.5rem] border border-primary/20 space-y-4 shadow-sm animate-in fade-in duration-300">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 bg-primary/20 rounded-2xl flex items-center justify-center text-primary shrink-0">
+                <Bell className="animate-bounce" size={24} />
+              </div>
+              <div className="space-y-1">
+                <h4 className="font-black text-gray-900 text-lg">تفعيل التنبيهات الفورية</h4>
+                <p className="text-gray-500 text-sm font-medium">اشترك لتلقي تحديثات وأخبار رفيق المصمم مباشرة على جهازك فور صدورها.</p>
+              </div>
+            </div>
+            <button
+              onClick={handleRequestPermission}
+              disabled={permissionLoading}
+              className="w-full bg-primary text-primary-foreground font-black py-4 px-6 rounded-2xl hover:bg-primary/90 hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/25 disabled:opacity-50 cursor-pointer"
+            >
+              {permissionLoading ? (
+                <>
+                  <Loader2 className="animate-spin h-5 w-5" />
+                  جاري التفعيل...
+                </>
+              ) : (
+                'تفعيل الإشعارات الآن'
+              )}
+            </button>
+          </div>
+        ) : fcmToken ? (
+          <div className="bg-green-50 p-6 rounded-[2.5rem] border border-green-100 space-y-3 shadow-sm animate-in fade-in duration-300">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 bg-green-500/10 rounded-2xl flex items-center justify-center text-green-600 shrink-0">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <div className="space-y-1">
+                <h4 className="font-black text-gray-900 text-lg">التنبيهات مفعلة بنجاح!</h4>
+                <p className="text-green-700 text-sm font-medium">جهازك الآن جاهز لاستقبل الإشعارات والرسائل التنبيهية.</p>
+              </div>
+            </div>
+            <div className="pt-2">
+              <label className="text-[10px] font-black text-green-800 uppercase tracking-widest block mb-1">رمز الـ FCM Token الخاص بك:</label>
+              <div className="bg-white/80 p-3 rounded-xl border border-green-200 text-xs font-mono text-gray-500 break-all select-all cursor-pointer hover:bg-white transition-colors" title="انقر لتحديد الرمز">
+                {fcmToken}
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         {loading ? (
           <div className="flex flex-col items-center justify-center p-20 gap-4">
             <Loader2 className="animate-spin text-primary h-12 w-12" />

@@ -45,6 +45,16 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
     }
+
+    match /toolConfig/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /settings/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
     
     match /notifications/{notificationId} {
       allow read: if true;
@@ -60,6 +70,11 @@ service cloud.firestore {
     match /users/{userId} {
         allow read, write: if isOwner(userId);
         allow create: if request.auth.uid == userId;
+    }
+
+    match /userStats/{userId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow write: if isOwner(userId) || isAdmin();
     }
     
     match /whitelist/{email} {

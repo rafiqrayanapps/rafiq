@@ -6,6 +6,7 @@ import { useCollection, useDoc } from '@/hooks/useFirebase';
 import { ArrowRight, Download, Lock, Menu, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Sidebar from '@/components/Sidebar';
+import AdBanner from '@/components/AdBanner';
 
 export default function SubCategoryPage() {
   const { id } = useParams();
@@ -13,6 +14,7 @@ export default function SubCategoryPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { data: subCategory, loading: subLoading } = useDoc(`subCategories/${id}`);
   const { data: itemsData, loading: itemsLoading } = useCollection('items');
+  const { data: adsConfig } = useDoc('appConfig', 'ads');
 
   const items = itemsData || [];
 
@@ -55,35 +57,58 @@ export default function SubCategoryPage() {
           {itemsLoading ? (
             <div className="text-center py-20 text-muted-foreground">جاري تحميل المحتوى...</div>
           ) : subItems.length > 0 ? (
-            subItems.map((item, index) => (
-              <motion.div
-                key={`${item.id}-${index}`}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className="bg-card p-4 rounded-3xl shadow-sm border border-border flex items-center justify-between"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
-                    <Download size={24} />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-foreground">{item.title}</h3>
-                    <p className="text-xs text-muted-foreground mt-1">{item.description}</p>
-                  </div>
-                </div>
-                
-                {item.showDownloadButton !== false && (
-                  <button 
-                    className="text-primary-foreground px-4 py-2 rounded-xl text-sm font-bold active:scale-95 transition-transform"
-                    style={{ background: 'var(--primary-gradient)' }}
-                    onClick={() => item.downloadUrl && window.open(item.downloadUrl, '_blank')}
+            (() => {
+              const frequency = adsConfig?.inlineAdFrequency || 4;
+              const showAds = adsConfig?.showAds ?? false;
+              const showContentAds = adsConfig?.showContentAds ?? true;
+              const elements: React.ReactNode[] = [];
+
+              subItems.forEach((item, index) => {
+                elements.push(
+                  <motion.div
+                    key={`${item.id}-${index}`}
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    className="bg-card p-4 rounded-3xl shadow-sm border border-border flex items-center justify-between"
                   >
-                    تحميل
-                  </button>
-                )}
-              </motion.div>
-            ))
+                    <div className="flex items-center gap-4">
+                      <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
+                        <Download size={24} />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-foreground">{item.title}</h3>
+                        <p className="text-xs text-muted-foreground mt-1">{item.description}</p>
+                      </div>
+                    </div>
+                    
+                    {item.showDownloadButton !== false && (
+                      <button 
+                        className="text-primary-foreground px-4 py-2 rounded-xl text-sm font-bold active:scale-95 transition-transform"
+                        style={{ background: 'var(--primary-gradient)' }}
+                        onClick={() => item.downloadUrl && window.open(item.downloadUrl, '_blank')}
+                      >
+                        تحميل
+                      </button>
+                    )}
+                  </motion.div>
+                );
+
+                const showAdHere = showAds && showContentAds && adsConfig?.adScript && ((index + 1) % frequency === 0);
+                if (showAdHere) {
+                  elements.push(
+                    <div 
+                      key={`inline-ad-${item.id || index}`}
+                      className="w-full flex justify-center items-center py-1 my-1.5 overflow-hidden"
+                    >
+                      <AdBanner />
+                    </div>
+                  );
+                }
+              });
+
+              return elements;
+            })()
           ) : (
             <div className="bg-card p-12 rounded-[40px] text-center shadow-sm border border-border">
               <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mx-auto mb-4 text-muted-foreground">

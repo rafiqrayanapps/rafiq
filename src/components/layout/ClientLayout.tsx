@@ -3,7 +3,6 @@
 import { Suspense, useEffect } from 'react';
 import { FirebaseClientProvider } from "@/firebase/client-provider";
 import { CategoryProvider } from "@/components/providers/CategoryProvider";
-import { ApiKeyProvider } from "@/components/providers/ApiKeyProvider";
 import { ToolProvider } from "@/components/providers/ToolProvider";
 import { Toaster } from "@/components/ui/toaster";
 import ThemeApplier from "@/components/ThemeApplier";
@@ -48,9 +47,8 @@ export default function ClientLayout({
 
   return (
     <FirebaseClientProvider>
-      <ApiKeyProvider>
-        <ToolProvider>
-          <CategoryProvider>
+      <ToolProvider>
+        <CategoryProvider>
             <ServiceWorkerRegister />
             <ThemeApplier />
             <GlobalDialog />
@@ -66,7 +64,6 @@ export default function ClientLayout({
             <Toaster />
           </CategoryProvider>
         </ToolProvider>
-      </ApiKeyProvider>
     </FirebaseClientProvider>
   );
 }

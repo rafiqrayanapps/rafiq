@@ -5,17 +5,13 @@ import Header from '@/components/Header';
 import { Palette, Copy, RefreshCw, Check, Sparkles } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { useApiKey } from '@/components/providers/ApiKeyProvider';
-import ApiKeyGate from '@/components/ApiKeyGate';
 
 export default function ColorsPage() {
-  const { hasKey } = useApiKey();
   const { toast } = useToast();
   const [palettes, setPalettes] = useState<string[][]>([]);
   const [copiedColor, setCopiedColor] = useState<string | null>(null);
 
   const generatePalettes = useCallback(() => {
-    if (!hasKey) return;
     const newPalettes = Array.from({ length: 12 }, () => {
       const baseHue = Math.floor(Math.random() * 360);
       return [
@@ -27,13 +23,11 @@ export default function ColorsPage() {
       ];
     });
     setPalettes(newPalettes);
-  }, [hasKey]);
+  }, []);
 
   useEffect(() => {
-    if (hasKey) {
-      generatePalettes();
-    }
-  }, [hasKey, generatePalettes]);
+    generatePalettes();
+  }, [generatePalettes]);
 
   const copyColor = (color: string) => {
     navigator.clipboard.writeText(color);
@@ -50,10 +44,6 @@ export default function ColorsPage() {
       <Header title="منسق الألوان" showBackButton compact />
       
       <main className="flex-1 px-6 pb-32 pt-4 max-w-6xl mx-auto w-full space-y-8">
-        <ApiKeyGate 
-          title="أداة منسق الألوان"
-          description="اكتشف تناسقات لونية مذهلة لمشاريعك القادمة باستخدام الذكاء الاصطناعي."
-        >
           <section className="flex flex-col md:flex-row items-center justify-between gap-6 pb-2">
             <div className="space-y-4 text-center md:text-right">
               <div className="flex items-center gap-3 justify-center md:justify-start">
@@ -119,7 +109,6 @@ export default function ColorsPage() {
               استخدم قاعدة 60-30-10 عند توزيع الألوان: 60% للون الأساسي، 30% للون الثانوي، و10% للون التمييز (Accent Color) للحصول على توازن بصري مثالي.
             </p>
           </section>
-        </ApiKeyGate>
       </main>
     </div>
   );
