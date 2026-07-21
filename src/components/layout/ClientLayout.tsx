@@ -10,14 +10,17 @@ import GlobalDialog from "@/components/GlobalDialog";
 import FloatingButton from "@/components/FloatingButton";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import BottomNav from "@/components/layout/BottomNav";
+import { useDoc } from '@/hooks/useFirebase';
 
-export default function ClientLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+function SecurityApplier() {
+  const { data: securityConfig } = useDoc('appConfig', 'security');
+
   useEffect(() => {
+    const preventCopy = securityConfig?.preventCopy ?? true;
+    const preventContextMenu = securityConfig?.preventContextMenu ?? true;
+
     const handleContextMenu = (e: MouseEvent) => {
+      if (!preventContextMenu) return;
       // Allow context menu only for inputs and textareas
       const target = e.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
@@ -25,6 +28,7 @@ export default function ClientLayout({
     };
 
     const handleCopy = (e: ClipboardEvent) => {
+      if (!preventCopy) return;
       // Allow copy only if triggered by custom events (buttons) or in inputs
       const target = e.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
@@ -39,16 +43,47 @@ export default function ClientLayout({
     document.addEventListener('contextmenu', handleContextMenu);
     document.addEventListener('copy', handleCopy);
 
+    if (preventCopy) {
+      // Remove any existing copy style to prevent duplicates
+      document.getElementById('prevent-copy-style')?.remove();
+
+      const styleEl = document.createElement('style');
+      styleEl.id = 'prevent-copy-style';
+      styleEl.innerHTML = `
+        body {
+          user-select: none !important;
+          -webkit-user-select: none !important;
+        }
+        input, textarea, [contenteditable="true"] {
+          user-select: text !important;
+          -webkit-user-select: text !important;
+        }
+      `;
+      document.head.appendChild(styleEl);
+    } else {
+      document.getElementById('prevent-copy-style')?.remove();
+    }
+
     return () => {
       document.removeEventListener('contextmenu', handleContextMenu);
       document.removeEventListener('copy', handleCopy);
+      document.getElementById('prevent-copy-style')?.remove();
     };
-  }, []);
+  }, [securityConfig]);
 
+  return null;
+}
+
+export default function ClientLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <FirebaseClientProvider>
       <ToolProvider>
         <CategoryProvider>
+            <SecurityApplier />
             <ServiceWorkerRegister />
             <ThemeApplier />
             <GlobalDialog />

@@ -183,6 +183,11 @@ export default function AdminPage() {
   const [adScript, setAdScript] = useState('');
   const [inlineAdFrequency, setInlineAdFrequency] = useState(4);
 
+  // Security Config State
+  const { data: securityConfig } = useDoc('appConfig', 'security');
+  const [preventCopy, setPreventCopy] = useState(true);
+  const [preventContextMenu, setPreventContextMenu] = useState(true);
+
   // Dynamic Contacts State
   const { data: contactsData } = useCollection('contacts');
   const [editingContact, setEditingContact] = useState<any>(null);
@@ -249,6 +254,13 @@ export default function AdminPage() {
       setInlineAdFrequency(adsConfig.inlineAdFrequency ?? 4);
     }
   }, [adsConfig]);
+
+  useEffect(() => {
+    if (securityConfig) {
+      setPreventCopy(securityConfig.preventCopy ?? true);
+      setPreventContextMenu(securityConfig.preventContextMenu ?? true);
+    }
+  }, [securityConfig]);
 
   const { data: allCategoriesData } = useCollection('categories');
   const { data: notifications } = useCollection('notifications');
@@ -470,6 +482,22 @@ export default function AdminPage() {
       toast({ title: "تم النجاح", description: "تم تحديث إعدادات الإعلانات بنجاح!" });
     } catch (error: any) {
       handleFirestoreError(error, OperationType.UPDATE, 'appConfig/ads');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSaveSecurity = async () => {
+    setIsSaving(true);
+    try {
+      await setDoc(doc(db, 'appConfig', 'security'), {
+        preventCopy,
+        preventContextMenu,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+      toast({ title: "تم النجاح", description: "تم تحديث إعدادات حماية المحتوى بنجاح!" });
+    } catch (error: any) {
+      handleFirestoreError(error, OperationType.UPDATE, 'appConfig/security');
     } finally {
       setIsSaving(false);
     }
@@ -763,6 +791,7 @@ export default function AdminPage() {
       case 'contact': return 'تواصل معنا';
       case 'tools': return 'إعدادات الأدوات الاحترافية';
       case 'ads': return 'إعدادات الإعلانات';
+      case 'security': return 'حماية المحتوى والأمان';
       default: return 'لوحة التحكم';
     }
   };
@@ -861,6 +890,7 @@ export default function AdminPage() {
                           { id: 'content', label: 'المحتوى والأقسام', icon: Home, desc: 'إدارة الأقسام والمنشورات' },
                           { id: 'users', label: 'المستخدمين', icon: Users, desc: 'إدارة صلاحيات الوصول' },
                           { id: 'tools', label: 'إعدادات الأدوات', icon: Hammer, desc: 'تغيير معرفات Cloudflare للادوات' },
+                          { id: 'security', label: 'حماية المحتوى والنسخ', icon: Lock, desc: 'منع النسخ وحماية حقوق النشر والزر الأيمن' },
                         ]
                       },
                       {
@@ -2163,6 +2193,75 @@ export default function AdminPage() {
                           <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                         ) : <ShieldCheck size={20} />}
                         {isSaving ? 'جاري الحفظ...' : 'حفظ إعدادات الإعلانات'}
+                      </button>
+                    </div>
+                  </section>
+                </motion.div>
+              ) : activeTab === 'security' ? (
+                <motion.div
+                  key="security"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="space-y-8"
+                >
+                  <section className="bg-white rounded-[28px] sm:rounded-[40px] p-8 shadow-sm border border-gray-100">
+                    <div className="flex items-center gap-3 mb-8">
+                      <div className="w-10 h-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center">
+                        <Lock size={20} />
+                      </div>
+                      <h2 className="text-xl font-bold">حماية المحتوى والأمان</h2>
+                    </div>
+
+                    <div className="space-y-6">
+                      <div className="flex items-center justify-between p-6 bg-gray-50 rounded-2xl border border-gray-100">
+                        <div>
+                          <p className="font-bold">منع نسخ النصوص والسرقة (Prevent Copy)</p>
+                          <p className="text-xs text-gray-400 mt-1">منع الزوار من نسخ النصوص أو تحديد المحتوى البرمجي لحماية أفكارك ومجهودك الفكري.</p>
+                        </div>
+                        <button 
+                          onClick={() => setPreventCopy(!preventCopy)}
+                          className={cn(
+                            "w-14 h-8 rounded-full transition-all relative",
+                            preventCopy ? "bg-primary" : "bg-gray-300"
+                          )}
+                        >
+                          <span className={cn(
+                            "w-6 h-6 bg-white rounded-full absolute top-1 transition-all shadow-sm",
+                            preventCopy ? "left-1" : "right-1"
+                          )} />
+                        </button>
+                      </div>
+
+                      <div className="flex items-center justify-between p-6 bg-gray-50 rounded-2xl border border-gray-100">
+                        <div>
+                          <p className="font-bold">تعطيل زر الفأرة الأيمن (Disable Right Click)</p>
+                          <p className="text-xs text-gray-400 mt-1">تعطيل الضغط بزر الفأرة الأيمن ومنع إظهار القائمة المنبثقة لحماية صورك وعناصر الواجهة.</p>
+                        </div>
+                        <button 
+                          onClick={() => setPreventContextMenu(!preventContextMenu)}
+                          className={cn(
+                            "w-14 h-8 rounded-full transition-all relative",
+                            preventContextMenu ? "bg-primary" : "bg-gray-300"
+                          )}
+                        >
+                          <span className={cn(
+                            "w-6 h-6 bg-white rounded-full absolute top-1 transition-all shadow-sm",
+                            preventContextMenu ? "left-1" : "right-1"
+                          )} />
+                        </button>
+                      </div>
+
+                      <button 
+                        onClick={handleSaveSecurity}
+                        disabled={isSaving}
+                        className="w-full text-white h-14 rounded-2xl font-black text-sm hover:opacity-90 transition-all shadow-xl active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 mt-4"
+                        style={{ background: 'var(--primary-gradient)' }}
+                      >
+                        {isSaving ? (
+                          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        ) : <ShieldCheck size={20} />}
+                        {isSaving ? 'جاري الحفظ...' : 'حفظ إعدادات الأمان والحماية'}
                       </button>
                     </div>
                   </section>
