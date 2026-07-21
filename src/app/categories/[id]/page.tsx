@@ -24,6 +24,7 @@ import { useCategories } from '@/components/providers/CategoryProvider';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { AffiliateAdSlot, useAffiliateAds } from '@/components/ads/AffiliateAdsManager';
 import AdBanner from '@/components/AdBanner';
+import RedDotBadge, { checkCategoryIsNew } from '@/components/RedDotBadge';
 
 const FavoriteButton = ({ isFavorite, onClick, className }: { isFavorite: boolean, onClick: (e: any) => void, className?: string }) => (
     <button 
@@ -616,6 +617,9 @@ export default function CategoryPage() {
                                              className="animate-in fade-in zoom-in-95 duration-500 fill-mode-both group relative"
                                              style={{ animationDelay: `${idx * 50}ms` }}
                                          >
+                                             {checkCategoryIsNew(subCat) && (
+                                                 <RedDotBadge size="sm" showLabel={false} className="absolute -top-1 -right-1" />
+                                             )}
                                              <div className={cn(
                                                  "flex items-center gap-2 px-5 py-2.5 rounded-full transition-all border-2 shadow-sm active:scale-95 bg-card border-primary/10 text-primary hover:bg-primary hover:text-primary-foreground hover:border-primary",
                                              )}>
@@ -646,6 +650,9 @@ export default function CategoryPage() {
                                                style={{ background: subCat.useCustomAccent && subCat.accentColor ? `linear-gradient(135deg, ${subCat.accentColor}, ${subCat.accentColor}dd)` : 'var(--primary-gradient)' }}
                                              >
                                              <div className="absolute -bottom-4 -right-4 bg-white/10 w-16 h-16 rounded-full group-hover:scale-150 transition-transform duration-700" />
+                                             {checkCategoryIsNew(subCat) && (
+                                                 <RedDotBadge className="absolute top-4 left-4" />
+                                             )}
                                              {subCat.fileTypes && (
                                                  <div className="absolute top-4 right-4 bg-black/20 text-[9px] font-black px-2 py-0.5 rounded-full text-white uppercase backdrop-blur-sm z-20">
                                                      {subCat.fileTypes}
@@ -679,22 +686,24 @@ export default function CategoryPage() {
                             "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
                         )}>
                             {(() => {
-                                const frequency = adsConfig?.inlineAdFrequency || 4;
                                 const showAds = adsConfig?.showAds ?? false;
-                                const showContentAds = adsConfig?.showContentAds ?? true;
+                                const inlineShow = adsConfig?.inline?.show ?? showAds;
+                                const inlineFrequency = adsConfig?.inline?.frequency ?? adsConfig?.inlineAdFrequency ?? 4;
+                                const inlineOnLists = adsConfig?.inline?.showOnLists ?? adsConfig?.showContentAds ?? true;
+                                const inlineScript = adsConfig?.inline?.script ?? adsConfig?.adScript;
                                 const elements: React.ReactNode[] = [];
                                 
                                 filteredItems.forEach((item, index) => {
                                     elements.push(renderItem(item, index));
                                     
-                                    const showAdHere = showAds && showContentAds && adsConfig?.adScript && ((index + 1) % frequency === 0);
+                                    const showAdHere = showAds && inlineShow && inlineOnLists && inlineScript && ((index + 1) % inlineFrequency === 0);
                                     if (showAdHere) {
                                         elements.push(
                                             <div 
                                                 key={`inline-ad-${item.id || index}`} 
                                                 className="col-span-full w-full flex justify-center items-center py-1 border-y border-gray-100/10 dark:border-white/5 my-1.5 overflow-hidden"
                                             >
-                                                <AdBanner />
+                                                <AdBanner type="inline" />
                                             </div>
                                         );
                                     }

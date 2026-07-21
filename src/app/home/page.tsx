@@ -16,6 +16,7 @@ import Sidebar from '@/components/Sidebar';
 import FavoritesTab from '@/components/tabs/FavoritesTab';
 import NotificationsTab from '@/components/tabs/NotificationsTab';
 import AdBanner from '@/components/AdBanner';
+import RedDotBadge, { checkCategoryIsNew } from '@/components/RedDotBadge';
 
 function HomeContent() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -26,7 +27,7 @@ function HomeContent() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   
-  const { mainCategories: allMainCategories, isLoadingCategories, allCategories } = useCategories();
+  const { mainCategories: allMainCategories, isLoadingCategories, allCategories, subCategories } = useCategories();
   const [maintenanceCategory, setMaintenanceCategory] = useState<WithId<CategoryType> | null>(null);
 
   const displayCategories = useMemo(() => {
@@ -119,6 +120,10 @@ function HomeContent() {
                         )} style={{ background: cat.useCustomAccent && cat.accentColor ? `linear-gradient(135deg, ${cat.accentColor}, ${cat.accentColor}dd)` : 'var(--primary-gradient)' }}>
                           <div className="absolute -bottom-4 -right-4 bg-white/10 w-16 h-16 rounded-full group-hover:scale-150 transition-transform duration-700" />
                           
+                          {checkCategoryIsNew(cat, subCategories.get(cat.id)) && (
+                              <RedDotBadge className="absolute top-4 left-4" />
+                          )}
+
                           {cat.isUnderMaintenance && (
                               <div className="absolute top-4 right-4 bg-yellow-500 text-white text-[8px] font-black px-2 py-0.5 rounded-full flex items-center gap-1 z-20 shadow-md">
                                   <Hammer className="h-2.5 w-2.5" /> صيانة

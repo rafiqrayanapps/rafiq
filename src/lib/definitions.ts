@@ -12,6 +12,10 @@ export interface Category {
   subCategoryLayout?: 'horizontal' | 'vertical';
   accentColor?: string;
   useCustomAccent?: boolean;
+  isNew?: boolean;
+  hasNewContent?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface ContentItem {
@@ -29,6 +33,9 @@ export interface ContentItem {
   order?: number;
   visibility?: 'public';
   status?: 'pending' | 'approved' | 'rejected';
+  isNew?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
   // App Store specific fields
   rating?: string;
   reviewCount?: string;

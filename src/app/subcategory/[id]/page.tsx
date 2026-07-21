@@ -58,9 +58,11 @@ export default function SubCategoryPage() {
             <div className="text-center py-20 text-muted-foreground">جاري تحميل المحتوى...</div>
           ) : subItems.length > 0 ? (
             (() => {
-              const frequency = adsConfig?.inlineAdFrequency || 4;
               const showAds = adsConfig?.showAds ?? false;
-              const showContentAds = adsConfig?.showContentAds ?? true;
+              const inlineShow = adsConfig?.inline?.show ?? showAds;
+              const inlineFrequency = adsConfig?.inline?.frequency ?? adsConfig?.inlineAdFrequency ?? 4;
+              const inlineOnContent = adsConfig?.inline?.showOnContent ?? adsConfig?.showContentAds ?? true;
+              const inlineScript = adsConfig?.inline?.script ?? adsConfig?.adScript;
               const elements: React.ReactNode[] = [];
 
               subItems.forEach((item, index) => {
@@ -94,14 +96,14 @@ export default function SubCategoryPage() {
                   </motion.div>
                 );
 
-                const showAdHere = showAds && showContentAds && adsConfig?.adScript && ((index + 1) % frequency === 0);
+                const showAdHere = showAds && inlineShow && inlineOnContent && inlineScript && ((index + 1) % inlineFrequency === 0);
                 if (showAdHere) {
                   elements.push(
                     <div 
                       key={`inline-ad-${item.id || index}`}
                       className="w-full flex justify-center items-center py-1 my-1.5 overflow-hidden"
                     >
-                      <AdBanner />
+                      <AdBanner type="inline" />
                     </div>
                   );
                 }

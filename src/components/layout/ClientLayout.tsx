@@ -10,6 +10,7 @@ import GlobalDialog from "@/components/GlobalDialog";
 import FloatingButton from "@/components/FloatingButton";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import BottomNav from "@/components/layout/BottomNav";
+import InterstitialAd from "@/components/InterstitialAd";
 import { useDoc } from '@/hooks/useFirebase';
 
 function SecurityApplier() {
@@ -84,6 +85,7 @@ export default function ClientLayout({
       <ToolProvider>
         <CategoryProvider>
             <SecurityApplier />
+            <InterstitialAd />
             <ServiceWorkerRegister />
             <ThemeApplier />
             <GlobalDialog />

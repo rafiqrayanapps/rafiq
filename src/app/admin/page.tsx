@@ -183,6 +183,29 @@ export default function AdminPage() {
   const [adScript, setAdScript] = useState('');
   const [inlineAdFrequency, setInlineAdFrequency] = useState(4);
 
+  // Expanded Ads State
+  // Banner Ads State
+  const [bannerShow, setBannerShow] = useState(false);
+  const [bannerHome, setBannerHome] = useState(true);
+  const [bannerLists, setBannerLists] = useState(true);
+  const [bannerContent, setBannerContent] = useState(true);
+  const [bannerScript, setBannerScript] = useState('');
+
+  // Interstitial Ads State
+  const [interstitialShow, setInterstitialShow] = useState(false);
+  const [interstitialHome, setInterstitialHome] = useState(false);
+  const [interstitialLists, setInterstitialLists] = useState(false);
+  const [interstitialContent, setInterstitialContent] = useState(false);
+  const [interstitialScript, setInterstitialScript] = useState('');
+
+  // Inline Ads State
+  const [inlineShow, setInlineShow] = useState(false);
+  const [inlineHome, setInlineHome] = useState(false);
+  const [inlineLists, setInlineLists] = useState(true);
+  const [inlineContent, setInlineContent] = useState(true);
+  const [inlineScript, setInlineScript] = useState('');
+  const [inlineFrequency, setInlineFrequency] = useState(4);
+
   // Security Config State
   const { data: securityConfig } = useDoc('appConfig', 'security');
   const [preventCopy, setPreventCopy] = useState(true);
@@ -252,6 +275,26 @@ export default function AdminPage() {
       setShowContentAds(adsConfig.showContentAds ?? true);
       setAdScript(adsConfig.adScript ?? '');
       setInlineAdFrequency(adsConfig.inlineAdFrequency ?? 4);
+
+      // Hydrate new structured settings
+      setBannerShow(adsConfig.banner?.show ?? adsConfig.showAds ?? false);
+      setBannerHome(adsConfig.banner?.showOnHome ?? adsConfig.showHomeAd ?? true);
+      setBannerLists(adsConfig.banner?.showOnLists ?? adsConfig.showContentAds ?? true);
+      setBannerContent(adsConfig.banner?.showOnContent ?? adsConfig.showContentAds ?? true);
+      setBannerScript(adsConfig.banner?.script ?? adsConfig.adScript ?? '');
+
+      setInterstitialShow(adsConfig.interstitial?.show ?? false);
+      setInterstitialHome(adsConfig.interstitial?.showOnHome ?? false);
+      setInterstitialLists(adsConfig.interstitial?.showOnLists ?? false);
+      setInterstitialContent(adsConfig.interstitial?.showOnContent ?? false);
+      setInterstitialScript(adsConfig.interstitial?.script ?? '');
+
+      setInlineShow(adsConfig.inline?.show ?? adsConfig.showAds ?? false);
+      setInlineHome(adsConfig.inline?.showOnHome ?? false);
+      setInlineLists(adsConfig.inline?.showOnLists ?? adsConfig.showContentAds ?? true);
+      setInlineContent(adsConfig.inline?.showOnContent ?? adsConfig.showContentAds ?? true);
+      setInlineScript(adsConfig.inline?.script ?? adsConfig.adScript ?? '');
+      setInlineFrequency(adsConfig.inline?.frequency ?? adsConfig.inlineAdFrequency ?? 4);
     }
   }, [adsConfig]);
 
@@ -473,10 +516,37 @@ export default function AdminPage() {
     try {
       await setDoc(doc(db, 'appConfig', 'ads'), {
         showAds,
-        showHomeAd,
-        showContentAds,
-        adScript,
-        inlineAdFrequency,
+        
+        // Structured multiple ad configurations
+        banner: {
+          show: bannerShow,
+          showOnHome: bannerHome,
+          showOnLists: bannerLists,
+          showOnContent: bannerContent,
+          script: bannerScript
+        },
+        interstitial: {
+          show: interstitialShow,
+          showOnHome: interstitialHome,
+          showOnLists: interstitialLists,
+          showOnContent: interstitialContent,
+          script: interstitialScript
+        },
+        inline: {
+          show: inlineShow,
+          showOnHome: inlineHome,
+          showOnLists: inlineLists,
+          showOnContent: inlineContent,
+          script: inlineScript,
+          frequency: inlineFrequency
+        },
+
+        // Legacy compatibility support
+        showHomeAd: bannerHome,
+        showContentAds: bannerLists || bannerContent,
+        adScript: bannerScript || inlineScript || adScript,
+        inlineAdFrequency: inlineFrequency,
+
         updatedAt: new Date().toISOString()
       }, { merge: true });
       toast({ title: "تم النجاح", description: "تم تحديث إعدادات الإعلانات بنجاح!" });
@@ -520,9 +590,12 @@ export default function AdminPage() {
         displayStyle: editingCategory.displayStyle || 'style1',
         subCategoryLayout: editingCategory.subCategoryLayout || 'vertical',
         isUnderMaintenance: editingCategory.isUnderMaintenance || false,
+        isNew: editingCategory.isNew !== undefined ? editingCategory.isNew : true,
+        hasNewContent: true,
         accentColor: editingCategory.accentColor || '',
         useCustomAccent: editingCategory.useCustomAccent || false,
         order: categories.length,
+        createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       });
       setEditingCategory(null);
@@ -558,11 +631,22 @@ export default function AdminPage() {
         displayStyle: editingSubCategory.displayStyle || 'style1',
         fileTypes: editingSubCategory.fileTypes || '',
         isUnderMaintenance: editingSubCategory.isUnderMaintenance || false,
+        isNew: editingSubCategory.isNew !== undefined ? editingSubCategory.isNew : true,
+        hasNewContent: true,
         accentColor: editingSubCategory.accentColor || '',
         useCustomAccent: editingSubCategory.useCustomAccent || false,
         order: subCategories.filter(s => s.parentId === editingSubCategory.categoryId).length,
+        createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       });
+      try {
+        await updateDoc(doc(db, 'categories', editingSubCategory.categoryId), {
+          hasNewContent: true,
+          updatedAt: new Date().toISOString()
+        });
+      } catch (err) {
+        console.error("Failed updating parent category new status:", err);
+      }
       setEditingSubCategory(null);
       toast({ title: "تم النجاح", description: "تم إضافة القسم الفرعي بنجاح!" });
     } catch (error: any) {
@@ -594,9 +678,25 @@ export default function AdminPage() {
         showCopyButton: editingItem.showCopyButton !== false,
         showDownloadButton: editingItem.showDownloadButton !== false,
         order: items.length,
+        isNew: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       });
+      try {
+        await updateDoc(doc(db, 'categories', editingItem.subCategoryId), {
+          hasNewContent: true,
+          updatedAt: new Date().toISOString()
+        });
+        const targetSub = subCategories.find(s => s.id === editingItem.subCategoryId);
+        if (targetSub && targetSub.parentId) {
+          await updateDoc(doc(db, 'categories', targetSub.parentId), {
+            hasNewContent: true,
+            updatedAt: new Date().toISOString()
+          });
+        }
+      } catch (err) {
+        console.error("Failed updating parent category new status on item creation:", err);
+      }
       setEditingItem(null);
       toast({ title: "تم النجاح", description: "تم إضافة المحتوى بنجاح!" });
     } catch (error: any) {
@@ -617,6 +717,8 @@ export default function AdminPage() {
         displayStyle: editingCategory.displayStyle || 'style1',
         subCategoryLayout: editingCategory.subCategoryLayout || 'vertical',
         isUnderMaintenance: editingCategory.isUnderMaintenance || false,
+        isNew: editingCategory.isNew || false,
+        hasNewContent: editingCategory.hasNewContent || false,
         accentColor: editingCategory.accentColor || '',
         useCustomAccent: editingCategory.useCustomAccent || false,
         updatedAt: new Date().toISOString()
@@ -642,6 +744,8 @@ export default function AdminPage() {
         displayStyle: editingSubCategory.displayStyle || 'style1',
         fileTypes: editingSubCategory.fileTypes || '',
         isUnderMaintenance: editingSubCategory.isUnderMaintenance || false,
+        isNew: editingSubCategory.isNew || false,
+        hasNewContent: editingSubCategory.hasNewContent || false,
         accentColor: editingSubCategory.accentColor || '',
         useCustomAccent: editingSubCategory.useCustomAccent || false,
         updatedAt: new Date().toISOString()
@@ -2084,117 +2188,302 @@ export default function AdminPage() {
                   exit={{ opacity: 0, y: -20 }}
                   className="space-y-8"
                 >
-                  <section className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100">
-                    <div className="flex items-center gap-3 mb-8">
-                      <div className="w-10 h-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center">
-                        <Award size={20} />
-                      </div>
-                      <h2 className="text-xl font-bold">إدارة الإعلانات وشبكة Adsterra</h2>
-                    </div>
-
-                    <div className="space-y-6">
-                      <div className="flex items-center justify-between p-6 bg-gray-50 rounded-2xl border border-gray-100">
-                        <div>
-                          <p className="font-bold">تفعيل الإعلانات على الموقع</p>
-                          <p className="text-xs text-gray-400">تشغيل أو إيقاف الإعلانات ديناميكياً لجميع المستخدمين</p>
+                  <section className="bg-white rounded-[2rem] p-8 shadow-sm border border-gray-100">
+                    <div className="flex items-center justify-between mb-8 border-b border-gray-100 pb-6">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-primary/10 text-primary rounded-2xl flex items-center justify-center">
+                          <Award size={24} />
                         </div>
+                        <div>
+                          <h2 className="text-xl font-black">إدارة الإعلانات المتقدمة</h2>
+                          <p className="text-xs text-gray-400 mt-1">تحكم كامل بمواضع الإعلانات ونوعها (Adsterra والشبكات الأخرى)</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-3 bg-gray-50 px-4 py-2 rounded-2xl border border-gray-100">
+                        <span className="text-xs text-gray-500 font-bold">الحالة العامة للإعلانات:</span>
                         <button 
                           onClick={() => setShowAds(!showAds)}
                           className={cn(
-                            "w-14 h-8 rounded-full transition-all relative",
+                            "w-12 h-7 rounded-full transition-all relative",
                             showAds ? "bg-primary" : "bg-gray-300"
                           )}
                         >
                           <span className={cn(
-                            "w-6 h-6 bg-white rounded-full absolute top-1 transition-all shadow-sm",
+                            "w-5 h-5 bg-white rounded-full absolute top-1 transition-all shadow-sm",
                             showAds ? "left-1" : "right-1"
                           )} />
                         </button>
                       </div>
-
-                      {showAds && (
-                        <div className="mr-6 pr-6 border-r-2 border-gray-100 space-y-4">
-                          <div className="flex items-center justify-between p-4 bg-gray-50/50 rounded-2xl border border-gray-100/50">
-                            <div>
-                              <p className="font-bold text-sm">عرض الإعلان في الصفحة الرئيسية</p>
-                              <p className="text-xs text-gray-400">يظهر الإعلان بشكل ثابت في أسفل الشاشة الرئيسية دون حجب المحتوى</p>
-                            </div>
-                            <button 
-                              onClick={() => setShowHomeAd(!showHomeAd)}
-                              className={cn(
-                                "w-12 h-7 rounded-full transition-all relative",
-                                showHomeAd ? "bg-primary" : "bg-gray-300"
-                              )}
-                            >
-                              <span className={cn(
-                                "w-5 h-5 bg-white rounded-full absolute top-1 transition-all shadow-sm",
-                                showHomeAd ? "left-1" : "right-1"
-                              )} />
-                            </button>
-                          </div>
-
-                          <div className="flex items-center justify-between p-4 bg-gray-50/50 rounded-2xl border border-gray-100/50">
-                            <div>
-                              <p className="font-bold text-sm">عرض الإعلانات في المحتوى</p>
-                              <p className="text-xs text-gray-400">عرض الإعلانات داخل الأقسام والتصنيفات بين المنشورات</p>
-                            </div>
-                            <button 
-                              onClick={() => setShowContentAds(!showContentAds)}
-                              className={cn(
-                                "w-12 h-7 rounded-full transition-all relative",
-                                showContentAds ? "bg-primary" : "bg-gray-300"
-                              )}
-                            >
-                              <span className={cn(
-                                "w-5 h-5 bg-white rounded-full absolute top-1 transition-all shadow-sm",
-                                showContentAds ? "left-1" : "right-1"
-                              )} />
-                            </button>
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="space-y-2">
-                        <label className="text-xs font-black text-gray-400 uppercase tracking-wider block ml-2">شفرة إعلانات Adsterra الأساسية (adScript)</label>
-                        <p className="text-xs text-gray-400 leading-relaxed font-bold mb-2">أدخل الكود البرمجي (Script) المستلم من لوحة تحكم Adsterra. سيتم حقنه تلقائياً في أماكن الإعلانات عند تفعيل الخيار أعلاه.</p>
-                        <textarea 
-                          value={adScript}
-                          onChange={(e) => setAdScript(e.target.value)}
-                          rows={8}
-                          className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-mono outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all ltr"
-                          dir="ltr"
-                          placeholder={`<!-- Example Adsterra Code -->\n<script type="text/javascript">\n\tatOptions = {\n\t\t'key' : 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',\n\t\t'format' : 'iframe',\n\t\t'height' : 250,\n\t\t'width' : 300,\n\t\t'params' : {}\n\t};\n</script>\n<script type="text/javascript" src="//www.highperformanceformat.com/xxxxxxxx/invoke.js"></script>`}
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="text-xs font-black text-gray-400 uppercase tracking-wider block ml-2">تكرار الإعلانات المدمجة في الأقسام</label>
-                        <p className="text-xs text-gray-400 leading-relaxed font-bold mb-2">اختر عدد المنشورات التي تظهر بين كل إعلان مدمج (مثلاً: كل 4 أو 6 أو 8 منشورات).</p>
-                        <select 
-                          value={inlineAdFrequency}
-                          onChange={(e) => setInlineAdFrequency(parseInt(e.target.value))}
-                          className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all appearance-none"
-                        >
-                          <option value={4}>كل 4 منشورات</option>
-                          <option value={6}>كل 6 منشورات</option>
-                          <option value={8}>كل 8 منشورات</option>
-                          <option value={10}>كل 10 منشورات</option>
-                          <option value={12}>كل 12 منشوراً</option>
-                        </select>
-                      </div>
-
-                      <button 
-                        onClick={handleUpdateAds}
-                        disabled={isSaving}
-                        className="w-full text-white h-14 rounded-2xl font-black text-sm hover:opacity-90 transition-all shadow-xl active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 mt-4"
-                        style={{ background: 'var(--primary-gradient)' }}
-                      >
-                        {isSaving ? (
-                          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        ) : <ShieldCheck size={20} />}
-                        {isSaving ? 'جاري الحفظ...' : 'حفظ إعدادات الإعلانات'}
-                      </button>
                     </div>
+
+                    {showAds ? (
+                      <div className="space-y-8">
+                        {/* 1. Banner Ads Control */}
+                        <div className="p-6 bg-gray-50/50 rounded-[2rem] border border-gray-100">
+                          <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-100/60">
+                            <div>
+                              <p className="font-black text-base text-gray-800">1. إعلانات البانر (Banner Ads)</p>
+                              <p className="text-xs text-gray-400 mt-0.5">إعلانات مستطيلة تظهر في أعلى أو أسفل الصفحات</p>
+                            </div>
+                            <button 
+                              onClick={() => setBannerShow(!bannerShow)}
+                              className={cn(
+                                "w-12 h-7 rounded-full transition-all relative",
+                                bannerShow ? "bg-primary" : "bg-gray-300"
+                              )}
+                            >
+                              <span className={cn(
+                                "w-5 h-5 bg-white rounded-full absolute top-1 transition-all shadow-sm",
+                                bannerShow ? "left-1" : "right-1"
+                              )} />
+                            </button>
+                          </div>
+
+                          {bannerShow && (
+                            <div className="space-y-4 animate-in fade-in duration-200">
+                              <div className="space-y-2">
+                                <span className="text-xs font-black text-gray-500 block">مواضع عرض البانر (اختر أي مكان تريده):</span>
+                                <div className="grid grid-cols-3 gap-3">
+                                  <button
+                                    onClick={() => setBannerHome(!bannerHome)}
+                                    className={cn(
+                                      "px-4 py-3 rounded-2xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-2",
+                                      bannerHome ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                                    )}
+                                  >
+                                    <span>الصفحة الرئيسية</span>
+                                    {bannerHome && <div className="w-2 h-2 rounded-full bg-primary" />}
+                                  </button>
+
+                                  <button
+                                    onClick={() => setBannerLists(!bannerLists)}
+                                    className={cn(
+                                      "px-4 py-3 rounded-2xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-2",
+                                      bannerLists ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                                    )}
+                                  >
+                                    <span>صفحة القوائم</span>
+                                    {bannerLists && <div className="w-2 h-2 rounded-full bg-primary" />}
+                                  </button>
+
+                                  <button
+                                    onClick={() => setBannerContent(!bannerContent)}
+                                    className={cn(
+                                      "px-4 py-3 rounded-2xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-2",
+                                      bannerContent ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                                    )}
+                                  >
+                                    <span>صفحة المحتوى</span>
+                                    {bannerContent && <div className="w-2 h-2 rounded-full bg-primary" />}
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="space-y-2">
+                                <label className="text-xs font-black text-gray-500 block">شفرة إعلان البانر (Script Code)</label>
+                                <textarea 
+                                  value={bannerScript}
+                                  onChange={(e) => setBannerScript(e.target.value)}
+                                  rows={4}
+                                  className="w-full bg-white border border-gray-200 rounded-2xl px-5 py-3 text-xs font-mono outline-none focus:ring-2 focus:ring-primary/10 transition-all ltr"
+                                  dir="ltr"
+                                  placeholder="<script> ... </script>"
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* 2. Interstitial Ads Control */}
+                        <div className="p-6 bg-gray-50/50 rounded-[2rem] border border-gray-100">
+                          <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-100/60">
+                            <div>
+                              <p className="font-black text-base text-gray-800">2. الإعلانات البينية وملء الشاشة (Interstitial Ads)</p>
+                              <p className="text-xs text-gray-400 mt-0.5">تظهر ملء الشاشة أو كإعلانات منبثقة/Popunder عند التنقل</p>
+                            </div>
+                            <button 
+                              onClick={() => setInterstitialShow(!interstitialShow)}
+                              className={cn(
+                                "w-12 h-7 rounded-full transition-all relative",
+                                interstitialShow ? "bg-primary" : "bg-gray-300"
+                              )}
+                            >
+                              <span className={cn(
+                                "w-5 h-5 bg-white rounded-full absolute top-1 transition-all shadow-sm",
+                                interstitialShow ? "left-1" : "right-1"
+                              )} />
+                            </button>
+                          </div>
+
+                          {interstitialShow && (
+                            <div className="space-y-4 animate-in fade-in duration-200">
+                              <div className="space-y-2">
+                                <span className="text-xs font-black text-gray-500 block">مواضع تفعيل الإعلان البيني (في أي مكان تريده):</span>
+                                <div className="grid grid-cols-3 gap-3">
+                                  <button
+                                    onClick={() => setInterstitialHome(!interstitialHome)}
+                                    className={cn(
+                                      "px-4 py-3 rounded-2xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-2",
+                                      interstitialHome ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                                    )}
+                                  >
+                                    <span>الصفحة الرئيسية</span>
+                                    {interstitialHome && <div className="w-2 h-2 rounded-full bg-primary" />}
+                                  </button>
+
+                                  <button
+                                    onClick={() => setInterstitialLists(!interstitialLists)}
+                                    className={cn(
+                                      "px-4 py-3 rounded-2xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-2",
+                                      interstitialLists ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                                    )}
+                                  >
+                                    <span>صفحة القوائم</span>
+                                    {interstitialLists && <div className="w-2 h-2 rounded-full bg-primary" />}
+                                  </button>
+
+                                  <button
+                                    onClick={() => setInterstitialContent(!interstitialContent)}
+                                    className={cn(
+                                      "px-4 py-3 rounded-2xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-2",
+                                      interstitialContent ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                                    )}
+                                  >
+                                    <span>صفحة المحتوى</span>
+                                    {interstitialContent && <div className="w-2 h-2 rounded-full bg-primary" />}
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="space-y-2">
+                                <label className="text-xs font-black text-gray-500 block">شفرة الإعلان البيني / Popunder (Script Code)</label>
+                                <textarea 
+                                  value={interstitialScript}
+                                  onChange={(e) => setInterstitialScript(e.target.value)}
+                                  rows={4}
+                                  className="w-full bg-white border border-gray-200 rounded-2xl px-5 py-3 text-xs font-mono outline-none focus:ring-2 focus:ring-primary/10 transition-all ltr"
+                                  dir="ltr"
+                                  placeholder="<script> ... </script>"
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* 3. Inline/Native Ads Control */}
+                        <div className="p-6 bg-gray-50/50 rounded-[2rem] border border-gray-100">
+                          <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-100/60">
+                            <div>
+                              <p className="font-black text-base text-gray-800">3. الإعلانات المدمجة في المحتوى والقوائم (Inline Ads)</p>
+                              <p className="text-xs text-gray-400 mt-0.5">تظهر منسجمة داخل المقالات وبين العناصر في القوائم والأقسام</p>
+                            </div>
+                            <button 
+                              onClick={() => setInlineShow(!inlineShow)}
+                              className={cn(
+                                "w-12 h-7 rounded-full transition-all relative",
+                                inlineShow ? "bg-primary" : "bg-gray-300"
+                              )}
+                            >
+                              <span className={cn(
+                                "w-5 h-5 bg-white rounded-full absolute top-1 transition-all shadow-sm",
+                                inlineShow ? "left-1" : "right-1"
+                              )} />
+                            </button>
+                          </div>
+
+                          {inlineShow && (
+                            <div className="space-y-4 animate-in fade-in duration-200">
+                              <div className="space-y-2">
+                                <span className="text-xs font-black text-gray-500 block">مواضع الإعلانات المدمجة:</span>
+                                <div className="grid grid-cols-3 gap-3">
+                                  <button
+                                    onClick={() => setInlineHome(!inlineHome)}
+                                    className={cn(
+                                      "px-4 py-3 rounded-2xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-2",
+                                      inlineHome ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                                    )}
+                                  >
+                                    <span>الصفحة الرئيسية</span>
+                                    {inlineHome && <div className="w-2 h-2 rounded-full bg-primary" />}
+                                  </button>
+
+                                  <button
+                                    onClick={() => setInlineLists(!inlineLists)}
+                                    className={cn(
+                                      "px-4 py-3 rounded-2xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-2",
+                                      inlineLists ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                                    )}
+                                  >
+                                    <span>صفحة القوائم</span>
+                                    {inlineLists && <div className="w-2 h-2 rounded-full bg-primary" />}
+                                  </button>
+
+                                  <button
+                                    onClick={() => setInlineContent(!inlineContent)}
+                                    className={cn(
+                                      "px-4 py-3 rounded-2xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-2",
+                                      inlineContent ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                                    )}
+                                  >
+                                    <span>صفحة المحتوى</span>
+                                    {inlineContent && <div className="w-2 h-2 rounded-full bg-primary" />}
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                  <label className="text-xs font-black text-gray-500 block">تكرار الإعلانات المدمجة</label>
+                                  <select 
+                                    value={inlineFrequency}
+                                    onChange={(e) => setInlineFrequency(parseInt(e.target.value))}
+                                    className="w-full bg-white border border-gray-200 rounded-2xl px-5 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-primary/10 transition-all appearance-none"
+                                  >
+                                    <option value={4}>كل 4 عناصر</option>
+                                    <option value={6}>كل 6 عناصر</option>
+                                    <option value={8}>كل 8 عناصر</option>
+                                    <option value={10}>كل 10 عناصر</option>
+                                    <option value={12}>كل 12 عنصراً</option>
+                                  </select>
+                                </div>
+
+                                <div className="space-y-2">
+                                  <label className="text-xs font-black text-gray-500 block">شفرة الإعلان المدمج (Script Code)</label>
+                                  <textarea 
+                                    value={inlineScript}
+                                    onChange={(e) => setInlineScript(e.target.value)}
+                                    rows={2}
+                                    className="w-full bg-white border border-gray-200 rounded-2xl px-5 py-3 text-xs font-mono outline-none focus:ring-2 focus:ring-primary/10 transition-all ltr"
+                                    dir="ltr"
+                                    placeholder="<script> ... </script>"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Save Button */}
+                        <button 
+                          onClick={handleUpdateAds}
+                          disabled={isSaving}
+                          className="w-full text-white h-14 rounded-2xl font-black text-sm hover:opacity-90 transition-all shadow-xl active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 mt-4"
+                          style={{ background: 'var(--primary-gradient)' }}
+                        >
+                          {isSaving ? (
+                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          ) : <ShieldCheck size={20} />}
+                          {isSaving ? 'جاري الحفظ...' : 'حفظ إعدادات الإعلانات المتقدمة'}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-12 px-6 text-center border-2 border-dashed border-gray-100 rounded-[2rem] bg-gray-50/50">
+                        <Award size={48} className="text-gray-300 mb-3" />
+                        <p className="font-bold text-gray-500">الإعلانات معطلة على الموقع</p>
+                        <p className="text-xs text-gray-400 mt-1 max-w-sm">تفعيل الخيار بالأعلى سيسمح لك بضبط إعلانات البانر، البينية، والمدمجة في أي مكان وتحديد صفحات ظهورها.</p>
+                      </div>
+                    )}
                   </section>
                 </motion.div>
               ) : activeTab === 'security' ? (

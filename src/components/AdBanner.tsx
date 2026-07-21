@@ -1,26 +1,90 @@
 'use client';
 
+import { useMemo } from 'react';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { useDoc } from '@/hooks/useFirebase';
 
 interface AdBannerProps {
   height?: string;
   className?: string;
+  type?: 'banner' | 'inline';
 }
 
-export default function AdBanner({ height = '60px', className = '' }: AdBannerProps) {
+export default function AdBanner({ height = '60px', className = '', type = 'banner' }: AdBannerProps) {
   const { data: adsConfig, loading } = useDoc('appConfig', 'ads');
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
-  if (loading || !adsConfig || !adsConfig.showAds || !adsConfig.adScript) {
+  // Detect which page we are on
+  const pageType = useMemo(() => {
+    if (pathname === '/home' && !searchParams.get('tab')) return 'home';
+    if (pathname?.startsWith('/categories')) return 'lists';
+    if (pathname?.startsWith('/subcategory')) return 'content';
+    return 'other';
+  }, [pathname, searchParams]);
+
+  // Determine whether to display the ad based on type and page placement settings
+  const adDisplay = useMemo(() => {
+    if (loading || !adsConfig || !adsConfig.showAds) {
+      return { shouldShow: false, script: '' };
+    }
+
+    if (type === 'banner') {
+      const banner = adsConfig.banner;
+      // If new nested schema doesn't exist, fallback to legacy fields
+      if (!banner) {
+        const isEnabledOnPage = 
+          (pageType === 'home' && (adsConfig.showHomeAd ?? true)) ||
+          ((pageType === 'lists' || pageType === 'content') && (adsConfig.showContentAds ?? true));
+        return { 
+          shouldShow: isEnabledOnPage && !!adsConfig.adScript, 
+          script: adsConfig.adScript || '' 
+        };
+      }
+
+      // Check new nested schema
+      if (!banner.show) return { shouldShow: false, script: '' };
+      
+      let showOnPage = false;
+      if (pageType === 'home' && banner.showOnHome) showOnPage = true;
+      else if (pageType === 'lists' && banner.showOnLists) showOnPage = true;
+      else if (pageType === 'content' && banner.showOnContent) showOnPage = true;
+      else if (pageType === 'other') showOnPage = true; // allow on other pages by default if banner is on
+
+      return { 
+        shouldShow: showOnPage && !!(banner.script || adsConfig.adScript), 
+        script: banner.script || adsConfig.adScript || '' 
+      };
+    } else {
+      // Inline Ads
+      const inline = adsConfig.inline;
+      if (!inline) {
+        const isEnabledOnPage = (pageType === 'lists' || pageType === 'content') && (adsConfig.showContentAds ?? true);
+        return { 
+          shouldShow: isEnabledOnPage && !!adsConfig.adScript, 
+          script: adsConfig.adScript || '' 
+        };
+      }
+
+      if (!inline.show) return { shouldShow: false, script: '' };
+
+      let showOnPage = false;
+      if (pageType === 'home' && inline.showOnHome) showOnPage = true;
+      else if (pageType === 'lists' && inline.showOnLists) showOnPage = true;
+      else if (pageType === 'content' && inline.showOnContent) showOnPage = true;
+      
+      return { 
+        shouldShow: showOnPage && !!(inline.script || adsConfig.adScript), 
+        script: inline.script || adsConfig.adScript || '' 
+      };
+    }
+  }, [adsConfig, loading, type, pageType]);
+
+  if (!adDisplay.shouldShow || !adDisplay.script) {
     return null;
   }
 
-  const scriptContent = adsConfig.adScript;
-
   // We wrap the ad script inside an isolated iframe's srcDoc.
-  // This is the absolute best way to run Adsterra and other ad networks
-  // when multiple ads of the exact same script are displayed on a single page,
-  // because it isolates the 'container-xxx' ID and the invoke.js execution
-  // within each iframe's local document context!
   const srcDocHtml = `
     <!DOCTYPE html>
     <html dir="rtl">
@@ -49,7 +113,6 @@ export default function AdBanner({ height = '60px', className = '' }: AdBannerPr
             align-items: center;
             min-height: 50px;
           }
-          /* Ensure any injected iframes or images are responsive */
           #ad-container iframe, #ad-container img {
             max-width: 100% !important;
           }
@@ -57,7 +120,7 @@ export default function AdBanner({ height = '60px', className = '' }: AdBannerPr
       </head>
       <body>
         <div id="ad-container">
-          ${scriptContent}
+          ${adDisplay.script}
         </div>
       </body>
     </html>
