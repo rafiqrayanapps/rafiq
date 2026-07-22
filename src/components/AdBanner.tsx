@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { Suspense, useMemo } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useDoc } from '@/hooks/useFirebase';
 
@@ -10,7 +10,7 @@ interface AdBannerProps {
   type?: 'banner' | 'inline';
 }
 
-export default function AdBanner({ height = '60px', className = '', type = 'banner' }: AdBannerProps) {
+function AdBannerContent({ height = '60px', className = '', type = 'banner' }: AdBannerProps) {
   const { data: adsConfig, loading } = useDoc('appConfig', 'ads');
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -138,5 +138,13 @@ export default function AdBanner({ height = '60px', className = '', type = 'bann
         className="w-full max-w-full transition-all duration-300"
       />
     </div>
+  );
+}
+
+export default function AdBanner(props: AdBannerProps) {
+  return (
+    <Suspense fallback={null}>
+      <AdBannerContent {...props} />
+    </Suspense>
   );
 }

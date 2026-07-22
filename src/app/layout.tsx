@@ -20,20 +20,20 @@ const tajawal = Tajawal({
 });
 
 export const metadata: Metadata = {
-  title: "رفيق المصمم",
-  description: "تطبيق رفيق المصمم - كل ما يحتاجه المصمم في مكان واحد",
+  title: "رفيق",
+  description: "تطبيق رفيق - كل ما يحتاجه المصمم في مكان واحد",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "رفيق المصمم",
+    title: "رفيق",
   },
   formatDetection: {
     telephone: false,
   },
   icons: {
-    icon: "/icon-192.jpg",
-    apple: "/icon-192.jpg",
+    icon: "/icon-192.png",
+    apple: "/icon-192.png",
   },
 };
 

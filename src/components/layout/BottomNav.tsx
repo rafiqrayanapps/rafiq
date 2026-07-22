@@ -1,15 +1,15 @@
 'use client';
 
+import { Suspense, useState, useEffect, useMemo } from 'react';
 import { Home, Heart, Bell, Moon, Sun } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { useState, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useCollection, useDoc } from '@/hooks/useFirebase';
 import AdBanner from '@/components/AdBanner';
 
-export default function BottomNav() {
+function BottomNavContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [isDark, setIsDark] = useState(false);
@@ -162,5 +162,13 @@ export default function BottomNav() {
           </div>
         )}
       </>
+  );
+}
+
+export default function BottomNav() {
+  return (
+    <Suspense fallback={null}>
+      <BottomNavContent />
+    </Suspense>
   );
 }

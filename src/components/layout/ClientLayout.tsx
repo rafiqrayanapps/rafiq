@@ -85,7 +85,9 @@ export default function ClientLayout({
       <ToolProvider>
         <CategoryProvider>
             <SecurityApplier />
-            <InterstitialAd />
+            <Suspense fallback={null}>
+              <InterstitialAd />
+            </Suspense>
             <ServiceWorkerRegister />
             <ThemeApplier />
             <GlobalDialog />
