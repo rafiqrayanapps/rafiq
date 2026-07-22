@@ -1,17 +1,15 @@
 {
   "name": "رفيق المصمم",
-  "short_name": "رفيق",
-  "description": "تطبيق رفيق المصمم - بوابتك لتصاميم إبداعية وكل ما يحتاجه المصمم في مكان واحد",
+  "short_name": "رفيق المصمم",
+  "description": "التطبيق الشامل للمصممين والفرش والخلفيات والأدوات",
   "lang": "ar",
   "dir": "rtl",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "orientation": "any",
-  "background_color": "#ffffff",
+  "orientation": "portrait",
   "theme_color": "#3B82F6",
-  "prefer_related_applications": false,
-  "categories": ["design", "utilities", "productivity"],
+  "background_color": "#ffffff",
   "icons": [
     {
       "src": "/icon-192.png",
@@ -24,15 +22,6 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
-    }
-  ],
-  "shortcuts": [
-    {
-      "name": "الرئيسية",
-      "short_name": "الرئيسية",
-      "description": "الانتقال إلى الشاشة الرئيسية",
-      "url": "/",
-      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
     }
   ]
 }
