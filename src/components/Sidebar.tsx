@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { useCategories } from '@/components/providers/CategoryProvider';
 import LoginModal from './LoginModal';
 import { useTool } from './providers/ToolProvider';
+import { usePWA } from '@/components/providers/PWAProvider';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -21,6 +22,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { user, isAdmin, logout } = useAuth();
   const { mainCategories } = useCategories();
   const { openTool } = useTool();
+  const { promptInstall, isStandalone } = usePWA();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [logoClicks, setLogoClicks] = useState(0);
   const router = useRouter();
@@ -129,6 +131,34 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                     ))}
                   </ul>
                 </section>
+
+                {/* PWA Install Button */}
+                {!isStandalone && (
+                  <section>
+                    <button
+                      onClick={() => {
+                        onClose();
+                        promptInstall();
+                      }}
+                      className="w-full flex items-center justify-between group py-3 px-4 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 hover:shadow-md transition-all active:scale-95"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-blue-500 text-white flex items-center justify-center shadow-sm">
+                          <Smartphone size={20} />
+                        </div>
+                        <div className="flex flex-col items-start text-right">
+                          <span className="text-sm font-black text-gray-900 group-hover:text-primary transition-colors">
+                            تثبيت التطبيق
+                          </span>
+                          <span className="text-[10px] text-gray-500 font-medium">
+                            إضافة للشاشة الرئيسية
+                          </span>
+                        </div>
+                      </div>
+                      <Download size={18} className="text-primary group-hover:translate-x-[-2px] transition-transform" />
+                    </button>
+                  </section>
+                )}
 
                 {/* Info & Contact */}
                 <section>

@@ -2,9 +2,10 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, ArrowRight, Menu, Search, Rocket } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Menu, Search, Rocket, Download } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import AdBanner from '@/components/AdBanner';
+import { usePWA } from '@/components/providers/PWAProvider';
 
 interface HeaderProps {
   title?: string;
@@ -19,6 +20,7 @@ interface HeaderProps {
 export default function Header({ title = "رفيق المصمم", showBackButton, onBackClick, onMenuClick, extraContent, compact, showAd }: HeaderProps) {
   const router = useRouter();
   const [logoClicks, setLogoClicks] = useState(0);
+  const { promptInstall, isStandalone } = usePWA();
 
   const handleLogoClick = () => {
     const nextClicks = logoClicks + 1;
@@ -69,6 +71,17 @@ export default function Header({ title = "رفيق المصمم", showBackButton
                   </button>
                 ) : null}
               </div>
+
+              {!isStandalone && (
+                <button
+                  onClick={promptInstall}
+                  className="px-3 py-1.5 bg-white/15 hover:bg-white/25 rounded-xl text-xs font-bold text-white border border-white/20 flex items-center gap-1.5 backdrop-blur-md shadow-sm transition-all active:scale-95"
+                  title="تثبيت التطبيق"
+                >
+                  <Download size={14} className="animate-bounce" />
+                  <span>تثبيت التطبيق</span>
+                </button>
+              )}
             </div>
 
             <div 
