@@ -23,11 +23,11 @@ export const metadata: Metadata = {
   title: "رفيق المصمم",
   description: "تطبيق رفيق - كل ما يحتاجه المصمم في مكان واحد",
   manifest: "/manifest.json",
-  applicationName: "رفيق",
+  applicationName: "رفيق المصمم",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "رفيق",
+    title: "رفيق المصمم",
   },
   formatDetection: {
     telephone: false,
