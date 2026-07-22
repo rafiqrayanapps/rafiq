@@ -20,25 +20,31 @@ const tajawal = Tajawal({
 });
 
 export const metadata: Metadata = {
-  title: "رفيق",
+  title: "رفيق المصمم",
   description: "تطبيق رفيق - كل ما يحتاجه المصمم في مكان واحد",
   manifest: "/manifest.json",
+  applicationName: "رفيق",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
+    statusBarStyle: "black-translucent",
     title: "رفيق",
   },
   formatDetection: {
     telephone: false,
   },
   icons: {
-    icon: "/icon-192.png",
-    apple: "/icon-192.png",
+    icon: [
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#000000",
+  themeColor: "#3B82F6",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,

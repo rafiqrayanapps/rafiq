@@ -5,7 +5,7 @@ import Header from '@/components/Header';
 import { WithId } from '@/firebase';
 import type { Category as CategoryType } from '@/lib/definitions';
 import { Input } from '@/components/ui/input';
-import { Search, Loader2, Hammer, Heart, Bell, AlertCircle } from 'lucide-react';
+import { Search, Loader2, Hammer, Heart, Bell, AlertCircle, X } from 'lucide-react';
 import CategorySkeleton from '@/components/skeletons/CategorySkeleton';
 import { useUserProfile } from '@/hooks/use-user-profile';
 import { useRouter, useSearchParams } from 'next/navigation';

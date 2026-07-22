@@ -75,6 +75,9 @@ function SecurityApplier() {
   return null;
 }
 
+import { PWAProvider } from "@/components/providers/PWAProvider";
+import PWAInstallModal from "@/components/PWAInstallModal";
+
 export default function ClientLayout({
   children,
 }: {
@@ -82,27 +85,30 @@ export default function ClientLayout({
 }) {
   return (
     <FirebaseClientProvider>
-      <ToolProvider>
-        <CategoryProvider>
-            <SecurityApplier />
-            <Suspense fallback={null}>
-              <InterstitialAd />
-            </Suspense>
-            <ServiceWorkerRegister />
-            <ThemeApplier />
-            <GlobalDialog />
-            <FloatingButton />
-            <div className="relative min-h-screen flex flex-col">
-                <main className="flex-1">
-                    {children}
-                </main>
-                <Suspense fallback={null}>
-                  <BottomNav />
-                </Suspense>
-            </div>
-            <Toaster />
-          </CategoryProvider>
-        </ToolProvider>
+      <PWAProvider>
+        <ToolProvider>
+          <CategoryProvider>
+              <SecurityApplier />
+              <Suspense fallback={null}>
+                <InterstitialAd />
+              </Suspense>
+              <ServiceWorkerRegister />
+              <ThemeApplier />
+              <GlobalDialog />
+              <PWAInstallModal />
+              <FloatingButton />
+              <div className="relative min-h-screen flex flex-col">
+                  <main className="flex-1">
+                      {children}
+                  </main>
+                  <Suspense fallback={null}>
+                    <BottomNav />
+                  </Suspense>
+              </div>
+              <Toaster />
+            </CategoryProvider>
+          </ToolProvider>
+      </PWAProvider>
     </FirebaseClientProvider>
   );
 }

@@ -1,24 +1,21 @@
-self.options = {
-    "domain": "5gvci.com",
-    "zoneId": 11367598
-};
-self.lary = "";
-importScripts('https://5gvci.com/act/files/service-worker.min.js?r=sw');
-
-const CACHE_NAME = 'rafiq-designer-v1';
+const CACHE_NAME = 'rafiq-designer-v2';
 const OFFLINE_URL = '/offline.html';
 
 const ASSETS_TO_CACHE = [
   '/',
   '/manifest.json',
-  '/offline.html'
+  '/offline.html',
+  '/icon-192.png',
+  '/icon-512.png'
 ];
 
 // 1. Caching & Offline Capabilities
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
+      return cache.addAll(ASSETS_TO_CACHE).catch((err) => {
+        console.warn('[sw.js] Cache addAll warning:', err);
+      });
     })
   );
   self.skipWaiting();
@@ -75,38 +72,35 @@ self.addEventListener('fetch', (event) => {
   }
 });
 
-// 2. Firebase Cloud Messaging (FCM) Background Notification Support
-// Import Firebase Scripts (compat version is best suited for Service Worker context)
-importScripts('https://www.gstatic.com/firebasejs/11.9.1/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/11.9.1/firebase-messaging-compat.js');
+// 2. Firebase Cloud Messaging (FCM) Background Notification Support (Safe Import)
+try {
+  importScripts('https://www.gstatic.com/firebasejs/11.9.1/firebase-app-compat.js');
+  importScripts('https://www.gstatic.com/firebasejs/11.9.1/firebase-messaging-compat.js');
 
-// Config object template - replace with your Firebase project credentials
-const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
-};
-
-// Initialize Firebase App
-firebase.initializeApp(firebaseConfig);
-
-// Retrieve Firebase Messaging
-const messaging = firebase.messaging();
-
-// Handle background messages
-messaging.onBackgroundMessage((payload) => {
-  console.log('[sw.js] Received background message ', payload);
-  
-  const notificationTitle = payload.notification?.title || 'رسالة جديدة من رفيق المصمم';
-  const notificationOptions = {
-    body: payload.notification?.body || 'لديك محتوى جديد بانتظارك!',
-    icon: payload.notification?.icon || 'https://picsum.photos/seed/rafiq-icon/192/192',
-    badge: 'https://picsum.photos/seed/rafiq-icon/192/192',
-    data: payload.data
+  const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_AUTH_DOMAIN",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_STORAGE_BUCKET",
+    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+    appId: "YOUR_APP_ID"
   };
 
-  self.registration.showNotification(notificationTitle, notificationOptions);
-});
+  if (firebaseConfig.apiKey !== "YOUR_API_KEY") {
+    firebase.initializeApp(firebaseConfig);
+    const messaging = firebase.messaging();
+    messaging.onBackgroundMessage((payload) => {
+      console.log('[sw.js] Received background message ', payload);
+      const notificationTitle = payload.notification?.title || 'رسالة جديدة من رفيق المصمم';
+      const notificationOptions = {
+        body: payload.notification?.body || 'لديك محتوى جديد بانتظارك!',
+        icon: payload.notification?.icon || '/icon-192.png',
+        badge: '/icon-192.png',
+        data: payload.data
+      };
+      self.registration.showNotification(notificationTitle, notificationOptions);
+    });
+  }
+} catch (e) {
+  console.log('[sw.js] Firebase scripts initialization skipped');
+}
