@@ -7,18 +7,27 @@ export default function ServiceWorkerRegister() {
   const router = useRouter();
 
   useEffect(() => {
-    // Register Service Worker
+    // Register Service Worker only in production, unregister in development
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-      const registerSW = async () => {
-        try {
-          const registration = await navigator.serviceWorker.register('/sw.js');
-          console.log('ServiceWorker registration successful with scope: ', registration.scope);
-        } catch (err) {
-          console.log('ServiceWorker registration failed: ', err);
-        }
-      };
-
-      registerSW();
+      if (process.env.NODE_ENV === 'development') {
+        // Unregister any active service worker in dev mode to prevent chunk load timeouts
+        navigator.serviceWorker.getRegistrations().then((registrations) => {
+          for (const registration of registrations) {
+            registration.unregister();
+            console.log('Unregistered ServiceWorker in dev mode');
+          }
+        });
+      } else {
+        const registerSW = async () => {
+          try {
+            const registration = await navigator.serviceWorker.register('/sw.js');
+            console.log('ServiceWorker registration successful with scope: ', registration.scope);
+          } catch (err) {
+            console.log('ServiceWorker registration failed: ', err);
+          }
+        };
+        registerSW();
+      }
     }
 
     // Handle online/offline events
@@ -37,9 +46,55 @@ export default function ServiceWorkerRegister() {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
+    // Handle chunk load errors (e.g. after dev server rebuild or deployment update)
+    const handleChunkError = (event: ErrorEvent) => {
+      const errorMsg = event.message || event.error?.message || '';
+      if (
+        errorMsg.includes('ChunkLoadError') ||
+        errorMsg.includes('Loading chunk') ||
+        errorMsg.includes('Failed to fetch dynamically imported module')
+      ) {
+        console.warn('Chunk load error detected, reloading page to fetch latest assets...');
+        const hasReloaded = sessionStorage.getItem('chunk_reload_retry');
+        if (!hasReloaded) {
+          sessionStorage.setItem('chunk_reload_retry', 'true');
+          window.location.reload();
+        }
+      }
+    };
+
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      const reason = event.reason;
+      const errorMsg = reason?.message || String(reason || '');
+      if (
+        errorMsg.includes('ChunkLoadError') ||
+        errorMsg.includes('Loading chunk') ||
+        errorMsg.includes('Failed to fetch dynamically imported module') ||
+        reason?.name === 'ChunkLoadError'
+      ) {
+        console.warn('Unhandled ChunkLoadError detected, reloading page...');
+        const hasReloaded = sessionStorage.getItem('chunk_reload_retry');
+        if (!hasReloaded) {
+          sessionStorage.setItem('chunk_reload_retry', 'true');
+          window.location.reload();
+        }
+      }
+    };
+
+    window.addEventListener('error', handleChunkError);
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+
+    // Reset retry flag after 10 seconds of successful running
+    const timer = setTimeout(() => {
+      sessionStorage.removeItem('chunk_reload_retry');
+    }, 10000);
+
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('error', handleChunkError);
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+      clearTimeout(timer);
     };
   }, [router]);
 

@@ -5,11 +5,12 @@ import Header from '@/components/Header';
 import { WithId } from '@/firebase';
 import type { Category as CategoryType } from '@/lib/definitions';
 import { Input } from '@/components/ui/input';
-import { Search, Loader2, Hammer, Heart, Bell, AlertCircle, X } from 'lucide-react';
+import { Search, Loader2, Hammer, Heart, Bell, AlertCircle, X, Smartphone, Download } from 'lucide-react';
 import CategorySkeleton from '@/components/skeletons/CategorySkeleton';
 import { useUserProfile } from '@/hooks/use-user-profile';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCategories } from '@/components/providers/CategoryProvider';
+import { usePWA } from '@/components/providers/PWAProvider';
 import { cn } from '@/lib/utils';
 import MaintenanceModal from '@/components/MaintenanceModal';
 import Sidebar from '@/components/Sidebar';
@@ -21,6 +22,7 @@ import RedDotBadge, { checkCategoryIsNew } from '@/components/RedDotBadge';
 function HomeContent() {
   const [searchTerm, setSearchTerm] = useState('');
   const { isAdmin } = useUserProfile();
+  const { promptInstall, isStandalone } = usePWA();
   const router = useRouter();
   const searchParams = useSearchParams();
   const activeTab = searchParams.get('tab') || 'home';
@@ -95,6 +97,26 @@ function HomeContent() {
               transition={{ duration: 0.3 }}
               className="space-y-4"
             >
+              {!isStandalone && (
+                <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 rounded-3xl p-4 text-white shadow-lg shadow-blue-500/20 flex items-center justify-between gap-4 border border-blue-400/30">
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0 text-white shadow-inner">
+                      <Smartphone className="h-6 w-6 animate-pulse" />
+                    </div>
+                    <div>
+                      <h3 className="font-black text-sm md:text-base leading-tight">تثبيت تطبيق رفيق المصمم</h3>
+                      <p className="text-xs text-white/80 font-medium mt-0.5">ثبّت التطبيق على شاشة هاتفك للوصول السريع بدون متصفح</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={promptInstall}
+                    className="px-4 py-2 bg-white text-blue-600 hover:bg-blue-50 rounded-2xl font-black text-xs md:text-sm shrink-0 flex items-center gap-1.5 shadow-md active:scale-95 transition-all"
+                  >
+                    <Download className="h-4 w-4" />
+                    <span>تثبيت</span>
+                  </button>
+                </div>
+              )}
               {isLoadingCategories ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                   {[...Array(10)].map((_, i) => <CategorySkeleton key={`home-skeleton-${i}`} className="aspect-square" />)}

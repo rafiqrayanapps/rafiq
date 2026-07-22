@@ -104,10 +104,10 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             <div className="flex-1 bg-white rounded-t-[3rem] shadow-[0_-20px_60px_rgba(0,0,0,0.15)] overflow-hidden flex flex-col min-h-0">
               <div className="flex-1 overflow-y-auto py-8 px-6 custom-scrollbar space-y-6">
                 
-                {/* Main Navigation */}
-                <section>
+                {/* Main Navigation & PWA Install */}
+                <section className="space-y-3">
                   <ul className="space-y-2">
-                    {mainNav.map((item, index) => (
+                    {mainNav.map((item) => (
                       <li key={item.href}>
                         <Link 
                           href={item.href}
@@ -130,35 +130,42 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                       </li>
                     ))}
                   </ul>
-                </section>
 
-                {/* PWA Install Button */}
-                {!isStandalone && (
-                  <section>
+                  {/* Featured PWA Install Button in Main Menu */}
+                  <div className="pt-1">
                     <button
                       onClick={() => {
                         onClose();
                         promptInstall();
                       }}
-                      className="w-full flex items-center justify-between group py-3 px-4 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 hover:shadow-md transition-all active:scale-95"
+                      className="w-full flex items-center justify-between group p-4 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/35 transition-all active:scale-95 border border-blue-400/30"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-blue-500 text-white flex items-center justify-center shadow-sm">
-                          <Smartphone size={20} />
+                        <div className="w-11 h-11 rounded-xl bg-white/20 backdrop-blur-md text-white flex items-center justify-center shadow-inner shrink-0">
+                          <Smartphone size={22} className="animate-pulse" />
                         </div>
                         <div className="flex flex-col items-start text-right">
-                          <span className="text-sm font-black text-gray-900 group-hover:text-primary transition-colors">
-                            تثبيت التطبيق
-                          </span>
-                          <span className="text-[10px] text-gray-500 font-medium">
-                            إضافة للشاشة الرئيسية
+                          <div className="flex items-center gap-2">
+                            <span className="text-base font-black text-white">
+                              {isStandalone ? "التطبيق مثبت" : "تثبيت التطبيق"}
+                            </span>
+                            {!isStandalone && (
+                              <span className="bg-yellow-400 text-blue-950 text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider">
+                                جديد
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-xs text-white/80 font-medium">
+                            {isStandalone ? "يعمل بتجربة التطبيق الكاملة" : "إضافة للشاشة الرئيسية وتثبيت أسرع"}
                           </span>
                         </div>
                       </div>
-                      <Download size={18} className="text-primary group-hover:translate-x-[-2px] transition-transform" />
+                      <div className="w-9 h-9 rounded-xl bg-white/10 group-hover:bg-white/20 flex items-center justify-center transition-colors">
+                        <Download size={18} className="text-white group-hover:translate-y-[1px] transition-transform" />
+                      </div>
                     </button>
-                  </section>
-                )}
+                  </div>
+                </section>
 
                 {/* Info & Contact */}
                 <section>
