@@ -7,27 +7,17 @@ export default function ServiceWorkerRegister() {
   const router = useRouter();
 
   useEffect(() => {
-    // Register Service Worker only in production, unregister in development
+    // Register Service Worker for PWA support
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-      if (process.env.NODE_ENV === 'development') {
-        // Unregister any active service worker in dev mode to prevent chunk load timeouts
-        navigator.serviceWorker.getRegistrations().then((registrations) => {
-          for (const registration of registrations) {
-            registration.unregister();
-            console.log('Unregistered ServiceWorker in dev mode');
-          }
-        });
-      } else {
-        const registerSW = async () => {
-          try {
-            const registration = await navigator.serviceWorker.register('/sw.js');
-            console.log('ServiceWorker registration successful with scope: ', registration.scope);
-          } catch (err) {
-            console.log('ServiceWorker registration failed: ', err);
-          }
-        };
-        registerSW();
-      }
+      const registerSW = async () => {
+        try {
+          const registration = await navigator.serviceWorker.register('/sw.js');
+          console.log('ServiceWorker registration successful with scope: ', registration.scope);
+        } catch (err) {
+          console.log('ServiceWorker registration failed: ', err);
+        }
+      };
+      registerSW();
     }
 
     // Handle online/offline events
