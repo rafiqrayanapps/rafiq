@@ -4,6 +4,8 @@ import { Suspense, useEffect } from 'react';
 import { FirebaseClientProvider } from "@/firebase/client-provider";
 import { CategoryProvider } from "@/components/providers/CategoryProvider";
 import { ToolProvider } from "@/components/providers/ToolProvider";
+import { PWAProvider } from "@/components/providers/PWAProvider";
+import PWAInstallModal from "@/components/PWAInstallModal";
 import { Toaster } from "@/components/ui/toaster";
 import ThemeApplier from "@/components/ThemeApplier";
 import GlobalDialog from "@/components/GlobalDialog";
@@ -74,9 +76,6 @@ function SecurityApplier() {
 
   return null;
 }
-
-import { PWAProvider } from "@/components/providers/PWAProvider";
-import PWAInstallModal from "@/components/PWAInstallModal";
 
 export default function ClientLayout({
   children,
