@@ -1,5 +1,4 @@
 {
-  "id": "/",
   "name": "رفيق المصمم",
   "short_name": "رفيق",
   "description": "تطبيق رفيق المصمم - بوابتك لتصاميم إبداعية وكل ما يحتاجه المصمم في مكان واحد",
@@ -8,7 +7,6 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "display_override": ["standalone", "minimal-ui"],
   "orientation": "any",
   "background_color": "#ffffff",
   "theme_color": "#3B82F6",
@@ -19,41 +17,13 @@
       "src": "/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "maskable"
+      "purpose": "any maskable"
     },
     {
       "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
-    }
-  ],
-  "screenshots": [
-    {
-      "src": "/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "رفيق المصمم - الشاشة الرئيسية"
-    },
-    {
-      "src": "/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "form_factor": "wide",
-      "label": "رفيق المصمم - واجهة المستعمل"
+      "purpose": "any maskable"
     }
   ],
   "shortcuts": [
@@ -66,4 +36,3 @@
     }
   ]
 }
-
