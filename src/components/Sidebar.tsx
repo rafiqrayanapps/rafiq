@@ -1,7 +1,7 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ShieldCheck, LogIn, ChevronLeft, Home, Palette, Info, Crown, Settings, User, LayoutGrid, HelpCircle, MessageSquare, Share2, LogOut, Rocket, Zap, Sparkles, Wand2, Scissors, Maximize2, ArrowRight, Key, Contrast, QrCode, Calculator, Type } from 'lucide-react';
+import { X, ShieldCheck, LogIn, ChevronLeft, Home, Palette, Info, Crown, Settings, User, LayoutGrid, HelpCircle, MessageSquare, Share2, LogOut, Rocket, Zap, Sparkles, Wand2, Scissors, Maximize2, ArrowRight, Key, Contrast, QrCode, Calculator, Type, Download, Smartphone } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';

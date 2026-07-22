@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Image as ImageIcon, Zap, Download, RefreshCw, Key, Settings2, Info, Rocket, Palette, Edit3, Wand2, AlertCircle, Share2, Copy, Check, User } from 'lucide-react';
+import { Sparkles, Image as ImageIcon, Zap, Download, RefreshCw, Key, Settings2, Info, Rocket, Palette, Edit3, Wand2, AlertCircle, Share2, Copy, Check, User, X } from 'lucide-react';
 import Image from 'next/image';
 import Header from '@/components/Header';
 import { GoogleGenAI } from "@google/genai";
@@ -20,6 +20,7 @@ export default function ImageGenerationPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [errorInfo, setErrorInfo] = useState<{title: string, message: string} | null>(null);
   const [isErrorDialogOpen, setIsErrorDialogOpen] = useState(false);
+  const [showFullPreview, setShowFullPreview] = useState(false);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [editPrompt, setEditPrompt] = useState<string>('');
   const [aspectRatio, setAspectRatio] = useState<string>('1:1');
@@ -784,19 +785,23 @@ export default function ImageGenerationPage() {
                     className="space-y-6 pt-4"
                 >
                     <div className="bg-white rounded-[3.5rem] border border-blue-100 shadow-[0_20px_50px_rgba(0,0,0,0.08)] overflow-hidden relative">
-                        <div className={cn(
-                            "w-full relative group transition-all",
-                            aspectRatio === '1:1' ? 'aspect-square' : aspectRatio === '16:9' ? 'aspect-video' : 'aspect-[9/16]'
-                        )}>
+                        <div 
+                            className={cn(
+                                "w-full relative group transition-all cursor-pointer bg-slate-900/5",
+                                aspectRatio === '1:1' ? 'aspect-square' : aspectRatio === '16:9' ? 'aspect-video' : 'aspect-[9/16]'
+                            )}
+                            onClick={() => setShowFullPreview(true)}
+                        >
                             <Image 
                                 src={generatedImage} 
                                 alt="Generated Image" 
                                 fill
+                                unoptimized
                                 className="object-cover"
                                 referrerPolicy="no-referrer"
                             />
                             {isEditing && (
-                                <div className="absolute inset-0 bg-black/40 backdrop-blur-md flex flex-col items-center justify-center text-white space-y-4">
+                                <div className="absolute inset-0 bg-black/40 backdrop-blur-md flex flex-col items-center justify-center text-white space-y-4 z-10">
                                     <div className="w-16 h-16 border-4 border-white/20 border-t-white rounded-full animate-spin" />
                                     <span className="font-black text-sm tracking-widest">جاري التحديث...</span>
                                 </div>
@@ -924,6 +929,35 @@ export default function ImageGenerationPage() {
                   </button>
                 </div>
               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Full Image Preview Modal */}
+      <AnimatePresence>
+        {showFullPreview && generatedImage && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="relative max-w-5xl w-full h-[90vh] flex items-center justify-center"
+            >
+              <Image
+                src={generatedImage}
+                alt="Full Preview"
+                fill
+                unoptimized
+                className="object-contain"
+                referrerPolicy="no-referrer"
+              />
+              <button
+                onClick={() => setShowFullPreview(false)}
+                className="absolute top-4 right-4 h-12 w-12 bg-black/50 hover:bg-black/80 text-white rounded-full flex items-center justify-center backdrop-blur-md z-[130] transition-colors"
+              >
+                <X className="h-6 w-6" />
+              </button>
             </motion.div>
           </div>
         )}

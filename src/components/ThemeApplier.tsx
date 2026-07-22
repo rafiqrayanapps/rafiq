@@ -50,6 +50,8 @@ export default function ThemeApplier() {
         const primaryColor = isDark ? (activeTheme.darkPrimaryColor || activeTheme.primaryColor || '#3B82F6') : (activeTheme.primaryColor || '#3B82F6');
         
         document.documentElement.style.setProperty('--primary', primaryColor);
+        document.documentElement.style.setProperty('--primary-color', primaryColor);
+        document.documentElement.style.setProperty('--main-color', primaryColor);
         document.documentElement.style.setProperty('--accent', primaryColor);
         document.documentElement.style.setProperty('--ring', primaryColor);
 

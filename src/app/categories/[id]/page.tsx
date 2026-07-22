@@ -210,7 +210,26 @@ export default function CategoryPage() {
   const filteredItems = useMemo(() => {
     if (!rawItems) return [];
     const viewable = (isAdmin || isEditor) ? rawItems : rawItems.filter(i => i.status === 'approved' || !i.status);
-    return viewable.filter(i => (i.title || "").toLowerCase().includes(searchTerm.toLowerCase()));
+    const filtered = viewable.filter(i => (i.title || "").toLowerCase().includes(searchTerm.toLowerCase()));
+
+    return [...filtered].sort((a, b) => {
+      // 1. Explicit order field if available and different
+      if (typeof a.order === 'number' && typeof b.order === 'number' && a.order !== b.order) {
+        return a.order - b.order;
+      }
+      // 2. Addition date (createdAt ascending: oldest/first added item comes first)
+      if (a.createdAt && b.createdAt) {
+        const timeA = new Date(a.createdAt).getTime();
+        const timeB = new Date(b.createdAt).getTime();
+        if (!isNaN(timeA) && !isNaN(timeB) && timeA !== timeB) {
+          return timeA - timeB;
+        }
+      }
+      // 3. Fallback: Natural numeric title sorting ("لوجو الجزء (1)", "لوجو الجزء (2)", "لوجو الجزء (12)")
+      const titleA = a.title || '';
+      const titleB = b.title || '';
+      return titleA.localeCompare(titleB, 'ar', { numeric: true, sensitivity: 'base' });
+    });
   }, [rawItems, searchTerm, isAdmin, isEditor]);
 
   const isMaintenanceOn = category?.isUnderMaintenance && !isAdmin && !isEditor;
@@ -223,24 +242,27 @@ export default function CategoryPage() {
         case 'style1': // Logos - 2 Column Grid
             return (
                 <div key={`${item.id}-${idx}`} className="flex flex-col gap-2 animate-in fade-in zoom-in-95 duration-500">
-                    <div className="px-1">
-                        <h3 className="text-xs font-black truncate">{item.title}</h3>
-                        <p className="text-[10px] font-bold text-muted-foreground truncate">{item.description}</p>
-                    </div>
                     <div 
-                        className="relative aspect-square rounded-[2rem] overflow-hidden bg-card shadow-lg group cursor-pointer"
+                        className="relative rounded-[2rem] overflow-hidden bg-card shadow-lg group cursor-pointer w-full flex items-center justify-center"
                         onClick={() => setSelectedImage(getDirectLink(item.imageUrl))}
                     >
                         {item.imageUrl && (
                             <Image 
                                 src={getDirectLink(item.imageUrl)} 
-                                alt="" 
-                                fill 
-                                className="object-cover group-hover:scale-110 transition-transform duration-700" 
+                                alt={item.title || ""} 
+                                width={0}
+                                height={0}
+                                sizes="100vw"
+                                unoptimized
+                                className="w-full h-auto object-contain rounded-[2rem] group-hover:scale-105 transition-transform duration-700 block" 
                                 referrerPolicy="no-referrer"
                             />
                         )}
                         <FavoriteButton isFavorite={isFav} onClick={(e) => { e.stopPropagation(); toggleFavorite(item); }} className="top-3 left-3 h-8 w-8" />
+                    </div>
+                    <div className="px-1 text-center">
+                        <h3 className="text-xs font-black truncate">{item.title}</h3>
+                        {item.description && <p className="text-[10px] font-bold text-muted-foreground truncate">{item.description}</p>}
                     </div>
                     <Button 
                         variant="default" 
@@ -258,24 +280,27 @@ export default function CategoryPage() {
         case 'style2': // Banners - Full Width
             return (
                 <div key={`${item.id}-${idx}`} className="flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full">
-                    <div className="px-2">
-                        <h3 className="font-black text-lg text-foreground leading-tight">{item.title}</h3>
-                        {item.description && <p className="text-[10px] font-bold text-muted-foreground mt-1">{item.description}</p>}
-                    </div>
                     <div 
-                        className="relative rounded-[2.5rem] overflow-hidden bg-card shadow-xl group aspect-video cursor-pointer"
+                        className="relative rounded-[2.5rem] overflow-hidden bg-card shadow-xl group cursor-pointer w-full flex items-center justify-center"
                         onClick={() => setSelectedImage(getDirectLink(item.imageUrl))}
                     >
                         {item.imageUrl && (
                             <Image 
                                 src={getDirectLink(item.imageUrl)} 
-                                alt="" 
-                                fill
-                                className="object-cover group-hover:scale-105 transition-transform duration-1000" 
+                                alt={item.title || ""} 
+                                width={0}
+                                height={0}
+                                sizes="100vw"
+                                unoptimized
+                                className="w-full h-auto object-contain rounded-[2.5rem] group-hover:scale-105 transition-transform duration-1000 block" 
                                 referrerPolicy="no-referrer"
                             />
                         )}
                         <FavoriteButton isFavorite={isFav} onClick={(e) => { e.stopPropagation(); toggleFavorite(item); }} />
+                    </div>
+                    <div className="px-2">
+                        <h3 className="font-black text-lg text-foreground leading-tight">{item.title}</h3>
+                        {item.description && <p className="text-[10px] font-bold text-muted-foreground mt-1">{item.description}</p>}
                     </div>
                     <Button 
                         variant="default" 
@@ -395,15 +420,18 @@ export default function CategoryPage() {
             return (
                 <div key={`${item.id}-${idx}`} className="bg-card rounded-[2.5rem] overflow-hidden shadow-xl border-4 border-white/5 animate-in fade-in zoom-in-95 duration-500">
                     <div 
-                        className="relative aspect-video w-full group cursor-pointer"
+                        className="relative w-full group cursor-pointer flex items-center justify-center"
                         onClick={() => setSelectedImage(getDirectLink(item.imageUrl))}
                     >
                         {item.imageUrl && (
                             <Image 
                                 src={getDirectLink(item.imageUrl)} 
-                                alt="" 
-                                fill 
-                                className="object-cover group-hover:scale-105 transition-transform duration-700" 
+                                alt={item.title || ""} 
+                                width={0}
+                                height={0}
+                                sizes="100vw"
+                                unoptimized
+                                className="w-full h-auto object-contain rounded-t-[2.5rem] group-hover:scale-105 transition-transform duration-700 block" 
                                 referrerPolicy="no-referrer"
                             />
                         )}
@@ -646,7 +674,7 @@ export default function CategoryPage() {
                                          style={{ animationDelay: `${idx * 50}ms` }}
                                      >
                                              <div 
-                                               className="w-full h-full relative text-primary-foreground p-4 rounded-[2.2rem] flex flex-col items-center justify-center cursor-pointer transition-all shadow-lg hover:shadow-primary/20 text-center active:scale-95 group overflow-hidden border-4 border-white/5"
+                                               className="w-full h-full relative text-primary-foreground p-4 rounded-[2.2rem] flex flex-col items-center justify-center cursor-pointer text-center category-card-glow group overflow-hidden border-4 border-white/5"
                                                style={{ background: subCat.useCustomAccent && subCat.accentColor ? `linear-gradient(135deg, ${subCat.accentColor}, ${subCat.accentColor}dd)` : 'var(--primary-gradient)' }}
                                              >
                                              <div className="absolute -bottom-4 -right-4 bg-white/10 w-16 h-16 rounded-full group-hover:scale-150 transition-transform duration-700" />
@@ -773,6 +801,7 @@ export default function CategoryPage() {
                   src={selectedImage} 
                   alt="Preview" 
                   fill
+                  unoptimized
                   className="object-contain" 
                   referrerPolicy="no-referrer"
               />

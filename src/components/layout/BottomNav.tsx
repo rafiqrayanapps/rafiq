@@ -59,10 +59,13 @@ function BottomNavContent() {
     '/image-generation',
     '/image-to-prompt',
     '/ai-story-generator',
-    '/remove-bg'
+    '/remove-bg',
+    '/colors'
   ].some(path => pathname.startsWith(path));
 
-  if (pathname === '/' || isToolPage) {
+  const isCategoryPage = pathname.startsWith('/categories') || pathname.startsWith('/subcategory');
+
+  if (pathname === '/' || isToolPage || isCategoryPage) {
     return null;
   }
 

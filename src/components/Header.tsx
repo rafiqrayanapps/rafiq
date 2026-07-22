@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Menu, Search, Rocket } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Menu, Search, Rocket } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import AdBanner from '@/components/AdBanner';
 
@@ -51,19 +51,21 @@ export default function Header({ title = "رفيق المصمم", showBackButton
           <div className="container max-w-6xl mx-auto px-6 relative z-10">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                {onMenuClick ? (
-                  <button 
-                    onClick={onMenuClick}
-                    className="p-2 bg-white/10 hover:bg-white/20 rounded-xl transition-colors border border-white/10 text-white backdrop-blur-md"
-                  >
-                    <Menu size={18} strokeWidth={2.5} />
-                  </button>
-                ) : showBackButton ? (
+                {showBackButton ? (
                   <button 
                     onClick={handleBack}
                     className="p-2 bg-white/10 hover:bg-white/20 rounded-xl transition-colors border border-white/10 text-white backdrop-blur-md"
+                    title="رجوع"
                   >
-                    <ArrowLeft size={18} strokeWidth={2.5} />
+                    <ArrowRight size={18} strokeWidth={2.5} />
+                  </button>
+                ) : onMenuClick ? (
+                  <button 
+                    onClick={onMenuClick}
+                    className="p-2 bg-white/10 hover:bg-white/20 rounded-xl transition-colors border border-white/10 text-white backdrop-blur-md"
+                    title="القائمة"
+                  >
+                    <Menu size={18} strokeWidth={2.5} />
                   </button>
                 ) : null}
               </div>

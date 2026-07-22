@@ -9,10 +9,10 @@ export function getDirectLink(url?: string) {
   if (!url) return "";
 
   // Handle Google Drive
-  if (url.includes("drive.google.com")) {
+  if (url.includes("drive.google.com") || url.includes("lh3.googleusercontent.com")) {
     const id = url.split("/d/")[1]?.split("/")[0] || url.split("id=")[1]?.split("&")[0];
     if (id) {
-      return `https://drive.google.com/uc?export=download&id=${id}`;
+      return `https://lh3.googleusercontent.com/d/${id}`;
     }
   }
 

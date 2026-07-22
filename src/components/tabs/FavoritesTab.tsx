@@ -160,21 +160,24 @@ export default function FavoritesTab() {
         case 'style1':
             return (
                 <div key={`${item.id}-${idx}`} className="flex flex-col gap-2 animate-in fade-in zoom-in-95 duration-500">
-                    <div className="px-1">
-                        <h3 className="text-xs font-black truncate">{item.title}</h3>
-                        <p className="text-[10px] font-bold text-muted-foreground truncate">{item.description}</p>
-                    </div>
-                    <div className="relative aspect-square rounded-[2rem] overflow-hidden bg-card shadow-lg group">
+                    <div className="relative rounded-[2rem] overflow-hidden bg-card shadow-lg group w-full flex items-center justify-center">
                         {item.imageUrl && (
                             <Image 
                                 src={getDirectLink(item.imageUrl)} 
-                                alt="" 
-                                fill 
-                                className="object-cover group-hover:scale-110 transition-transform duration-700" 
+                                alt={item.title || ""} 
+                                width={0}
+                                height={0}
+                                sizes="100vw"
+                                unoptimized
+                                className="w-full h-auto object-contain rounded-[2rem] group-hover:scale-105 transition-transform duration-700 block" 
                                 referrerPolicy="no-referrer"
                             />
                         )}
                         <FavoriteButton isFavorite={isFav} onClick={(e) => { e.stopPropagation(); toggleFavorite(item); }} className="top-3 left-3 h-8 w-8" />
+                    </div>
+                    <div className="px-1 text-center">
+                        <h3 className="text-xs font-black truncate">{item.title}</h3>
+                        {item.description && <p className="text-[10px] font-bold text-muted-foreground truncate">{item.description}</p>}
                     </div>
                     <Button 
                         variant="default" 
@@ -192,21 +195,24 @@ export default function FavoritesTab() {
         case 'style2':
             return (
                 <div key={`${item.id}-${idx}`} className="flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full">
-                    <div className="px-2">
-                        <h3 className="font-black text-lg text-foreground leading-tight">{item.title}</h3>
-                        {item.description && <p className="text-[10px] font-bold text-muted-foreground mt-1">{item.description}</p>}
-                    </div>
-                    <div className="relative rounded-[2.5rem] overflow-hidden bg-card shadow-xl group aspect-video">
+                    <div className="relative rounded-[2.5rem] overflow-hidden bg-card shadow-xl group w-full flex items-center justify-center">
                         {item.imageUrl && (
                             <Image 
                                 src={getDirectLink(item.imageUrl)} 
-                                alt="" 
-                                fill
-                                className="object-cover group-hover:scale-105 transition-transform duration-1000" 
+                                alt={item.title || ""} 
+                                width={0}
+                                height={0}
+                                sizes="100vw"
+                                unoptimized
+                                className="w-full h-auto object-contain rounded-[2.5rem] group-hover:scale-105 transition-transform duration-1000 block" 
                                 referrerPolicy="no-referrer"
                             />
                         )}
                         <FavoriteButton isFavorite={isFav} onClick={(e) => { e.stopPropagation(); toggleFavorite(item); }} />
+                    </div>
+                    <div className="px-2">
+                        <h3 className="font-black text-lg text-foreground leading-tight">{item.title}</h3>
+                        {item.description && <p className="text-[10px] font-bold text-muted-foreground mt-1">{item.description}</p>}
                     </div>
                     <Button 
                         variant="default" 
@@ -278,13 +284,16 @@ export default function FavoritesTab() {
         case 'style5':
             return (
                 <div key={`${item.id}-${idx}`} className="bg-card rounded-[2.5rem] overflow-hidden shadow-xl border-4 border-white/5 animate-in fade-in zoom-in-95 duration-500">
-                    <div className="relative aspect-video w-full group">
+                    <div className="relative w-full group flex items-center justify-center">
                         {item.imageUrl && (
                             <Image 
                                 src={getDirectLink(item.imageUrl)} 
-                                alt="" 
-                                fill 
-                                className="object-cover group-hover:scale-105 transition-transform duration-700" 
+                                alt={item.title || ""} 
+                                width={0}
+                                height={0}
+                                sizes="100vw"
+                                unoptimized
+                                className="w-full h-auto object-contain rounded-t-[2.5rem] group-hover:scale-105 transition-transform duration-700 block" 
                                 referrerPolicy="no-referrer"
                             />
                         )}
@@ -443,19 +452,21 @@ export default function FavoritesTab() {
         )}
 
       <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
-        <DialogContent className="max-w-3xl p-0 overflow-hidden bg-transparent border-none shadow-none">
+        <DialogContent className="max-w-[95vw] sm:max-w-5xl p-0 overflow-hidden bg-black/70 backdrop-blur-xl border-none shadow-none flex items-center justify-center">
           <DialogTitle className="sr-only">Image Preview</DialogTitle>
           {selectedImage && (
-            <Image 
-                src={selectedImage} 
-                alt="Preview" 
-                width={1200} 
-                height={800} 
-                className="w-full h-auto rounded-lg" 
-                referrerPolicy="no-referrer"
-            />
+            <div className="relative w-full h-[85vh] flex items-center justify-center p-2">
+              <Image 
+                  src={selectedImage} 
+                  alt="Preview" 
+                  fill
+                  unoptimized
+                  className="object-contain" 
+                  referrerPolicy="no-referrer"
+              />
+            </div>
           )}
-          <Button variant="ghost" size="icon" className="absolute top-2 right-2 text-white hover:bg-white/20" onClick={() => setSelectedImage(null)}>
+          <Button variant="ghost" size="icon" className="absolute top-4 right-4 text-white bg-black/40 hover:bg-black/60 rounded-full h-10 w-10 z-[100] backdrop-blur-md" onClick={() => setSelectedImage(null)}>
             <X className="h-6 w-6" />
           </Button>
         </DialogContent>

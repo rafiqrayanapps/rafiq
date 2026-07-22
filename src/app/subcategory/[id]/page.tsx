@@ -18,8 +18,24 @@ export default function SubCategoryPage() {
 
   const items = itemsData || [];
 
-  // Filter items by subCategoryId
-  const subItems = items.filter(item => item.subCategoryId === id);
+  // Filter items by subCategoryId and sort by addition date / order / natural title
+  const subItems = items
+    .filter(item => item.subCategoryId === id)
+    .sort((a, b) => {
+      if (typeof a.order === 'number' && typeof b.order === 'number' && a.order !== b.order) {
+        return a.order - b.order;
+      }
+      if (a.createdAt && b.createdAt) {
+        const timeA = new Date(a.createdAt).getTime();
+        const timeB = new Date(b.createdAt).getTime();
+        if (!isNaN(timeA) && !isNaN(timeB) && timeA !== timeB) {
+          return timeA - timeB;
+        }
+      }
+      const titleA = a.title || '';
+      const titleB = b.title || '';
+      return titleA.localeCompare(titleB, 'ar', { numeric: true, sensitivity: 'base' });
+    });
 
   return (
     <div className="min-h-screen bg-background pb-32">
@@ -31,16 +47,10 @@ export default function SubCategoryPage() {
         <div className="flex items-center justify-between mb-6">
           <button 
             onClick={() => router.back()}
-            className="p-2 bg-white/20 rounded-xl"
+            className="p-2 bg-white/20 hover:bg-white/30 rounded-xl transition-colors text-white"
+            title="رجوع"
           >
             <ArrowRight size={24} />
-          </button>
-          
-          <button 
-            onClick={() => setIsSidebarOpen(true)}
-            className="p-2 bg-white/20 rounded-xl"
-          >
-            <Menu size={24} />
           </button>
         </div>
         

@@ -17,7 +17,7 @@ export default function CategoryCard({ id, title, type, index }: CategoryCardPro
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: index * 0.05 }}
-        className="relative overflow-hidden rounded-[45px] p-6 aspect-square flex flex-col items-center justify-center text-center group cursor-pointer hover:shadow-2xl hover:shadow-primary/20 transition-all active:scale-95"
+        className="relative overflow-hidden rounded-[45px] p-6 aspect-square flex flex-col items-center justify-center text-center group cursor-pointer category-card-glow"
         style={{ background: 'var(--primary-gradient)' }}
       >
         {/* Decorative circles */}
