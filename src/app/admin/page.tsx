@@ -759,6 +759,7 @@ export default function AdminPage() {
     if (!editingItem?.title || !editingItem?.subCategoryId) return;
     setIsSaving(true);
     try {
+      const nowIso = new Date().toISOString();
       await addDoc(collection(db, 'categories', editingItem.subCategoryId, 'items'), {
         title: editingItem.title,
         description: editingItem.description || '',
@@ -777,19 +778,21 @@ export default function AdminPage() {
         showDownloadButton: editingItem.showDownloadButton !== false,
         order: items.length,
         isNew: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        createdAt: nowIso,
+        updatedAt: nowIso
       });
       try {
         await updateDoc(doc(db, 'categories', editingItem.subCategoryId), {
           hasNewContent: true,
-          updatedAt: new Date().toISOString()
+          lastContentAddedAt: nowIso,
+          updatedAt: nowIso
         });
         const targetSub = subCategories.find(s => s.id === editingItem.subCategoryId);
         if (targetSub && targetSub.parentId) {
           await updateDoc(doc(db, 'categories', targetSub.parentId), {
             hasNewContent: true,
-            updatedAt: new Date().toISOString()
+            lastContentAddedAt: nowIso,
+            updatedAt: nowIso
           });
         }
       } catch (err) {
@@ -860,9 +863,14 @@ export default function AdminPage() {
   const handleUpdateItem = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingItem) return;
+    const subCatId = editingItem.subCategoryId || selectedManagerId?.id;
+    if (!subCatId || !editingItem.id) {
+      toast({ title: "خطأ", description: "تعذر تحديد القسم الفرعي الخاص بالمحتوى", variant: "destructive" });
+      return;
+    }
     setIsSaving(true);
     try {
-      await updateDoc(doc(db, 'categories', editingItem.subCategoryId, 'items', editingItem.id), {
+      await updateDoc(doc(db, 'categories', subCatId, 'items', editingItem.id), {
         title: editingItem.title,
         description: editingItem.description || '',
         downloadUrl: editingItem.downloadUrl || '',
@@ -883,7 +891,7 @@ export default function AdminPage() {
       setEditingItem(null);
       toast({ title: "تم النجاح", description: "تم تحديث المحتوى بنجاح!" });
     } catch (error: any) {
-      handleFirestoreError(error, OperationType.UPDATE, `categories/${editingItem.subCategoryId}/items`);
+      handleFirestoreError(error, OperationType.UPDATE, `categories/${subCatId}/items`);
     } finally {
       setIsSaving(false);
     }
@@ -3249,7 +3257,7 @@ export default function AdminPage() {
                                   </div>
                                   <div className="flex items-center gap-1 sm:gap-3 flex-shrink-0">
                                     <button 
-                                      onClick={() => setEditingItem(item)}
+                                      onClick={() => setEditingItem({ ...item, subCategoryId: item.subCategoryId || selectedManagerId?.id })}
                                       className="p-2 sm:p-3 text-blue-500 hover:bg-blue-50 rounded-xl transition-colors"
                                     >
                                       <Edit3 size={18} className="sm:hidden" />
@@ -3355,7 +3363,7 @@ export default function AdminPage() {
                             </div>
                             <div className="flex items-center gap-1 sm:gap-3 flex-shrink-0">
                               <button 
-                                onClick={() => setEditingItem(item)}
+                                onClick={() => setEditingItem({ ...item, subCategoryId: item.subCategoryId || selectedManagerId?.id })}
                                 className="p-2 sm:p-3 text-blue-500 hover:bg-blue-50 rounded-xl transition-colors"
                               >
                                 <Edit3 size={18} className="sm:hidden" />

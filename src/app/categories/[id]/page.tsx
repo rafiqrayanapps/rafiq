@@ -24,7 +24,7 @@ import { useCategories } from '@/components/providers/CategoryProvider';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { AffiliateAdSlot, useAffiliateAds } from '@/components/ads/AffiliateAdsManager';
 import AdBanner from '@/components/AdBanner';
-import RedDotBadge, { checkCategoryIsNew, useViewedCategories, markCategoryAsViewed } from '@/components/RedDotBadge';
+import RedDotBadge, { checkCategoryIsNew, checkItemIsNew, useViewedCategories, markCategoryAsViewed, markItemAsViewed } from '@/components/RedDotBadge';
 
 const FavoriteButton = ({ isFavorite, onClick, className }: { isFavorite: boolean, onClick: (e: any) => void, className?: string }) => (
     <button 
@@ -169,13 +169,7 @@ export default function CategoryPage() {
   const router = useRouter();
   const id = params?.id as string;
   const firestore = useFirestore();
-  const viewedIds = useViewedCategories();
-
-  useEffect(() => {
-    if (id) {
-      markCategoryAsViewed(id);
-    }
-  }, [id]);
+  const viewedData = useViewedCategories();
 
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [selectedAiTool, setSelectedAiTool] = useState<any>(null);
@@ -203,6 +197,12 @@ export default function CategoryPage() {
 
   const itemsQuery = useMemoFirebase(() => id ? collection(firestore!, 'categories', id, 'items') : null, [firestore, id]);
   const { data: rawItems, isLoading: areItemsLoading } = useCollection<any>(itemsQuery);
+
+  useEffect(() => {
+    if (id) {
+      markCategoryAsViewed(id, rawItems);
+    }
+  }, [id, rawItems]);
 
   const toggleFavorite = (item: WithId<any>) => {
     const isFavorite = favorites.some(f => f.id === item.id);
@@ -245,6 +245,7 @@ export default function CategoryPage() {
   const renderItem = (item: any, idx: number) => {
     const style = category?.displayStyle || 'style1';
     const isFav = favorites.some(f => f.id === item.id);
+    const isItemNew = checkItemIsNew(item, viewedData.viewedItemIds, viewedData.timestamps[id]);
 
     switch(style) {
         case 'style1': // Logos - 2 Column Grid
@@ -252,8 +253,12 @@ export default function CategoryPage() {
                 <div key={`${item.id}-${idx}`} className="flex flex-col gap-2 animate-in fade-in zoom-in-95 duration-500">
                     <div 
                         className="relative rounded-[2rem] overflow-hidden bg-card shadow-lg group cursor-pointer w-full flex items-center justify-center"
-                        onClick={() => setSelectedImage(getDirectLink(item.imageUrl))}
+                        onClick={() => {
+                            markItemAsViewed(item.id);
+                            setSelectedImage(getDirectLink(item.imageUrl));
+                        }}
                     >
+                        {isItemNew && <RedDotBadge className="absolute top-3 right-3 z-30" />}
                         {item.imageUrl && (
                             <Image 
                                 src={getDirectLink(item.imageUrl)} 
@@ -278,7 +283,7 @@ export default function CategoryPage() {
                             "w-full rounded-2xl h-10 font-bold text-xs gap-2 shadow-sm active:scale-95 transition-transform",
                             item.showDownloadButton === false && "hidden"
                         )}
-                        onClick={() => handleAction(item, () => item.downloadUrl && window.open(item.downloadUrl, '_blank'))}
+                        onClick={() => handleAction(item, () => { markItemAsViewed(item.id); item.downloadUrl && window.open(item.downloadUrl, '_blank'); })}
                     >
                         <Download className="h-3.5 w-3.5" />
                         تحميل
@@ -290,8 +295,12 @@ export default function CategoryPage() {
                 <div key={`${item.id}-${idx}`} className="flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full">
                     <div 
                         className="relative rounded-[2.5rem] overflow-hidden bg-card shadow-xl group cursor-pointer w-full flex items-center justify-center"
-                        onClick={() => setSelectedImage(getDirectLink(item.imageUrl))}
+                        onClick={() => {
+                            markItemAsViewed(item.id);
+                            setSelectedImage(getDirectLink(item.imageUrl));
+                        }}
                     >
+                        {isItemNew && <RedDotBadge className="absolute top-4 right-4 z-30" />}
                         {item.imageUrl && (
                             <Image 
                                 src={getDirectLink(item.imageUrl)} 
@@ -316,7 +325,7 @@ export default function CategoryPage() {
                             "w-full rounded-[1.5rem] h-12 font-bold gap-2 shadow-lg active:scale-95 transition-transform",
                             item.showDownloadButton === false && "hidden"
                         )}
-                        onClick={() => handleAction(item, () => item.downloadUrl && window.open(item.downloadUrl, '_blank'))}
+                        onClick={() => handleAction(item, () => { markItemAsViewed(item.id); item.downloadUrl && window.open(item.downloadUrl, '_blank'); })}
                     >
                         <Download className="h-4 w-4" />
                         تحميل
@@ -325,7 +334,8 @@ export default function CategoryPage() {
             );
         case 'style3': // Apps Style - App Store Look
             return (
-                <div key={`${item.id}-${idx}`} className="bg-card rounded-[2.5rem] p-6 shadow-xl space-y-6 animate-in fade-in zoom-in-95 duration-500">
+                <div key={`${item.id}-${idx}`} className="bg-card rounded-[2.5rem] p-6 shadow-xl space-y-6 animate-in fade-in zoom-in-95 duration-500 relative">
+                    {isItemNew && <RedDotBadge className="absolute top-4 right-4 z-30" />}
                     {/* Top Section: Title and Icon */}
                     <div className="flex items-start justify-between gap-4">
                         <div className="flex-1 space-y-1">
@@ -429,10 +439,14 @@ export default function CategoryPage() {
             const hasCopy = item.showCopyButton !== false;
 
             return (
-                <div key={`${item.id}-${idx}`} className="bg-card rounded-[2.5rem] overflow-hidden shadow-xl border-4 border-white/5 animate-in fade-in zoom-in-95 duration-500">
+                <div key={`${item.id}-${idx}`} className="bg-card rounded-[2.5rem] overflow-hidden shadow-xl border-4 border-white/5 animate-in fade-in zoom-in-95 duration-500 relative">
+                    {isItemNew && <RedDotBadge className="absolute top-4 right-4 z-30" />}
                     <div 
                         className="relative w-full group cursor-pointer flex items-center justify-center"
-                        onClick={() => setSelectedImage(getDirectLink(item.imageUrl))}
+                        onClick={() => {
+                            markItemAsViewed(item.id);
+                            setSelectedImage(getDirectLink(item.imageUrl));
+                        }}
                     >
                         {item.imageUrl && (
                             <Image 
@@ -545,15 +559,16 @@ export default function CategoryPage() {
             const videoId = item.videoUrl?.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/)?.[1];
             const thumbUrl = videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : (item.imageUrl || 'https://picsum.photos/seed/video/800/450');
             return (
-                <div key={`${item.id}-${idx}`} className="flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full">
+                <div key={`${item.id}-${idx}`} className="flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full relative">
                     <div className="px-2">
                         <h3 className="font-black text-lg text-foreground leading-tight">{item.title}</h3>
                         {item.description && <p className="text-[10px] font-bold text-muted-foreground mt-1">{item.description}</p>}
                     </div>
                     <div 
                         className="relative rounded-[2.5rem] overflow-hidden bg-card shadow-xl group aspect-video cursor-pointer border-4 border-white/5"
-                        onClick={() => handleAction(item, () => item.videoUrl && window.open(item.videoUrl, '_blank'))}
+                        onClick={() => handleAction(item, () => { markItemAsViewed(item.id); item.videoUrl && window.open(item.videoUrl, '_blank'); })}
                     >
+                        {isItemNew && <RedDotBadge className="absolute top-4 right-4 z-30" />}
                         <Image 
                             src={getDirectLink(thumbUrl)} 
                             alt="" 
@@ -575,9 +590,13 @@ export default function CategoryPage() {
                 <div 
                     key={`${item.id}-${idx}`} 
                     className="flex flex-col gap-3 items-center group cursor-pointer animate-in fade-in zoom-in-95 duration-500"
-                    onClick={() => setSelectedAiTool(item)}
+                    onClick={() => {
+                        markItemAsViewed(item.id);
+                        setSelectedAiTool(item);
+                    }}
                 >
                     <div className="relative w-full aspect-square bg-card rounded-[2.5rem] overflow-hidden shadow-lg border-4 border-white/5 transition-all duration-500 group-hover:shadow-primary/30">
+                        {isItemNew && <RedDotBadge className="absolute top-3 right-3 z-30" />}
                         {item.imageUrl && (
                             <div className="absolute inset-0 p-4 flex items-center justify-center">
                                 <div className="relative w-full h-full transform -rotate-12 group-hover:rotate-0 transition-transform duration-500">
@@ -598,7 +617,12 @@ export default function CategoryPage() {
             );
         default:
             return (
-                <div key={`${item.id}-${idx}`} className="relative bg-card rounded-[2.2rem] flex flex-col items-center justify-center cursor-pointer hover:bg-card/90 transition-all shadow-lg hover:shadow-primary/20 aspect-square text-center active:scale-95 group overflow-hidden border-4 border-white/5 animate-in fade-in zoom-in-95 duration-500">
+                <div 
+                    key={`${item.id}-${idx}`} 
+                    className="relative bg-card rounded-[2.2rem] flex flex-col items-center justify-center cursor-pointer hover:bg-card/90 transition-all shadow-lg hover:shadow-primary/20 aspect-square text-center active:scale-95 group overflow-hidden border-4 border-white/5 animate-in fade-in zoom-in-95 duration-500"
+                    onClick={() => markItemAsViewed(item.id)}
+                >
+                    {isItemNew && <RedDotBadge className="absolute top-3 right-3 z-30" />}
                     {item.imageUrl && (
                         <Image 
                             src={getDirectLink(item.imageUrl)} 
@@ -693,7 +717,7 @@ export default function CategoryPage() {
                                              className="animate-in fade-in zoom-in-95 duration-500 fill-mode-both group relative"
                                              style={{ animationDelay: `${idx * 50}ms` }}
                                          >
-                                             {checkCategoryIsNew(subCat, undefined, viewedIds) && (
+                                             {checkCategoryIsNew(subCat, undefined, viewedData) && (
                                                  <RedDotBadge size="sm" showLabel={false} className="absolute -top-1 -right-1" />
                                              )}
                                              <div className={cn(
@@ -726,7 +750,7 @@ export default function CategoryPage() {
                                                style={{ background: subCat.useCustomAccent && subCat.accentColor ? `linear-gradient(135deg, ${subCat.accentColor}, ${subCat.accentColor}dd)` : 'var(--primary-gradient)' }}
                                              >
                                              <div className="absolute -bottom-4 -right-4 bg-white/10 w-16 h-16 rounded-full group-hover:scale-150 transition-transform duration-700" />
-                                             {checkCategoryIsNew(subCat, undefined, viewedIds) && (
+                                             {checkCategoryIsNew(subCat, undefined, viewedData) && (
                                                  <RedDotBadge className="absolute top-4 left-4" />
                                              )}
                                              {subCat.fileTypes && (

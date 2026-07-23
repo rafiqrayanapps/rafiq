@@ -26,7 +26,7 @@ function HomeContent() {
   const activeTab = searchParams.get('tab') || 'home';
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const viewedIds = useViewedCategories();
+  const viewedData = useViewedCategories();
   
   const { mainCategories: allMainCategories, isLoadingCategories, allCategories, subCategories } = useCategories();
   const [maintenanceCategory, setMaintenanceCategory] = useState<WithId<CategoryType> | null>(null);
@@ -125,7 +125,7 @@ function HomeContent() {
                         } as React.CSSProperties}>
                           <div className="absolute -bottom-4 -right-4 bg-white/10 w-16 h-16 rounded-full group-hover:scale-150 transition-transform duration-700" />
                           
-                          {checkCategoryIsNew(cat, subCategories.get(cat.id), viewedIds) && (
+                          {checkCategoryIsNew(cat, subCategories.get(cat.id), viewedData) && (
                               <RedDotBadge className="absolute top-4 left-4" />
                           )}
 
