@@ -281,7 +281,10 @@ export default function FavoritesTab() {
                     onPlay={setActiveAudioId}
                 />
             );
-        case 'style5':
+        case 'style5': {
+            const hasDownload = !!item.downloadUrl && item.showDownloadButton !== false;
+            const hasCopy = item.showCopyButton !== false;
+
             return (
                 <div key={`${item.id}-${idx}`} className="bg-card rounded-[2.5rem] overflow-hidden shadow-xl border-4 border-white/5 animate-in fade-in zoom-in-95 duration-500">
                     <div className="relative w-full group flex items-center justify-center">
@@ -302,44 +305,83 @@ export default function FavoritesTab() {
                     <div className="p-6 space-y-4">
                         <div className="flex items-center justify-between">
                             <h3 className="font-black text-lg">{item.title}</h3>
-                            {item.showCopyButton !== false && (
-                                <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    onClick={() => {
-                                        navigator.clipboard.writeText(item.prompt || '');
-                                        toast({ title: "تم النسخ بنجاح" });
-                                    }}
-                                    className="h-10 w-10 rounded-full hover:bg-primary/10 text-primary"
-                                >
-                                    <Copy className="h-5 w-5" />
-                                </Button>
-                            )}
+                            <div className="flex items-center gap-1">
+                                {hasDownload && (
+                                    <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        onClick={() => {
+                                            if (item.downloadUrl) {
+                                                window.open(getDirectLink(item.downloadUrl), '_blank');
+                                            }
+                                        }}
+                                        title="تحميل الملف"
+                                        className="h-10 w-10 rounded-full hover:bg-primary/10 text-primary"
+                                    >
+                                        <Download className="h-5 w-5" />
+                                    </Button>
+                                )}
+                                {hasCopy && (!hasDownload || item.showCopyButton === true) && (
+                                    <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(item.prompt || '');
+                                            toast({ title: "تم النسخ بنجاح" });
+                                        }}
+                                        title="نسخ البرومبت"
+                                        className="h-10 w-10 rounded-full hover:bg-primary/10 text-primary"
+                                    >
+                                        <Copy className="h-5 w-5" />
+                                    </Button>
+                                )}
+                            </div>
                         </div>
-                        <div className="relative group">
-                            <Textarea 
-                                readOnly 
-                                value={item.prompt || ''} 
-                                onCopy={(e) => e.preventDefault()}
-                                className="h-32 bg-gray-50 rounded-2xl text-xs font-mono p-4 pb-14 shadow-inner border-none resize-none focus-visible:ring-0 select-none" 
-                                dir="ltr" 
-                            />
-                            {item.showCopyButton !== false && (
-                                <button 
-                                    onClick={() => {
-                                        navigator.clipboard.writeText(item.prompt || '');
-                                        toast({ title: "تم النسخ بنجاح" });
-                                    }}
-                                    className="absolute bottom-3 right-3 h-10 px-4 bg-primary text-primary-foreground rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg active:scale-95 transition-transform"
-                                >
-                                    <Copy className="h-3.5 w-3.5" />
-                                    نسخ البرومبت
-                                </button>
+                        <div className="relative group flex flex-col gap-3">
+                            {item.prompt && (
+                                <Textarea 
+                                    readOnly 
+                                    value={item.prompt || ''} 
+                                    onCopy={(e) => e.preventDefault()}
+                                    className="h-32 bg-gray-50 rounded-2xl text-xs font-mono p-4 shadow-inner border-none resize-none focus-visible:ring-0 select-none" 
+                                    dir="ltr" 
+                                />
                             )}
+                            <div className="flex items-center justify-end gap-2">
+                                {hasDownload && (
+                                    <button 
+                                        onClick={() => {
+                                            if (item.downloadUrl) {
+                                                window.open(getDirectLink(item.downloadUrl), '_blank');
+                                            }
+                                        }}
+                                        className="h-10 px-4 bg-primary text-primary-foreground rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg active:scale-95 transition-transform"
+                                    >
+                                        <Download className="h-3.5 w-3.5" />
+                                        تحميل الملف
+                                    </button>
+                                )}
+                                {hasCopy && (!hasDownload || item.showCopyButton === true) && (
+                                    <button 
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(item.prompt || '');
+                                            toast({ title: "تم النسخ بنجاح" });
+                                        }}
+                                        className={cn(
+                                            "h-10 px-4 rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg active:scale-95 transition-transform",
+                                            hasDownload ? "bg-muted hover:bg-muted/80 text-foreground" : "bg-primary text-primary-foreground"
+                                        )}
+                                    >
+                                        <Copy className="h-3.5 w-3.5" />
+                                        نسخ البرومبت
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
             );
+        }
         case 'style8': // Video Style
             const videoId = item.videoUrl?.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/)?.[1];
             const thumbUrl = videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : (item.imageUrl || 'https://picsum.photos/seed/video/800/450');

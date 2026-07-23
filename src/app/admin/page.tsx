@@ -3274,10 +3274,10 @@ export default function AdminPage() {
                               )}
 
                               {/* Download / Audio URL */}
-                              {(currentParentStyle === 'style1' || currentParentStyle === 'style2' || currentParentStyle === 'style3' || currentParentStyle === 'style4' || currentParentStyle === 'style6') && (
+                              {(currentParentStyle === 'style1' || currentParentStyle === 'style2' || currentParentStyle === 'style3' || currentParentStyle === 'style4' || currentParentStyle === 'style5' || currentParentStyle === 'style6') && (
                                 <div className="space-y-2 sm:space-y-3">
                                   <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">
-                                    {currentParentStyle === 'style4' || currentParentStyle === 'style6' ? 'رابط الملف الصوتي' : 'رابط التحميل المباشر'}
+                                    {currentParentStyle === 'style4' || currentParentStyle === 'style6' ? 'رابط الملف الصوتي' : currentParentStyle === 'style5' ? 'رابط الملف / التحميل (اختياري - يظهر زر التحميل عند إضافته)' : 'رابط التحميل المباشر'}
                                   </label>
                                   <input 
                                     type="url" 
@@ -3417,7 +3417,7 @@ export default function AdminPage() {
                                   </button>
                                 </div>
                               )}
-                              {(currentParentStyle === 'style1' || currentParentStyle === 'style2' || currentParentStyle === 'style3' || currentParentStyle === 'style4' || currentParentStyle === 'style6') && (
+                              {(currentParentStyle === 'style1' || currentParentStyle === 'style2' || currentParentStyle === 'style3' || currentParentStyle === 'style4' || currentParentStyle === 'style5' || currentParentStyle === 'style6') && (
                                 <div className="flex items-center justify-between p-3 sm:p-4 bg-gray-50 rounded-xl sm:rounded-2xl border border-gray-100 group">
                                   <span className="text-[10px] sm:text-xs font-bold">زر التحميل</span>
                                   <button 

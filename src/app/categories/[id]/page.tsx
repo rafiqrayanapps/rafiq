@@ -24,7 +24,7 @@ import { useCategories } from '@/components/providers/CategoryProvider';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { AffiliateAdSlot, useAffiliateAds } from '@/components/ads/AffiliateAdsManager';
 import AdBanner from '@/components/AdBanner';
-import RedDotBadge, { checkCategoryIsNew } from '@/components/RedDotBadge';
+import RedDotBadge, { checkCategoryIsNew, useViewedCategories, markCategoryAsViewed } from '@/components/RedDotBadge';
 
 const FavoriteButton = ({ isFavorite, onClick, className }: { isFavorite: boolean, onClick: (e: any) => void, className?: string }) => (
     <button 
@@ -169,6 +169,14 @@ export default function CategoryPage() {
   const router = useRouter();
   const id = params?.id as string;
   const firestore = useFirestore();
+  const viewedIds = useViewedCategories();
+
+  useEffect(() => {
+    if (id) {
+      markCategoryAsViewed(id);
+    }
+  }, [id]);
+
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [selectedAiTool, setSelectedAiTool] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -416,7 +424,10 @@ export default function CategoryPage() {
                     onPlay={setActiveAudioId}
                 />
             );
-        case 'style5': // Prompt Style
+        case 'style5': { // Prompt Style
+            const hasDownload = !!item.downloadUrl && item.showDownloadButton !== false;
+            const hasCopy = item.showCopyButton !== false;
+
             return (
                 <div key={`${item.id}-${idx}`} className="bg-card rounded-[2.5rem] overflow-hidden shadow-xl border-4 border-white/5 animate-in fade-in zoom-in-95 duration-500">
                     <div 
@@ -440,47 +451,84 @@ export default function CategoryPage() {
                     <div className="p-6 space-y-4">
                         <div className="flex items-center justify-between">
                             <h3 className="font-black text-lg">{item.title}</h3>
-                            {item.showCopyButton !== false && (
-                                <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    onClick={() => {
-                                        navigator.clipboard.writeText(item.prompt || '');
-                                        toast({ title: "تم النسخ بنجاح" });
-                                    }}
-                                    className="h-10 w-10 rounded-full hover:bg-primary/10 text-primary"
-                                >
-                                    <Copy className="h-5 w-5" />
-                                </Button>
-                            )}
+                            <div className="flex items-center gap-1">
+                                {hasDownload && (
+                                    <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        onClick={() => handleAction(item, () => {
+                                            if (item.downloadUrl) {
+                                                window.open(getDirectLink(item.downloadUrl), '_blank');
+                                            }
+                                        })}
+                                        title="تحميل الملف"
+                                        className="h-10 w-10 rounded-full hover:bg-primary/10 text-primary"
+                                    >
+                                        <Download className="h-5 w-5" />
+                                    </Button>
+                                )}
+                                {hasCopy && (!hasDownload || item.showCopyButton === true) && (
+                                    <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(item.prompt || '');
+                                            toast({ title: "تم النسخ بنجاح" });
+                                        }}
+                                        title="نسخ البرومبت"
+                                        className="h-10 w-10 rounded-full hover:bg-primary/10 text-primary"
+                                    >
+                                        <Copy className="h-5 w-5" />
+                                    </Button>
+                                )}
+                            </div>
                         </div>
                         <div className="relative group flex flex-col gap-3">
-                            <Textarea 
-                                readOnly 
-                                value={item.prompt || ''} 
-                                onCopy={(e) => e.preventDefault()}
-                                tabIndex={-1}
-                                className="h-32 bg-muted/50 rounded-2xl text-xs font-mono p-4 shadow-inner border-none resize-none focus-visible:ring-0 select-none pointer-events-none" 
-                                dir="ltr" 
-                            />
-                            {item.showCopyButton !== false && (
-                                <div className="flex justify-end">
+                            {item.prompt && (
+                                <Textarea 
+                                    readOnly 
+                                    value={item.prompt || ''} 
+                                    onCopy={(e) => e.preventDefault()}
+                                    tabIndex={-1}
+                                    className="h-32 bg-muted/50 rounded-2xl text-xs font-mono p-4 shadow-inner border-none resize-none focus-visible:ring-0 select-none pointer-events-none" 
+                                    dir="ltr" 
+                                />
+                            )}
+                            <div className="flex items-center justify-end gap-2">
+                                {hasDownload && (
+                                    <button 
+                                        onClick={() => handleAction(item, () => {
+                                            if (item.downloadUrl) {
+                                                window.open(getDirectLink(item.downloadUrl), '_blank');
+                                            }
+                                        })}
+                                        className="h-10 px-4 bg-primary text-primary-foreground rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg active:scale-95 transition-transform"
+                                    >
+                                        <Download className="h-3.5 w-3.5" />
+                                        تحميل الملف
+                                    </button>
+                                )}
+                                {hasCopy && (!hasDownload || item.showCopyButton === true) && (
                                     <button 
                                         onClick={() => {
                                             navigator.clipboard.writeText(item.prompt || '');
                                             toast({ title: "تم النسخ بنجاح" });
                                         }}
-                                        className="h-10 px-4 bg-primary text-primary-foreground rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg active:scale-95 transition-transform"
+                                        className={cn(
+                                            "h-10 px-4 rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg active:scale-95 transition-transform",
+                                            hasDownload ? "bg-muted hover:bg-muted/80 text-foreground" : "bg-primary text-primary-foreground"
+                                        )}
                                     >
                                         <Copy className="h-3.5 w-3.5" />
                                         نسخ البرومبت
                                     </button>
-                                </div>
-                            )}
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
             );
+        }
         case 'style6':
             return (
                 <AudioPlayerRow 
@@ -645,7 +693,7 @@ export default function CategoryPage() {
                                              className="animate-in fade-in zoom-in-95 duration-500 fill-mode-both group relative"
                                              style={{ animationDelay: `${idx * 50}ms` }}
                                          >
-                                             {checkCategoryIsNew(subCat) && (
+                                             {checkCategoryIsNew(subCat, undefined, viewedIds) && (
                                                  <RedDotBadge size="sm" showLabel={false} className="absolute -top-1 -right-1" />
                                              )}
                                              <div className={cn(
@@ -678,7 +726,7 @@ export default function CategoryPage() {
                                                style={{ background: subCat.useCustomAccent && subCat.accentColor ? `linear-gradient(135deg, ${subCat.accentColor}, ${subCat.accentColor}dd)` : 'var(--primary-gradient)' }}
                                              >
                                              <div className="absolute -bottom-4 -right-4 bg-white/10 w-16 h-16 rounded-full group-hover:scale-150 transition-transform duration-700" />
-                                             {checkCategoryIsNew(subCat) && (
+                                             {checkCategoryIsNew(subCat, undefined, viewedIds) && (
                                                  <RedDotBadge className="absolute top-4 left-4" />
                                              )}
                                              {subCat.fileTypes && (
