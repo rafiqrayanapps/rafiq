@@ -10,6 +10,7 @@ import { useState, useEffect, Fragment } from 'react';
 import { cn } from '@/lib/utils';
 import { useCategories } from '@/components/providers/CategoryProvider';
 import LoginModal from './LoginModal';
+import SocialLinks from './SocialLinks';
 import { useTool } from './providers/ToolProvider';
 
 interface SidebarProps {
@@ -155,6 +156,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                       </li>
                     ))}
                   </ul>
+                </section>
+
+                {/* Social Media Links Circles */}
+                <section className="pt-2">
+                  <SocialLinks />
                 </section>
               </div>
 

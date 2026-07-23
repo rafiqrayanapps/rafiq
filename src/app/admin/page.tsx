@@ -5,7 +5,8 @@ import { useAuth, useCollection, useDoc, handleFirestoreError, OperationType } f
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import { cn } from '@/lib/utils';
-import { Shield, Globe, Database, AlertTriangle, CheckCircle, Copy, LogIn, Plus, FolderPlus, FilePlus, List, ChevronDown, Trash2, Palette, BellRing, Send, Lock, Download, Edit3, ChevronRight, X, Settings, UserPlus, MessageSquare, MessageCircle, User, ShieldCheck, Bell, MousePointer2, Hammer, Ticket, Zap, Home, Users, ArrowUp, ArrowDown, Info, Heart, Star, Target, Rocket, Award, Instagram, Twitter, Github, MapPin, Clock, Phone, Mail, ExternalLink } from 'lucide-react';
+import { Shield, Globe, Database, AlertTriangle, CheckCircle, Copy, LogIn, Plus, FolderPlus, FilePlus, List, ChevronDown, Trash2, Palette, BellRing, Send, Lock, Download, Edit3, ChevronRight, X, Settings, UserPlus, MessageSquare, MessageCircle, User, ShieldCheck, Bell, MousePointer2, Hammer, Ticket, Zap, Home, Users, ArrowUp, ArrowDown, Info, Heart, Star, Target, Rocket, Award, Instagram, Twitter, Github, MapPin, Clock, Phone, Mail, ExternalLink, Share2 } from 'lucide-react';
+import SocialLinks, { SocialPlatformIcon, getSocialPlatformInfo, SocialLinkItem } from '@/components/SocialLinks';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -43,7 +44,7 @@ export default function AdminPage() {
   const { user, isAdmin, isEditor, loading, loginWithGoogle, logout } = useAuth();
   const [currentDomain, setCurrentDomain] = useState('');
   const [copySuccess, setCopySuccess] = useState(false);
-  const [activeTab, setActiveTab] = useState<'menu' | 'users' | 'content' | 'colors' | 'notifications' | 'dialog' | 'floatingButton' | 'about' | 'contact' | 'tools' | 'ads'>('menu');
+  const [activeTab, setActiveTab] = useState<'menu' | 'users' | 'content' | 'colors' | 'notifications' | 'dialog' | 'floatingButton' | 'about' | 'contact' | 'tools' | 'ads' | 'social' | 'security'>('menu');
   const [viewLevel, setViewLevel] = useState<'categories' | 'subcategories' | 'items'>('categories');
   const router = useRouter();
 
@@ -225,6 +226,59 @@ export default function AdminPage() {
   const { data: securityConfig } = useDoc('appConfig', 'security');
   const [preventCopy, setPreventCopy] = useState(true);
   const [preventContextMenu, setPreventContextMenu] = useState(true);
+
+  // Social Config State
+  const { data: socialConfig } = useDoc('appConfig', 'social');
+  const [socialLinksList, setSocialLinksList] = useState<SocialLinkItem[]>([]);
+  const [newSocialName, setNewSocialName] = useState('');
+  const [newSocialUrl, setNewSocialUrl] = useState('');
+
+  useEffect(() => {
+    if (socialConfig?.links) {
+      setSocialLinksList(socialConfig.links);
+    }
+  }, [socialConfig]);
+
+  const handleAddSocialLink = () => {
+    if (!newSocialUrl.trim()) {
+      toast({ title: "تنبيه", description: "يرجى إضافة رابط المنصة", variant: "destructive" });
+      return;
+    }
+    const info = getSocialPlatformInfo(newSocialUrl, newSocialName);
+    const newLink: SocialLinkItem = {
+      id: Date.now().toString(),
+      name: newSocialName.trim() || info.label,
+      url: newSocialUrl.trim(),
+      enabled: true
+    };
+    setSocialLinksList(prev => [...prev, newLink]);
+    setNewSocialName('');
+    setNewSocialUrl('');
+    toast({ title: "تم الإضافة", description: `تمت إضافة ${newLink.name} بنجاح!` });
+  };
+
+  const handleRemoveSocialLink = (id: string) => {
+    setSocialLinksList(prev => prev.filter(item => item.id !== id));
+  };
+
+  const handleToggleSocialLink = (id: string) => {
+    setSocialLinksList(prev => prev.map(item => item.id === id ? { ...item, enabled: item.enabled === false } : item));
+  };
+
+  const handleSaveSocialLinks = async () => {
+    setIsSaving(true);
+    try {
+      await setDoc(doc(db, 'appConfig', 'social'), {
+        links: socialLinksList,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+      toast({ title: "تم الحفظ", description: "تم حفظ روابط مواقع التواصل الاجتماعي بنجاح!" });
+    } catch (error: any) {
+      handleFirestoreError(error, OperationType.UPDATE, 'appConfig/social');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   // Dynamic Contacts State
   const { data: contactsData } = useCollection('contacts');
@@ -1052,6 +1106,7 @@ export default function AdminPage() {
                         title: 'التفاعل والتواصل',
                         items: [
                           { id: 'notifications', label: 'الإشعارات', icon: BellRing, desc: 'إرسال تنبيهات للمستخدمين' },
+                          { id: 'social', label: 'مواقع التواصل الاجتماعي', icon: Share2, desc: 'روابط وأيقونات التواصل الدائرية أسفل القائمة' },
                           { id: 'dialog', label: 'النافذة المنبثقة', icon: MessageSquare, desc: 'إعداد ديالوج الاشتراك' },
                           { id: 'floatingButton', label: 'الزر العائم', icon: MousePointer2, desc: 'زر الوصول السريع' },
                         ]
@@ -2791,6 +2846,169 @@ export default function AdminPage() {
                         {isSaving ? 'جاري الحفظ...' : 'حفظ إعدادات الأمان والحماية'}
                       </button>
                     </div>
+                  </section>
+                </motion.div>
+              ) : activeTab === 'social' ? (
+                <motion.div
+                  key="social"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="space-y-8"
+                >
+                  <section className="bg-white rounded-[28px] sm:rounded-[40px] p-6 sm:p-10 shadow-sm border border-gray-100">
+                    <div className="flex items-center gap-4 mb-8">
+                      <div className="w-12 h-12 bg-primary/10 text-primary rounded-2xl flex items-center justify-center">
+                        <Share2 size={24} />
+                      </div>
+                      <div>
+                        <h2 className="text-xl sm:text-2xl font-black text-gray-900">مواقع التواصل الاجتماعي</h2>
+                        <p className="text-xs font-bold text-gray-400 mt-0.5">إضافة وتعديل روابط التواصل الاجتماعي التي تظهر كدوائر أفقية أسفل القائمة الجانبية</p>
+                      </div>
+                    </div>
+
+                    {/* Add New Link Card */}
+                    <div className="bg-gradient-to-br from-gray-50 to-primary/5 p-6 rounded-3xl border border-gray-200/80 mb-8 space-y-5">
+                      <h3 className="text-sm font-black text-gray-800 flex items-center gap-2">
+                        <Plus size={18} className="text-primary" />
+                        إضافة منصة جديدة
+                      </h3>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-xs font-black text-gray-500 block">اسم المنصة أو الحساب (اختياري)</label>
+                          <input 
+                            type="text"
+                            value={newSocialName}
+                            onChange={(e) => setNewSocialName(e.target.value)}
+                            placeholder="مثال: قناة اليوتيوب، صفحة الفيسبوك، حساب إنستغرام"
+                            className="w-full bg-white border border-gray-200 rounded-2xl px-5 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-primary/10 transition-all"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-xs font-black text-gray-500 block">رابط المنصة (URL) *</label>
+                          <input 
+                            type="url"
+                            value={newSocialUrl}
+                            onChange={(e) => setNewSocialUrl(e.target.value)}
+                            placeholder="https://youtube.com/@channel, https://facebook.com/..., إلخ"
+                            className="w-full bg-white border border-gray-200 rounded-2xl px-5 py-3 text-xs font-mono outline-none focus:ring-2 focus:ring-primary/10 transition-all ltr"
+                            dir="ltr"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Live Icon Preview */}
+                      {newSocialUrl.trim() && (() => {
+                        const info = getSocialPlatformInfo(newSocialUrl, newSocialName);
+                        return (
+                          <div className="flex items-center gap-3 p-4 bg-white/80 rounded-2xl border border-gray-200/60 backdrop-blur-sm">
+                            <span className="text-xs font-bold text-gray-500">معاينة الأيقونة التلقائية:</span>
+                            <div className={cn("w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-sm", info.colorClass)}>
+                              <SocialPlatformIcon platform={info.platform} />
+                            </div>
+                            <div className="text-xs font-bold text-gray-700">
+                              المنصة المكتشفة: <span className="text-primary font-black">{info.label}</span>
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      <button 
+                        onClick={handleAddSocialLink}
+                        className="w-full sm:w-auto px-8 py-3.5 bg-primary text-white rounded-2xl font-black text-xs hover:bg-primary/90 transition-all shadow-md active:scale-95 flex items-center justify-center gap-2"
+                      >
+                        <Plus size={16} />
+                        إضافة المنصة للقائمة
+                      </button>
+                    </div>
+
+                    {/* Social Links List */}
+                    <div className="space-y-4 mb-8">
+                      <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mr-2">
+                        الروابط المضافة حالياً ({socialLinksList.length})
+                      </h3>
+
+                      {socialLinksList.length === 0 ? (
+                        <div className="text-center py-12 px-4 bg-gray-50 rounded-3xl border border-dashed border-gray-200">
+                          <Share2 size={40} className="mx-auto text-gray-300 mb-3" />
+                          <p className="text-sm font-bold text-gray-500">لا توجد روابط تواصل مضافة حالياً</p>
+                          <p className="text-xs text-gray-400 mt-1">قم بإضافة رابط جديد بالأعلى ليتم إظهاره كدائرة تفاعلية أسفل القائمة الجانبية.</p>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {socialLinksList.map((item) => {
+                            const info = getSocialPlatformInfo(item.url, item.name);
+                            return (
+                              <div 
+                                key={item.id}
+                                className={cn(
+                                  "p-5 rounded-3xl border transition-all flex items-center justify-between gap-4 bg-white",
+                                  item.enabled !== false ? "border-gray-200 shadow-sm" : "border-gray-100 opacity-60 bg-gray-50/50"
+                                )}
+                              >
+                                <div className="flex items-center gap-4 min-w-0">
+                                  <div className={cn("w-12 h-12 rounded-full flex items-center justify-center shrink-0 shadow-sm", info.colorClass)}>
+                                    <SocialPlatformIcon platform={info.platform} />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <h4 className="font-black text-sm text-gray-900 truncate">{item.name || info.label}</h4>
+                                    <p className="text-[11px] font-mono text-gray-400 truncate dir-ltr text-left" dir="ltr">{item.url}</p>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-2 shrink-0">
+                                  {/* Toggle Button */}
+                                  <button
+                                    onClick={() => handleToggleSocialLink(item.id)}
+                                    title={item.enabled !== false ? "تعطيل الرابط" : "تفعيل الرابط"}
+                                    className={cn(
+                                      "px-3 py-1.5 rounded-xl text-[10px] font-black transition-all",
+                                      item.enabled !== false ? "bg-emerald-50 text-emerald-600" : "bg-gray-200 text-gray-600"
+                                    )}
+                                  >
+                                    {item.enabled !== false ? 'مفعل' : 'معطل'}
+                                  </button>
+
+                                  {/* Delete Button */}
+                                  <button
+                                    onClick={() => handleRemoveSocialLink(item.id)}
+                                    title="حذف الرابط"
+                                    className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                                  >
+                                    <Trash2 size={18} />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Preview in Sidebar Simulation */}
+                    {socialLinksList.length > 0 && (
+                      <div className="p-6 bg-gray-50 rounded-3xl border border-gray-200/80 mb-8 space-y-3">
+                        <span className="text-xs font-black text-gray-500 block">معاينة ظهور الروابط أسفل القائمة الجانبية:</span>
+                        <div className="bg-white p-4 rounded-2xl border border-gray-200/60 shadow-inner flex justify-center">
+                          <SocialLinks />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Save Button */}
+                    <button 
+                      onClick={handleSaveSocialLinks}
+                      disabled={isSaving}
+                      className="w-full text-white h-14 rounded-2xl font-black text-sm hover:opacity-90 transition-all shadow-xl active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                      style={{ background: 'var(--primary-gradient)' }}
+                    >
+                      {isSaving ? (
+                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      ) : <ShieldCheck size={20} />}
+                      {isSaving ? 'جاري الحفظ...' : 'حفظ روابط مواقع التواصل الاجتماعي'}
+                    </button>
                   </section>
                 </motion.div>
               ) : activeTab === 'content' ? (
