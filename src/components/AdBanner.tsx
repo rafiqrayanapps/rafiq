@@ -1,29 +1,45 @@
 'use client';
 
 import { Suspense, useMemo } from 'react';
-import { usePathname, useSearchParams } from 'next/navigation';
-import { useDoc } from '@/hooks/useFirebase';
+import { usePathname, useParams, useSearchParams } from 'next/navigation';
+import { useDoc, useCollection } from '@/hooks/useFirebase';
 
 interface AdBannerProps {
   height?: string;
   className?: string;
   type?: 'banner' | 'inline';
+  categoryId?: string;
 }
 
-function AdBannerContent({ height = '60px', className = '', type = 'banner' }: AdBannerProps) {
+function AdBannerContent({ height = '60px', className = '', type = 'banner', categoryId }: AdBannerProps) {
   const { data: adsConfig, loading } = useDoc('appConfig', 'ads');
+  const { data: categories } = useCollection('categories');
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const params = useParams();
 
   // Detect which page we are on
   const pageType = useMemo(() => {
-    if (pathname === '/home' && !searchParams.get('tab')) return 'home';
+    if (pathname === '/home' || pathname === '/' || (!searchParams.get('tab') && pathname === '/home')) return 'home';
     if (pathname?.startsWith('/categories')) return 'lists';
     if (pathname?.startsWith('/subcategory')) return 'content';
     return 'other';
   }, [pathname, searchParams]);
 
-  // Determine whether to display the ad based on type and page placement settings
+  // Detect category ID from prop, params, or route
+  const currentCategoryId = useMemo(() => {
+    if (categoryId) return categoryId;
+    if (params?.id) return params.id as string;
+    if (pathname) {
+      const parts = pathname.split('/').filter(Boolean);
+      if ((parts[0] === 'categories' || parts[0] === 'subcategory') && parts[1]) {
+        return parts[1];
+      }
+    }
+    return null;
+  }, [categoryId, params, pathname]);
+
+  // Determine whether to display the ad based on type, page placement, and category targeting
   const adDisplay = useMemo(() => {
     if (loading || !adsConfig || !adsConfig.showAds) {
       return { shouldShow: false, script: '' };
@@ -31,7 +47,6 @@ function AdBannerContent({ height = '60px', className = '', type = 'banner' }: A
 
     if (type === 'banner') {
       const banner = adsConfig.banner;
-      // If new nested schema doesn't exist, fallback to legacy fields
       if (!banner) {
         const isEnabledOnPage = 
           (pageType === 'home' && (adsConfig.showHomeAd ?? true)) ||
@@ -42,17 +57,29 @@ function AdBannerContent({ height = '60px', className = '', type = 'banner' }: A
         };
       }
 
-      // Check new nested schema
       if (!banner.show) return { shouldShow: false, script: '' };
       
       let showOnPage = false;
       if (pageType === 'home' && banner.showOnHome) showOnPage = true;
       else if (pageType === 'lists' && banner.showOnLists) showOnPage = true;
       else if (pageType === 'content' && banner.showOnContent) showOnPage = true;
-      else if (pageType === 'other') showOnPage = true; // allow on other pages by default if banner is on
+      else if (pageType === 'other') showOnPage = true;
+
+      if (!showOnPage) return { shouldShow: false, script: '' };
+
+      // Category targeting check for banner
+      if ((pageType === 'lists' || pageType === 'content') && banner.categoryMode === 'specific') {
+        const targetIds: string[] = banner.targetCategories || [];
+        if (targetIds.length > 0) {
+          if (!currentCategoryId) return { shouldShow: false, script: '' };
+          const currentCat = (categories || []).find((c: any) => c.id === currentCategoryId);
+          const match = targetIds.includes(currentCategoryId) || (currentCat?.parentId && targetIds.includes(currentCat.parentId));
+          if (!match) return { shouldShow: false, script: '' };
+        }
+      }
 
       return { 
-        shouldShow: showOnPage && !!(banner.script || adsConfig.adScript), 
+        shouldShow: !!(banner.script || adsConfig.adScript), 
         script: banner.script || adsConfig.adScript || '' 
       };
     } else {
@@ -72,19 +99,31 @@ function AdBannerContent({ height = '60px', className = '', type = 'banner' }: A
       if (pageType === 'home' && inline.showOnHome) showOnPage = true;
       else if (pageType === 'lists' && inline.showOnLists) showOnPage = true;
       else if (pageType === 'content' && inline.showOnContent) showOnPage = true;
-      
+
+      if (!showOnPage) return { shouldShow: false, script: '' };
+
+      // Category targeting check for inline
+      if ((pageType === 'lists' || pageType === 'content') && inline.categoryMode === 'specific') {
+        const targetIds: string[] = inline.targetCategories || [];
+        if (targetIds.length > 0) {
+          if (!currentCategoryId) return { shouldShow: false, script: '' };
+          const currentCat = (categories || []).find((c: any) => c.id === currentCategoryId);
+          const match = targetIds.includes(currentCategoryId) || (currentCat?.parentId && targetIds.includes(currentCat.parentId));
+          if (!match) return { shouldShow: false, script: '' };
+        }
+      }
+
       return { 
-        shouldShow: showOnPage && !!(inline.script || adsConfig.adScript), 
+        shouldShow: !!(inline.script || adsConfig.adScript), 
         script: inline.script || adsConfig.adScript || '' 
       };
     }
-  }, [adsConfig, loading, type, pageType]);
+  }, [adsConfig, loading, type, pageType, currentCategoryId, categories]);
 
   if (!adDisplay.shouldShow || !adDisplay.script) {
     return null;
   }
 
-  // We wrap the ad script inside an isolated iframe's srcDoc.
   const srcDocHtml = `
     <!DOCTYPE html>
     <html dir="rtl">
@@ -92,30 +131,10 @@ function AdBannerContent({ height = '60px', className = '', type = 'banner' }: A
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
-          * {
-            box-sizing: border-box;
-          }
-          body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background: transparent;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-          }
-          #ad-container {
-            width: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 50px;
-          }
-          #ad-container iframe, #ad-container img {
-            max-width: 100% !important;
-          }
+          * { box-sizing: border-box; }
+          body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; display: flex; justify-content: center; align-items: center; }
+          #ad-container { width: 100%; display: flex; justify-content: center; align-items: center; min-height: 50px; }
+          #ad-container iframe, #ad-container img { max-width: 100% !important; }
         </style>
       </head>
       <body>

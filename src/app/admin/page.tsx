@@ -190,6 +190,8 @@ export default function AdminPage() {
   const [bannerLists, setBannerLists] = useState(true);
   const [bannerContent, setBannerContent] = useState(true);
   const [bannerScript, setBannerScript] = useState('');
+  const [bannerCategoryMode, setBannerCategoryMode] = useState<'all' | 'specific'>('all');
+  const [bannerCategories, setBannerCategories] = useState<string[]>([]);
 
   // Interstitial Ads State
   const [interstitialShow, setInterstitialShow] = useState(false);
@@ -197,6 +199,17 @@ export default function AdminPage() {
   const [interstitialLists, setInterstitialLists] = useState(false);
   const [interstitialContent, setInterstitialContent] = useState(false);
   const [interstitialScript, setInterstitialScript] = useState('');
+  const [interstitialCategoryMode, setInterstitialCategoryMode] = useState<'all' | 'specific'>('all');
+  const [interstitialCategories, setInterstitialCategories] = useState<string[]>([]);
+
+  // Popup Ads State
+  const [popupShow, setPopupShow] = useState(false);
+  const [popupHome, setPopupHome] = useState(false);
+  const [popupLists, setPopupLists] = useState(false);
+  const [popupContent, setPopupContent] = useState(false);
+  const [popupScript, setPopupScript] = useState('');
+  const [popupCategoryMode, setPopupCategoryMode] = useState<'all' | 'specific'>('all');
+  const [popupCategories, setPopupCategories] = useState<string[]>([]);
 
   // Inline Ads State
   const [inlineShow, setInlineShow] = useState(false);
@@ -205,6 +218,8 @@ export default function AdminPage() {
   const [inlineContent, setInlineContent] = useState(true);
   const [inlineScript, setInlineScript] = useState('');
   const [inlineFrequency, setInlineFrequency] = useState(4);
+  const [inlineCategoryMode, setInlineCategoryMode] = useState<'all' | 'specific'>('all');
+  const [inlineCategories, setInlineCategories] = useState<string[]>([]);
 
   // Security Config State
   const { data: securityConfig } = useDoc('appConfig', 'security');
@@ -282,12 +297,24 @@ export default function AdminPage() {
       setBannerLists(adsConfig.banner?.showOnLists ?? adsConfig.showContentAds ?? true);
       setBannerContent(adsConfig.banner?.showOnContent ?? adsConfig.showContentAds ?? true);
       setBannerScript(adsConfig.banner?.script ?? adsConfig.adScript ?? '');
+      setBannerCategoryMode(adsConfig.banner?.categoryMode || 'all');
+      setBannerCategories(adsConfig.banner?.targetCategories || []);
 
       setInterstitialShow(adsConfig.interstitial?.show ?? false);
       setInterstitialHome(adsConfig.interstitial?.showOnHome ?? false);
       setInterstitialLists(adsConfig.interstitial?.showOnLists ?? false);
       setInterstitialContent(adsConfig.interstitial?.showOnContent ?? false);
       setInterstitialScript(adsConfig.interstitial?.script ?? '');
+      setInterstitialCategoryMode(adsConfig.interstitial?.categoryMode || 'all');
+      setInterstitialCategories(adsConfig.interstitial?.targetCategories || []);
+
+      setPopupShow(adsConfig.popup?.show ?? false);
+      setPopupHome(adsConfig.popup?.showOnHome ?? false);
+      setPopupLists(adsConfig.popup?.showOnLists ?? false);
+      setPopupContent(adsConfig.popup?.showOnContent ?? false);
+      setPopupScript(adsConfig.popup?.script ?? '');
+      setPopupCategoryMode(adsConfig.popup?.categoryMode || 'all');
+      setPopupCategories(adsConfig.popup?.targetCategories || []);
 
       setInlineShow(adsConfig.inline?.show ?? adsConfig.showAds ?? false);
       setInlineHome(adsConfig.inline?.showOnHome ?? false);
@@ -295,6 +322,8 @@ export default function AdminPage() {
       setInlineContent(adsConfig.inline?.showOnContent ?? adsConfig.showContentAds ?? true);
       setInlineScript(adsConfig.inline?.script ?? adsConfig.adScript ?? '');
       setInlineFrequency(adsConfig.inline?.frequency ?? adsConfig.inlineAdFrequency ?? 4);
+      setInlineCategoryMode(adsConfig.inline?.categoryMode || 'all');
+      setInlineCategories(adsConfig.inline?.targetCategories || []);
     }
   }, [adsConfig]);
 
@@ -523,14 +552,27 @@ export default function AdminPage() {
           showOnHome: bannerHome,
           showOnLists: bannerLists,
           showOnContent: bannerContent,
-          script: bannerScript
+          script: bannerScript,
+          categoryMode: bannerCategoryMode,
+          targetCategories: bannerCategories
         },
         interstitial: {
           show: interstitialShow,
           showOnHome: interstitialHome,
           showOnLists: interstitialLists,
           showOnContent: interstitialContent,
-          script: interstitialScript
+          script: interstitialScript,
+          categoryMode: interstitialCategoryMode,
+          targetCategories: interstitialCategories
+        },
+        popup: {
+          show: popupShow,
+          showOnHome: popupHome,
+          showOnLists: popupLists,
+          showOnContent: popupContent,
+          script: popupScript,
+          categoryMode: popupCategoryMode,
+          targetCategories: popupCategories
         },
         inline: {
           show: inlineShow,
@@ -538,7 +580,9 @@ export default function AdminPage() {
           showOnLists: inlineLists,
           showOnContent: inlineContent,
           script: inlineScript,
-          frequency: inlineFrequency
+          frequency: inlineFrequency,
+          categoryMode: inlineCategoryMode,
+          targetCategories: inlineCategories
         },
 
         // Legacy compatibility support
@@ -2219,250 +2263,444 @@ export default function AdminPage() {
 
                     {showAds ? (
                       <div className="space-y-8">
-                        {/* 1. Banner Ads Control */}
-                        <div className="p-6 bg-gray-50/50 rounded-[2rem] border border-gray-100">
-                          <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-100/60">
-                            <div>
-                              <p className="font-black text-base text-gray-800">1. إعلانات البانر (Banner Ads)</p>
-                              <p className="text-xs text-gray-400 mt-0.5">إعلانات مستطيلة تظهر في أعلى أو أسفل الصفحات</p>
-                            </div>
-                            <button 
-                              onClick={() => setBannerShow(!bannerShow)}
-                              className={cn(
-                                "w-12 h-7 rounded-full transition-all relative",
-                                bannerShow ? "bg-primary" : "bg-gray-300"
+                        {/* Helper function for category targeting */}
+                        {(() => {
+                          const renderCategorySelector = (
+                            mode: 'all' | 'specific',
+                            setMode: (val: 'all' | 'specific') => void,
+                            selectedCategoryIds: string[],
+                            setSelectedCategoryIds: (val: string[]) => void,
+                            title: string
+                          ) => (
+                            <div className="space-y-3 bg-white p-4 rounded-2xl border border-gray-100/80">
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                <span className="text-xs font-black text-gray-700">{title}</span>
+                                <div className="flex items-center bg-gray-100 p-1 rounded-xl text-xs font-bold w-fit">
+                                  <button
+                                    type="button"
+                                    onClick={() => setMode('all')}
+                                    className={cn(
+                                      "px-3 py-1.5 rounded-lg transition-all",
+                                      mode === 'all' ? "bg-white text-primary shadow-sm" : "text-gray-500 hover:text-gray-700"
+                                    )}
+                                  >
+                                    جميع الأقسام
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setMode('specific')}
+                                    className={cn(
+                                      "px-3 py-1.5 rounded-lg transition-all",
+                                      mode === 'specific' ? "bg-white text-primary shadow-sm" : "text-gray-500 hover:text-gray-700"
+                                    )}
+                                  >
+                                    أقسام معينة فقط
+                                  </button>
+                                </div>
+                              </div>
+
+                              {mode === 'specific' && (
+                                <div className="space-y-2 pt-2 border-t border-gray-100 animate-in fade-in duration-200">
+                                  <p className="text-[11px] text-gray-500 font-medium">
+                                    حدد الأقسام التي تود أن يظهر هذا الإعلان فيها فقط (ولن يظهر في الأقسام الأخرى):
+                                  </p>
+                                  {categories.length === 0 ? (
+                                    <p className="text-xs text-gray-400 py-1">لا توجد أقسام رئيسية مضافة بعد.</p>
+                                  ) : (
+                                    <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto p-1">
+                                      {categories.map((cat) => {
+                                        const isSelected = selectedCategoryIds.includes(cat.id);
+                                        return (
+                                          <button
+                                            key={cat.id}
+                                            type="button"
+                                            onClick={() => {
+                                              if (isSelected) {
+                                                setSelectedCategoryIds(selectedCategoryIds.filter(id => id !== cat.id));
+                                              } else {
+                                                setSelectedCategoryIds([...selectedCategoryIds, cat.id]);
+                                              }
+                                            }}
+                                            className={cn(
+                                              "px-3.5 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-2",
+                                              isSelected 
+                                                ? "bg-primary/10 border-primary text-primary shadow-sm" 
+                                                : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100"
+                                            )}
+                                          >
+                                            <span>{cat.name}</span>
+                                            {isSelected && <div className="w-2 h-2 rounded-full bg-primary" />}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
                               )}
-                            >
-                              <span className={cn(
-                                "w-5 h-5 bg-white rounded-full absolute top-1 transition-all shadow-sm",
-                                bannerShow ? "left-1" : "right-1"
-                              )} />
-                            </button>
-                          </div>
+                            </div>
+                          );
 
-                          {bannerShow && (
-                            <div className="space-y-4 animate-in fade-in duration-200">
-                              <div className="space-y-2">
-                                <span className="text-xs font-black text-gray-500 block">مواضع عرض البانر (اختر أي مكان تريده):</span>
-                                <div className="grid grid-cols-3 gap-3">
-                                  <button
-                                    onClick={() => setBannerHome(!bannerHome)}
+                          return (
+                            <>
+                              {/* 1. Banner Ads Control */}
+                              <div className="p-6 bg-gray-50/50 rounded-[2rem] border border-gray-100 space-y-4">
+                                <div className="flex items-center justify-between pb-4 border-b border-gray-100/60">
+                                  <div>
+                                    <p className="font-black text-base text-gray-800">1. إعلانات البانر (Banner Ads)</p>
+                                    <p className="text-xs text-gray-400 mt-0.5">إعلانات مستطيلة تظهر في أعلى أو أسفل الصفحات</p>
+                                  </div>
+                                  <button 
+                                    onClick={() => setBannerShow(!bannerShow)}
                                     className={cn(
-                                      "px-4 py-3 rounded-2xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-2",
-                                      bannerHome ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                                      "w-12 h-7 rounded-full transition-all relative",
+                                      bannerShow ? "bg-primary" : "bg-gray-300"
                                     )}
                                   >
-                                    <span>الصفحة الرئيسية</span>
-                                    {bannerHome && <div className="w-2 h-2 rounded-full bg-primary" />}
-                                  </button>
-
-                                  <button
-                                    onClick={() => setBannerLists(!bannerLists)}
-                                    className={cn(
-                                      "px-4 py-3 rounded-2xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-2",
-                                      bannerLists ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
-                                    )}
-                                  >
-                                    <span>صفحة القوائم</span>
-                                    {bannerLists && <div className="w-2 h-2 rounded-full bg-primary" />}
-                                  </button>
-
-                                  <button
-                                    onClick={() => setBannerContent(!bannerContent)}
-                                    className={cn(
-                                      "px-4 py-3 rounded-2xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-2",
-                                      bannerContent ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
-                                    )}
-                                  >
-                                    <span>صفحة المحتوى</span>
-                                    {bannerContent && <div className="w-2 h-2 rounded-full bg-primary" />}
+                                    <span className={cn(
+                                      "w-5 h-5 bg-white rounded-full absolute top-1 transition-all shadow-sm",
+                                      bannerShow ? "left-1" : "right-1"
+                                    )} />
                                   </button>
                                 </div>
+
+                                {bannerShow && (
+                                  <div className="space-y-4 animate-in fade-in duration-200">
+                                    <div className="space-y-2">
+                                      <span className="text-xs font-black text-gray-500 block">صفحات العرض العامة:</span>
+                                      <div className="grid grid-cols-3 gap-3">
+                                        <button
+                                          onClick={() => setBannerHome(!bannerHome)}
+                                          className={cn(
+                                            "px-4 py-3 rounded-2xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-2",
+                                            bannerHome ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                                          )}
+                                        >
+                                          <span>الصفحة الرئيسية</span>
+                                          {bannerHome && <div className="w-2 h-2 rounded-full bg-primary" />}
+                                        </button>
+
+                                        <button
+                                          onClick={() => setBannerLists(!bannerLists)}
+                                          className={cn(
+                                            "px-4 py-3 rounded-2xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-2",
+                                            bannerLists ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                                          )}
+                                        >
+                                          <span>صفحة القوائم</span>
+                                          {bannerLists && <div className="w-2 h-2 rounded-full bg-primary" />}
+                                        </button>
+
+                                        <button
+                                          onClick={() => setBannerContent(!bannerContent)}
+                                          className={cn(
+                                            "px-4 py-3 rounded-2xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-2",
+                                            bannerContent ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                                          )}
+                                        >
+                                          <span>صفحة المحتوى</span>
+                                          {bannerContent && <div className="w-2 h-2 rounded-full bg-primary" />}
+                                        </button>
+                                      </div>
+                                    </div>
+
+                                    {/* Category selector for Banner */}
+                                    {renderCategorySelector(
+                                      bannerCategoryMode,
+                                      setBannerCategoryMode,
+                                      bannerCategories,
+                                      setBannerCategories,
+                                      'تحديد أقسام ظهور إعلان البانر'
+                                    )}
+
+                                    <div className="space-y-2">
+                                      <label className="text-xs font-black text-gray-500 block">شفرة إعلان البانر (Script Code)</label>
+                                      <textarea 
+                                        value={bannerScript}
+                                        onChange={(e) => setBannerScript(e.target.value)}
+                                        rows={4}
+                                        className="w-full bg-white border border-gray-200 rounded-2xl px-5 py-3 text-xs font-mono outline-none focus:ring-2 focus:ring-primary/10 transition-all ltr"
+                                        dir="ltr"
+                                        placeholder="<script> ... </script>"
+                                      />
+                                    </div>
+                                  </div>
+                                )}
                               </div>
 
-                              <div className="space-y-2">
-                                <label className="text-xs font-black text-gray-500 block">شفرة إعلان البانر (Script Code)</label>
-                                <textarea 
-                                  value={bannerScript}
-                                  onChange={(e) => setBannerScript(e.target.value)}
-                                  rows={4}
-                                  className="w-full bg-white border border-gray-200 rounded-2xl px-5 py-3 text-xs font-mono outline-none focus:ring-2 focus:ring-primary/10 transition-all ltr"
-                                  dir="ltr"
-                                  placeholder="<script> ... </script>"
-                                />
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* 2. Interstitial Ads Control */}
-                        <div className="p-6 bg-gray-50/50 rounded-[2rem] border border-gray-100">
-                          <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-100/60">
-                            <div>
-                              <p className="font-black text-base text-gray-800">2. الإعلانات البينية وملء الشاشة (Interstitial Ads)</p>
-                              <p className="text-xs text-gray-400 mt-0.5">تظهر ملء الشاشة أو كإعلانات منبثقة/Popunder عند التنقل</p>
-                            </div>
-                            <button 
-                              onClick={() => setInterstitialShow(!interstitialShow)}
-                              className={cn(
-                                "w-12 h-7 rounded-full transition-all relative",
-                                interstitialShow ? "bg-primary" : "bg-gray-300"
-                              )}
-                            >
-                              <span className={cn(
-                                "w-5 h-5 bg-white rounded-full absolute top-1 transition-all shadow-sm",
-                                interstitialShow ? "left-1" : "right-1"
-                              )} />
-                            </button>
-                          </div>
-
-                          {interstitialShow && (
-                            <div className="space-y-4 animate-in fade-in duration-200">
-                              <div className="space-y-2">
-                                <span className="text-xs font-black text-gray-500 block">مواضع تفعيل الإعلان البيني (في أي مكان تريده):</span>
-                                <div className="grid grid-cols-3 gap-3">
-                                  <button
-                                    onClick={() => setInterstitialHome(!interstitialHome)}
+                              {/* 2. Interstitial Ads Control */}
+                              <div className="p-6 bg-gray-50/50 rounded-[2rem] border border-gray-100 space-y-4">
+                                <div className="flex items-center justify-between pb-4 border-b border-gray-100/60">
+                                  <div>
+                                    <p className="font-black text-base text-gray-800">2. الإعلانات البينية وملء الشاشة (Interstitial Ads)</p>
+                                    <p className="text-xs text-gray-400 mt-0.5">تظهر ملء الشاشة عند التنقل بين الأقسام</p>
+                                  </div>
+                                  <button 
+                                    onClick={() => setInterstitialShow(!interstitialShow)}
                                     className={cn(
-                                      "px-4 py-3 rounded-2xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-2",
-                                      interstitialHome ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                                      "w-12 h-7 rounded-full transition-all relative",
+                                      interstitialShow ? "bg-primary" : "bg-gray-300"
                                     )}
                                   >
-                                    <span>الصفحة الرئيسية</span>
-                                    {interstitialHome && <div className="w-2 h-2 rounded-full bg-primary" />}
-                                  </button>
-
-                                  <button
-                                    onClick={() => setInterstitialLists(!interstitialLists)}
-                                    className={cn(
-                                      "px-4 py-3 rounded-2xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-2",
-                                      interstitialLists ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
-                                    )}
-                                  >
-                                    <span>صفحة القوائم</span>
-                                    {interstitialLists && <div className="w-2 h-2 rounded-full bg-primary" />}
-                                  </button>
-
-                                  <button
-                                    onClick={() => setInterstitialContent(!interstitialContent)}
-                                    className={cn(
-                                      "px-4 py-3 rounded-2xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-2",
-                                      interstitialContent ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
-                                    )}
-                                  >
-                                    <span>صفحة المحتوى</span>
-                                    {interstitialContent && <div className="w-2 h-2 rounded-full bg-primary" />}
-                                  </button>
-                                </div>
-                              </div>
-
-                              <div className="space-y-2">
-                                <label className="text-xs font-black text-gray-500 block">شفرة الإعلان البيني / Popunder (Script Code)</label>
-                                <textarea 
-                                  value={interstitialScript}
-                                  onChange={(e) => setInterstitialScript(e.target.value)}
-                                  rows={4}
-                                  className="w-full bg-white border border-gray-200 rounded-2xl px-5 py-3 text-xs font-mono outline-none focus:ring-2 focus:ring-primary/10 transition-all ltr"
-                                  dir="ltr"
-                                  placeholder="<script> ... </script>"
-                                />
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* 3. Inline/Native Ads Control */}
-                        <div className="p-6 bg-gray-50/50 rounded-[2rem] border border-gray-100">
-                          <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-100/60">
-                            <div>
-                              <p className="font-black text-base text-gray-800">3. الإعلانات المدمجة في المحتوى والقوائم (Inline Ads)</p>
-                              <p className="text-xs text-gray-400 mt-0.5">تظهر منسجمة داخل المقالات وبين العناصر في القوائم والأقسام</p>
-                            </div>
-                            <button 
-                              onClick={() => setInlineShow(!inlineShow)}
-                              className={cn(
-                                "w-12 h-7 rounded-full transition-all relative",
-                                inlineShow ? "bg-primary" : "bg-gray-300"
-                              )}
-                            >
-                              <span className={cn(
-                                "w-5 h-5 bg-white rounded-full absolute top-1 transition-all shadow-sm",
-                                inlineShow ? "left-1" : "right-1"
-                              )} />
-                            </button>
-                          </div>
-
-                          {inlineShow && (
-                            <div className="space-y-4 animate-in fade-in duration-200">
-                              <div className="space-y-2">
-                                <span className="text-xs font-black text-gray-500 block">مواضع الإعلانات المدمجة:</span>
-                                <div className="grid grid-cols-3 gap-3">
-                                  <button
-                                    onClick={() => setInlineHome(!inlineHome)}
-                                    className={cn(
-                                      "px-4 py-3 rounded-2xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-2",
-                                      inlineHome ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
-                                    )}
-                                  >
-                                    <span>الصفحة الرئيسية</span>
-                                    {inlineHome && <div className="w-2 h-2 rounded-full bg-primary" />}
-                                  </button>
-
-                                  <button
-                                    onClick={() => setInlineLists(!inlineLists)}
-                                    className={cn(
-                                      "px-4 py-3 rounded-2xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-2",
-                                      inlineLists ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
-                                    )}
-                                  >
-                                    <span>صفحة القوائم</span>
-                                    {inlineLists && <div className="w-2 h-2 rounded-full bg-primary" />}
-                                  </button>
-
-                                  <button
-                                    onClick={() => setInlineContent(!inlineContent)}
-                                    className={cn(
-                                      "px-4 py-3 rounded-2xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-2",
-                                      inlineContent ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
-                                    )}
-                                  >
-                                    <span>صفحة المحتوى</span>
-                                    {inlineContent && <div className="w-2 h-2 rounded-full bg-primary" />}
+                                    <span className={cn(
+                                      "w-5 h-5 bg-white rounded-full absolute top-1 transition-all shadow-sm",
+                                      interstitialShow ? "left-1" : "right-1"
+                                    )} />
                                   </button>
                                 </div>
+
+                                {interstitialShow && (
+                                  <div className="space-y-4 animate-in fade-in duration-200">
+                                    <div className="space-y-2">
+                                      <span className="text-xs font-black text-gray-500 block">صفحات العرض العامة:</span>
+                                      <div className="grid grid-cols-3 gap-3">
+                                        <button
+                                          onClick={() => setInterstitialHome(!interstitialHome)}
+                                          className={cn(
+                                            "px-4 py-3 rounded-2xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-2",
+                                            interstitialHome ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                                          )}
+                                        >
+                                          <span>الصفحة الرئيسية</span>
+                                          {interstitialHome && <div className="w-2 h-2 rounded-full bg-primary" />}
+                                        </button>
+
+                                        <button
+                                          onClick={() => setInterstitialLists(!interstitialLists)}
+                                          className={cn(
+                                            "px-4 py-3 rounded-2xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-2",
+                                            interstitialLists ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                                          )}
+                                        >
+                                          <span>صفحة القوائم</span>
+                                          {interstitialLists && <div className="w-2 h-2 rounded-full bg-primary" />}
+                                        </button>
+
+                                        <button
+                                          onClick={() => setInterstitialContent(!interstitialContent)}
+                                          className={cn(
+                                            "px-4 py-3 rounded-2xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-2",
+                                            interstitialContent ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                                          )}
+                                        >
+                                          <span>صفحة المحتوى</span>
+                                          {interstitialContent && <div className="w-2 h-2 rounded-full bg-primary" />}
+                                        </button>
+                                      </div>
+                                    </div>
+
+                                    {/* Category selector for Interstitial */}
+                                    {renderCategorySelector(
+                                      interstitialCategoryMode,
+                                      setInterstitialCategoryMode,
+                                      interstitialCategories,
+                                      setInterstitialCategories,
+                                      'تحديد أقسام ظهور الإعلان البيني'
+                                    )}
+
+                                    <div className="space-y-2">
+                                      <label className="text-xs font-black text-gray-500 block">شفرة الإعلان البيني / Popunder (Script Code)</label>
+                                      <textarea 
+                                        value={interstitialScript}
+                                        onChange={(e) => setInterstitialScript(e.target.value)}
+                                        rows={4}
+                                        className="w-full bg-white border border-gray-200 rounded-2xl px-5 py-3 text-xs font-mono outline-none focus:ring-2 focus:ring-primary/10 transition-all ltr"
+                                        dir="ltr"
+                                        placeholder="<script> ... </script>"
+                                      />
+                                    </div>
+                                  </div>
+                                )}
                               </div>
 
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                  <label className="text-xs font-black text-gray-500 block">تكرار الإعلانات المدمجة</label>
-                                  <select 
-                                    value={inlineFrequency}
-                                    onChange={(e) => setInlineFrequency(parseInt(e.target.value))}
-                                    className="w-full bg-white border border-gray-200 rounded-2xl px-5 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-primary/10 transition-all appearance-none"
+                              {/* 3. Popup Ads Control */}
+                              <div className="p-6 bg-gray-50/50 rounded-[2rem] border border-gray-100 space-y-4">
+                                <div className="flex items-center justify-between pb-4 border-b border-gray-100/60">
+                                  <div>
+                                    <p className="font-black text-base text-gray-800">3. الإعلانات المنبثقة (Popup Ads)</p>
+                                    <p className="text-xs text-gray-400 mt-0.5">نافذة منبثقة أو نافذة حوار تظهر للزائر في القسم المحدد</p>
+                                  </div>
+                                  <button 
+                                    onClick={() => setPopupShow(!popupShow)}
+                                    className={cn(
+                                      "w-12 h-7 rounded-full transition-all relative",
+                                      popupShow ? "bg-primary" : "bg-gray-300"
+                                    )}
                                   >
-                                    <option value={4}>كل 4 عناصر</option>
-                                    <option value={6}>كل 6 عناصر</option>
-                                    <option value={8}>كل 8 عناصر</option>
-                                    <option value={10}>كل 10 عناصر</option>
-                                    <option value={12}>كل 12 عنصراً</option>
-                                  </select>
+                                    <span className={cn(
+                                      "w-5 h-5 bg-white rounded-full absolute top-1 transition-all shadow-sm",
+                                      popupShow ? "left-1" : "right-1"
+                                    )} />
+                                  </button>
                                 </div>
 
-                                <div className="space-y-2">
-                                  <label className="text-xs font-black text-gray-500 block">شفرة الإعلان المدمج (Script Code)</label>
-                                  <textarea 
-                                    value={inlineScript}
-                                    onChange={(e) => setInlineScript(e.target.value)}
-                                    rows={2}
-                                    className="w-full bg-white border border-gray-200 rounded-2xl px-5 py-3 text-xs font-mono outline-none focus:ring-2 focus:ring-primary/10 transition-all ltr"
-                                    dir="ltr"
-                                    placeholder="<script> ... </script>"
-                                  />
-                                </div>
+                                {popupShow && (
+                                  <div className="space-y-4 animate-in fade-in duration-200">
+                                    <div className="space-y-2">
+                                      <span className="text-xs font-black text-gray-500 block">صفحات العرض العامة:</span>
+                                      <div className="grid grid-cols-3 gap-3">
+                                        <button
+                                          onClick={() => setPopupHome(!popupHome)}
+                                          className={cn(
+                                            "px-4 py-3 rounded-2xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-2",
+                                            popupHome ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                                          )}
+                                        >
+                                          <span>الصفحة الرئيسية</span>
+                                          {popupHome && <div className="w-2 h-2 rounded-full bg-primary" />}
+                                        </button>
+
+                                        <button
+                                          onClick={() => setPopupLists(!popupLists)}
+                                          className={cn(
+                                            "px-4 py-3 rounded-2xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-2",
+                                            popupLists ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                                          )}
+                                        >
+                                          <span>صفحة القوائم</span>
+                                          {popupLists && <div className="w-2 h-2 rounded-full bg-primary" />}
+                                        </button>
+
+                                        <button
+                                          onClick={() => setPopupContent(!popupContent)}
+                                          className={cn(
+                                            "px-4 py-3 rounded-2xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-2",
+                                            popupContent ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                                          )}
+                                        >
+                                          <span>صفحة المحتوى</span>
+                                          {popupContent && <div className="w-2 h-2 rounded-full bg-primary" />}
+                                        </button>
+                                      </div>
+                                    </div>
+
+                                    {/* Category selector for Popup */}
+                                    {renderCategorySelector(
+                                      popupCategoryMode,
+                                      setPopupCategoryMode,
+                                      popupCategories,
+                                      setPopupCategories,
+                                      'تحديد أقسام ظهور الإعلان المنبثق'
+                                    )}
+
+                                    <div className="space-y-2">
+                                      <label className="text-xs font-black text-gray-500 block">شفرة الإعلان المنبثق (Script Code)</label>
+                                      <textarea 
+                                        value={popupScript}
+                                        onChange={(e) => setPopupScript(e.target.value)}
+                                        rows={4}
+                                        className="w-full bg-white border border-gray-200 rounded-2xl px-5 py-3 text-xs font-mono outline-none focus:ring-2 focus:ring-primary/10 transition-all ltr"
+                                        dir="ltr"
+                                        placeholder="<script> ... </script>"
+                                      />
+                                    </div>
+                                  </div>
+                                )}
                               </div>
-                            </div>
-                          )}
-                        </div>
+
+                              {/* 4. Inline/Native Ads Control */}
+                              <div className="p-6 bg-gray-50/50 rounded-[2rem] border border-gray-100 space-y-4">
+                                <div className="flex items-center justify-between pb-4 border-b border-gray-100/60">
+                                  <div>
+                                    <p className="font-black text-base text-gray-800">4. الإعلانات المدمجة في المحتوى والقوائم (Inline Ads)</p>
+                                    <p className="text-xs text-gray-400 mt-0.5">تظهر منسجمة بين العناصر في القوائم والأقسام</p>
+                                  </div>
+                                  <button 
+                                    onClick={() => setInlineShow(!inlineShow)}
+                                    className={cn(
+                                      "w-12 h-7 rounded-full transition-all relative",
+                                      inlineShow ? "bg-primary" : "bg-gray-300"
+                                    )}
+                                  >
+                                    <span className={cn(
+                                      "w-5 h-5 bg-white rounded-full absolute top-1 transition-all shadow-sm",
+                                      inlineShow ? "left-1" : "right-1"
+                                    )} />
+                                  </button>
+                                </div>
+
+                                {inlineShow && (
+                                  <div className="space-y-4 animate-in fade-in duration-200">
+                                    <div className="space-y-2">
+                                      <span className="text-xs font-black text-gray-500 block">صفحات العرض العامة:</span>
+                                      <div className="grid grid-cols-3 gap-3">
+                                        <button
+                                          onClick={() => setInlineHome(!inlineHome)}
+                                          className={cn(
+                                            "px-4 py-3 rounded-2xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-2",
+                                            inlineHome ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                                          )}
+                                        >
+                                          <span>الصفحة الرئيسية</span>
+                                          {inlineHome && <div className="w-2 h-2 rounded-full bg-primary" />}
+                                        </button>
+
+                                        <button
+                                          onClick={() => setInlineLists(!inlineLists)}
+                                          className={cn(
+                                            "px-4 py-3 rounded-2xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-2",
+                                            inlineLists ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                                          )}
+                                        >
+                                          <span>صفحة القوائم</span>
+                                          {inlineLists && <div className="w-2 h-2 rounded-full bg-primary" />}
+                                        </button>
+
+                                        <button
+                                          onClick={() => setInlineContent(!inlineContent)}
+                                          className={cn(
+                                            "px-4 py-3 rounded-2xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-2",
+                                            inlineContent ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                                          )}
+                                        >
+                                          <span>صفحة المحتوى</span>
+                                          {inlineContent && <div className="w-2 h-2 rounded-full bg-primary" />}
+                                        </button>
+                                      </div>
+                                    </div>
+
+                                    {/* Category selector for Inline */}
+                                    {renderCategorySelector(
+                                      inlineCategoryMode,
+                                      setInlineCategoryMode,
+                                      inlineCategories,
+                                      setInlineCategories,
+                                      'تحديد أقسام ظهور الإعلان المدمج'
+                                    )}
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                      <div className="space-y-2">
+                                        <label className="text-xs font-black text-gray-500 block">تكرار الإعلانات المدمجة</label>
+                                        <select 
+                                          value={inlineFrequency}
+                                          onChange={(e) => setInlineFrequency(parseInt(e.target.value))}
+                                          className="w-full bg-white border border-gray-200 rounded-2xl px-5 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-primary/10 transition-all appearance-none"
+                                        >
+                                          <option value={4}>كل 4 عناصر</option>
+                                          <option value={6}>كل 6 عناصر</option>
+                                          <option value={8}>كل 8 عناصر</option>
+                                          <option value={10}>كل 10 عناصر</option>
+                                          <option value={12}>كل 12 عنصراً</option>
+                                        </select>
+                                      </div>
+
+                                      <div className="space-y-2">
+                                        <label className="text-xs font-black text-gray-500 block">شفرة الإعلان المدمج (Script Code)</label>
+                                        <textarea 
+                                          value={inlineScript}
+                                          onChange={(e) => setInlineScript(e.target.value)}
+                                          rows={2}
+                                          className="w-full bg-white border border-gray-200 rounded-2xl px-5 py-3 text-xs font-mono outline-none focus:ring-2 focus:ring-primary/10 transition-all ltr"
+                                          dir="ltr"
+                                          placeholder="<script> ... </script>"
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </>
+                          );
+                        })()}
 
                         {/* Save Button */}
                         <button 
