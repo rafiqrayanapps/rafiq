@@ -17,6 +17,7 @@ import FavoritesTab from '@/components/tabs/FavoritesTab';
 import NotificationsTab from '@/components/tabs/NotificationsTab';
 import AdBanner from '@/components/AdBanner';
 import RedDotBadge, { checkCategoryIsNew, useViewedCategories, markCategoryAsViewed } from '@/components/RedDotBadge';
+import ScrollReveal from '@/components/ScrollReveal';
 
 function HomeContent() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -109,16 +110,14 @@ function HomeContent() {
                   
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                     {displayCategories.map((cat, idx) => (
-                      <motion.div 
+                      <ScrollReveal 
                           key={`${cat.id}-${idx}`}
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: idx * 0.03 }}
+                          staggerIndex={idx}
                           onClick={() => handleCategoryClick(cat)}
                           className="w-full aspect-square"
                       >
                         <div className={cn(
-                            "w-full h-full relative text-primary-foreground p-4 rounded-[2.2rem] flex flex-col items-center justify-center cursor-pointer text-center group overflow-hidden border-4 border-white/5 category-card-glow",
+                            "w-full h-full relative text-primary-foreground p-4 rounded-[2.2rem] flex flex-col items-center justify-center cursor-pointer text-center group overflow-hidden border-4 border-white/5 category-card-glow hover:scale-[1.02] transition-transform duration-300",
                         )} style={{ 
                             background: cat.useCustomAccent && cat.accentColor ? `linear-gradient(135deg, ${cat.accentColor}, ${cat.accentColor}dd)` : 'var(--primary-gradient)',
                             '--card-glow-color': cat.useCustomAccent && cat.accentColor ? cat.accentColor : undefined,
@@ -143,7 +142,7 @@ function HomeContent() {
 
                           <p className="font-bold text-sm md:text-base relative z-10 leading-snug px-2 group-hover:scale-105 transition-transform duration-300">{cat.name}</p>
                         </div>
-                      </motion.div>
+                      </ScrollReveal>
                     ))}
                   </div>
                 </div>

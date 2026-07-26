@@ -2,144 +2,217 @@
 
 import { motion } from 'framer-motion';
 import Header from '@/components/Header';
-import { Info, ShieldCheck, Zap, Heart, Star, Users, Target, Rocket, Award, Sparkles, Globe, ZapOff } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { Star } from 'lucide-react';
 import { useDoc } from '@/hooks/useFirebase';
-import Image from 'next/image';
-import { cn } from '@/lib/utils';
-
-const iconMap: { [key: string]: any } = {
-  Zap, ShieldCheck, Heart, Star, Users, Target, Rocket, Award, Info, Sparkles, Globe
-};
+import PlatformButton from '@/components/PlatformButton';
 
 export default function AboutPage() {
-  const router = useRouter();
   const { data: aboutData, loading } = useDoc('appConfig', 'about');
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2" style={{ borderColor: 'var(--primary)' }}></div>
       </div>
     );
   }
 
-  const defaultFeatures = [
-    { icon: 'Sparkles', title: 'إبداع بلا حدود', desc: 'نوفر لك الأدوات اللازمة لإطلاق عنان خيالك.' },
-    { icon: 'ShieldCheck', title: 'أمان وموثوقية', desc: 'بياناتك ومشاريعك في أيدٍ أمينة دائماً.' },
-    { icon: 'Rocket', title: 'انطلاقة سريعة', desc: 'واجهة سهلة تضمن لك البدء في مشاريعك فوراً.' },
-  ];
+  // Config values with fallbacks
+  const appName = aboutData?.appName || aboutData?.title || 'رفيق المصمم';
+  const subtitle = aboutData?.subtitle || 'شريكك الإبداعي في كل خطوة';
+  const developerName = aboutData?.developerName || 'YOSSEF / تطوير';
+  const phoneNumber = aboutData?.phoneNumber || '01029892573';
+  const versionStatus = aboutData?.versionStatus || 'إصدار مكتمل ومستقر';
+  
+  // WhatsApp settings (showWhatsapp defaults to true if not explicitly false)
+  const showWhatsapp = aboutData?.showWhatsapp !== false;
+  const whatsappNumber = aboutData?.whatsappNumber || phoneNumber || '01029892573';
+  const whatsappText = aboutData?.whatsappText || `تواصل عبر واتساب مباشر (${whatsappNumber})`;
+  
+  const ratingStars = typeof aboutData?.rating === 'number' ? aboutData.rating : 5;
+  
+  // Link 1 (Primary Button)
+  const webLink = aboutData?.webLink || '';
+  const webLinkText = aboutData?.webLinkText || 'زيارة الموقع الإلكتروني';
+  const webLinkPlatform = aboutData?.webLinkPlatform || 'auto';
 
-  const content = {
-    title: aboutData?.title || 'رفيق المصمم',
-    subtitle: aboutData?.subtitle || 'شريكك الإبداعي في كل خطوة',
-    description: aboutData?.description || 'رفيق المصمم هو تطبيق مبتكر صُمم خصيصاً لتمكين المصممين العرب. نحن نوفر لك الأدوات، الموارد، والإلهام الذي تحتاجه لتحويل أفكارك إلى واقع ملموس بأعلى جودة وأقل جهد.',
-    vision: aboutData?.vision || 'رؤيتنا هي بناء أكبر مجتمع إبداعي عربي، حيث يجد كل مصمم الدعم التقني والفني الذي يحتاجه للنمو والتميز في سوق العمل العالمي.',
-    features: aboutData?.features || defaultFeatures,
-    heroImage: aboutData?.heroImage || 'https://picsum.photos/seed/app/800/600'
+  // Link 2 (Secondary / Additional Button)
+  const secondaryLink = aboutData?.secondaryLink || '';
+  const secondaryLinkText = aboutData?.secondaryLinkText || 'رابط إضافي / القناة';
+  const secondaryLinkPlatform = aboutData?.secondaryLinkPlatform || 'auto';
+
+  const logoImage = aboutData?.logoImage || '';
+  const description = aboutData?.description;
+  const vision = aboutData?.vision;
+
+  const handleOpenWhatsapp = () => {
+    if (!whatsappNumber) return;
+    const cleanedNumber = whatsappNumber.replace(/[^0-9]/g, '');
+    const formatted = cleanedNumber.startsWith('0') ? `2${cleanedNumber}` : cleanedNumber;
+    const url = `https://wa.me/${formatted}`;
+    window.open(url, '_blank');
   };
 
   return (
-    <div className="min-h-screen bg-[#FDFDFD] flex flex-col">
-      <Header title="حول التطبيق" showBackButton compact />
-      
-      <main className="flex-1 px-6 pb-24 pt-8 max-w-4xl mx-auto w-full space-y-20">
-        {/* Intro Section */}
-        <section className="text-right space-y-6">
-          <motion.div
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            className="space-y-4"
-          >
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-primary/5 rounded-full text-primary text-xs font-black tracking-widest uppercase">
-              <Sparkles size={14} />
-              من نحن
-            </div>
-            <h1 className="text-4xl md:text-5xl font-black text-gray-900 tracking-tighter leading-tight">
-              {content.subtitle}
-            </h1>
-          </motion.div>
-          
-          <motion.div 
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.1 }}
-            className="relative p-8 rounded-3xl bg-white border border-gray-100 shadow-[0_20px_50px_rgba(0,0,0,0.03)]"
-          >
-            <p className="text-gray-600 leading-relaxed text-lg font-medium text-right">
-              {content.description}
-            </p>
-          </motion.div>
-        </section>
+    <div className="min-h-screen bg-[#FDFDFD] dark:bg-gray-950 flex flex-col">
+      <Header title="عن التطبيق" showBackButton compact />
 
-        {/* Vision Section */}
-        <section className="relative rounded-[3rem] bg-gray-900 p-10 md:p-16 overflow-hidden">
-          <div className="absolute top-0 right-0 w-full h-full pointer-events-none opacity-20">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-primary rounded-full -mr-32 -mt-32 blur-3xl" />
-            <div className="absolute bottom-0 left-0 w-64 h-64 bg-primary rounded-full -ml-32 -mb-32 blur-3xl" />
-          </div>
-          
-          <div className="relative z-10 space-y-8 text-right">
-            <div className="inline-flex items-center gap-2 text-primary text-sm font-black tracking-widest uppercase">
-              <Target size={18} />
-              رؤيتنا
-            </div>
-            <h2 className="text-2xl md:text-3xl font-bold text-white leading-relaxed">
-              {content.vision}
-            </h2>
-          </div>
-        </section>
-
-        {/* Key Features */}
-        <section className="space-y-10">
-          <h2 className="text-2xl font-black text-gray-900 tracking-tight text-right">لماذا رفـيق؟</h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {content.features.map((f: any, i: number) => {
-              const Icon = iconMap[f.icon] || Info;
-              return (
-                <motion.div 
-                  key={f.title}
-                  initial={{ y: 20, opacity: 0 }}
-                  whileInView={{ y: 0, opacity: 1 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.1 }}
-                  className="p-8 rounded-3xl bg-white border border-gray-100 shadow-sm hover:shadow-md transition-shadow text-right space-y-4"
-                >
-                  <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
-                    <Icon size={24} strokeWidth={2.5} />
+      <main className="flex-1 px-4 py-8 max-w-xl mx-auto w-full flex flex-col items-center justify-center space-y-8">
+        {/* Main Card replicating exact screenshot layout with dynamic site primary color */}
+        <motion.div
+          initial={{ scale: 0.95, opacity: 0, y: 20 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          className="relative w-full bg-white dark:bg-gray-900 rounded-[40px] p-6 md:p-8 shadow-xl border border-gray-100 dark:border-gray-800 text-center overflow-hidden"
+        >
+          {/* Header Icon / Logo - Dynamic Primary Gradient */}
+          <div className="flex justify-center mt-2 mb-3">
+            <div 
+              className="w-20 h-20 rounded-[24px] flex items-center justify-center shadow-lg transition-all"
+              style={{
+                background: 'var(--primary-gradient)',
+                boxShadow: '0 10px 25px -5px color-mix(in srgb, var(--primary) 40%, transparent)'
+              }}
+            >
+              {logoImage ? (
+                <img src={logoImage} alt="Logo" className="w-12 h-12 object-contain rounded-xl" />
+              ) : (
+                /* "رفيق المصمم" Brand Logo Badge */
+                <div className="flex flex-col items-center justify-center gap-0.5 select-none">
+                  <span className="text-white text-xs font-black tracking-widest uppercase drop-shadow-sm">
+                    رفيق
+                  </span>
+                  <div className="bg-white rounded-md px-2 py-0.5 shadow-sm">
+                    <span className="font-black text-[11px] tracking-tight block leading-none" style={{ color: 'var(--primary)' }}>
+                      المصمم
+                    </span>
                   </div>
-                  <h3 className="text-lg font-black text-gray-900">{f.title}</h3>
-                  <p className="text-sm font-medium text-gray-500 leading-relaxed">{f.desc}</p>
-                </motion.div>
-              );
-            })}
+                </div>
+              )}
+            </div>
           </div>
-        </section>
 
-        {/* CTA */}
-        <section className="flex flex-col items-center">
-          <motion.button 
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => router.push('/home')}
-            className="group relative px-10 py-5 bg-primary text-white rounded-[2rem] font-black text-lg shadow-xl shadow-primary/20 transition-all flex items-center gap-3"
-            style={{ background: 'var(--primary-gradient)' }}
+          {/* Star Rating */}
+          <div className="inline-flex items-center gap-1 px-3 py-1 bg-amber-50 dark:bg-amber-950/40 rounded-full text-amber-400 mb-3">
+            {Array.from({ length: ratingStars }).map((_, i) => (
+              <Star key={i} size={16} fill="currentColor" className="text-amber-400" />
+            ))}
+          </div>
+
+          {/* Title */}
+          <h1 className="text-xl md:text-2xl font-black text-gray-900 dark:text-white tracking-tight leading-snug">
+            {appName}
+          </h1>
+
+          {/* Subtitle - Dynamic primary color */}
+          <p className="text-xs md:text-sm font-bold mt-1 mb-6" style={{ color: 'var(--primary)' }}>
+            {subtitle}
+          </p>
+
+          {/* Data Table / Box - Dynamic Primary Background Tint */}
+          <div 
+            className="rounded-2xl p-4 space-y-3 mb-6 text-right transition-colors"
+            style={{
+              backgroundColor: 'color-mix(in srgb, var(--primary) 6%, transparent)',
+              border: '1px solid color-mix(in srgb, var(--primary) 20%, transparent)'
+            }}
           >
-            <span>ابدأ رحلتك الآن</span>
-            <Rocket size={20} className="group-hover:translate-x-[-4px] group-hover:-translate-y-1 transition-transform" />
-          </motion.button>
-        </section>
+            {/* Row 1: Developer */}
+            <div 
+              className="flex items-center justify-between gap-2 pb-2.5"
+              style={{ borderBottom: '1px solid color-mix(in srgb, var(--primary) 15%, transparent)' }}
+            >
+              <span className="text-xs font-bold text-gray-600 dark:text-gray-400">
+                تطوير وتصميم:
+              </span>
+              <span className="text-xs font-black text-gray-900 dark:text-gray-100 dir-ltr">
+                {developerName}
+              </span>
+            </div>
 
-        {/* Simple Footer */}
-        <footer className="text-center pt-8 border-t border-gray-50">
-          <div className="flex flex-col items-center gap-4">
-            <h2 className="text-xl font-black text-gray-300">رفــيق المصمم</h2>
-            <p className="text-gray-400 text-[10px] font-black tracking-[0.2em] uppercase">
-              Built for creative minds &copy; {new Date().getFullYear()}
-            </p>
+            {/* Row 2: Phone */}
+            <div 
+              className="flex items-center justify-between gap-2 pb-2.5"
+              style={{ borderBottom: '1px solid color-mix(in srgb, var(--primary) 15%, transparent)' }}
+            >
+              <span className="text-xs font-bold text-gray-600 dark:text-gray-400">
+                رقم الهاتف:
+              </span>
+              <span className="text-xs font-black text-gray-900 dark:text-gray-100 font-mono">
+                {phoneNumber}
+              </span>
+            </div>
+
+            {/* Row 3: Update Status */}
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-bold text-gray-600 dark:text-gray-400">
+                حالة التحديث:
+              </span>
+              <span 
+                className="text-[11px] font-black px-3 py-1 rounded-full"
+                style={{
+                  backgroundColor: 'color-mix(in srgb, var(--primary) 15%, transparent)',
+                  color: 'var(--primary)'
+                }}
+              >
+                {versionStatus}
+              </span>
+            </div>
           </div>
-        </footer>
+
+          {/* Action Buttons */}
+          <div className="space-y-3">
+            {/* Primary External Link Button */}
+            {webLink && (
+              <PlatformButton
+                url={webLink}
+                text={webLinkText}
+                platform={webLinkPlatform}
+              />
+            )}
+
+            {/* Secondary / Additional Button */}
+            {secondaryLink && (
+              <PlatformButton
+                url={secondaryLink}
+                text={secondaryLinkText}
+                platform={secondaryLinkPlatform}
+              />
+            )}
+
+            {/* WhatsApp Button (Toggleable) */}
+            {showWhatsapp && whatsappNumber && (
+              <PlatformButton
+                url={`https://wa.me/${whatsappNumber.replace(/[^0-9]/g, '')}`}
+                text={whatsappText}
+                platform="whatsapp"
+                onClick={handleOpenWhatsapp}
+              />
+            )}
+          </div>
+        </motion.div>
+
+        {/* Optional Extra Description / Vision if defined */}
+        {(description || vision) && (
+          <div className="w-full bg-white dark:bg-gray-900 rounded-3xl p-6 border border-gray-100 dark:border-gray-800 space-y-4 text-right">
+            {description && (
+              <div>
+                <h3 className="text-sm font-black text-gray-900 dark:text-white mb-1">عن التطبيق</h3>
+                <p className="text-xs font-medium text-gray-600 dark:text-gray-400 leading-relaxed">
+                  {description}
+                </p>
+              </div>
+            )}
+            {vision && (
+              <div className="pt-3 border-t border-gray-100 dark:border-gray-800">
+                <h3 className="text-sm font-black text-gray-900 dark:text-white mb-1">رؤيتنا</h3>
+                <p className="text-xs font-medium text-gray-600 dark:text-gray-400 leading-relaxed">
+                  {vision}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
       </main>
     </div>
   );

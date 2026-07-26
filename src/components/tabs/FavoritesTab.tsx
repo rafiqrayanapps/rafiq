@@ -11,6 +11,7 @@ import useLocalStorage from '@/hooks/use-local-storage';
 import { cn, getDirectLink } from '@/lib/utils';
 import { useUserProfile } from '@/hooks/use-user-profile';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import ScrollReveal from '@/components/ScrollReveal';
 
 const FavoriteButton = ({ isFavorite, onClick, className }: { isFavorite: boolean, onClick: (e: any) => void, className?: string }) => (
     <button 
@@ -475,7 +476,11 @@ export default function FavoritesTab() {
                   </Button>
                 </div>
                 <div className="grid gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    {favorites.map(renderItem)}
+                    {favorites.map((item, idx) => (
+                      <ScrollReveal key={`${item.id}-${idx}`} staggerIndex={idx}>
+                        {renderItem(item, idx)}
+                      </ScrollReveal>
+                    ))}
                 </div>
             </div>
         ) : (

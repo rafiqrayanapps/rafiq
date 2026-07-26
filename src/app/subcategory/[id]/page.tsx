@@ -7,6 +7,7 @@ import { ArrowRight, Download, Lock, Menu, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Sidebar from '@/components/Sidebar';
 import AdBanner from '@/components/AdBanner';
+import ScrollReveal from '@/components/ScrollReveal';
 
 export default function SubCategoryPage() {
   const { id } = useParams();
@@ -77,11 +78,9 @@ export default function SubCategoryPage() {
 
               subItems.forEach((item, index) => {
                 elements.push(
-                  <motion.div
+                  <ScrollReveal
                     key={`${item.id}-${index}`}
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.1 }}
+                    staggerIndex={index}
                     className="bg-card p-4 rounded-3xl shadow-sm border border-border flex items-center justify-between"
                   >
                     <div className="flex items-center gap-4">
@@ -103,7 +102,7 @@ export default function SubCategoryPage() {
                         تحميل
                       </button>
                     )}
-                  </motion.div>
+                  </ScrollReveal>
                 );
 
                 const showAdHere = showAds && inlineShow && inlineOnContent && inlineScript && ((index + 1) % inlineFrequency === 0);

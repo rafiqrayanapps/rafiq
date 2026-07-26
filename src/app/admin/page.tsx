@@ -149,6 +149,20 @@ export default function AdminPage() {
   const { data: aboutConfig } = useDoc('appConfig', 'about');
   const [aboutTitle, setAboutTitle] = useState('');
   const [aboutSubtitle, setAboutSubtitle] = useState('');
+  const [aboutDeveloperName, setAboutDeveloperName] = useState('');
+  const [aboutPhoneNumber, setAboutPhoneNumber] = useState('');
+  const [aboutVersionStatus, setAboutVersionStatus] = useState('');
+  const [aboutRating, setAboutRating] = useState(5);
+  const [aboutWhatsappNumber, setAboutWhatsappNumber] = useState('');
+  const [aboutWhatsappText, setAboutWhatsappText] = useState('');
+  const [aboutShowWhatsapp, setAboutShowWhatsapp] = useState(true);
+  const [aboutWebLink, setAboutWebLink] = useState('');
+  const [aboutWebLinkText, setAboutWebLinkText] = useState('');
+  const [aboutWebLinkPlatform, setAboutWebLinkPlatform] = useState('auto');
+  const [aboutSecondaryLink, setAboutSecondaryLink] = useState('');
+  const [aboutSecondaryLinkText, setAboutSecondaryLinkText] = useState('');
+  const [aboutSecondaryLinkPlatform, setAboutSecondaryLinkPlatform] = useState('auto');
+  const [aboutLogoImage, setAboutLogoImage] = useState('');
   const [aboutDescription, setAboutDescription] = useState('');
   const [aboutVision, setAboutVision] = useState('');
   const [aboutHeroImage, setAboutHeroImage] = useState('');
@@ -300,12 +314,43 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (aboutConfig) {
-      setAboutTitle(aboutConfig.title || '');
-      setAboutSubtitle(aboutConfig.subtitle || '');
+      setAboutTitle(aboutConfig.title || aboutConfig.appName || 'رفيق المصمم');
+      setAboutSubtitle(aboutConfig.subtitle || 'شريكك الإبداعي في كل خطوة');
+      setAboutDeveloperName(aboutConfig.developerName || 'YOSSEF / تطوير');
+      setAboutPhoneNumber(aboutConfig.phoneNumber || '01029892573');
+      setAboutVersionStatus(aboutConfig.versionStatus || 'إصدار مكتمل ومستقر');
+      setAboutRating(typeof aboutConfig.rating === 'number' ? aboutConfig.rating : 5);
+      setAboutShowWhatsapp(aboutConfig.showWhatsapp !== false);
+      setAboutWhatsappNumber(aboutConfig.whatsappNumber || '01029892573');
+      setAboutWhatsappText(aboutConfig.whatsappText || 'تواصل عبر واتساب مباشر (01029892573)');
+      setAboutWebLink(aboutConfig.webLink || '');
+      setAboutWebLinkText(aboutConfig.webLinkText || 'زيارة الموقع الإلكتروني');
+      setAboutWebLinkPlatform(aboutConfig.webLinkPlatform || 'auto');
+      setAboutSecondaryLink(aboutConfig.secondaryLink || '');
+      setAboutSecondaryLinkText(aboutConfig.secondaryLinkText || '');
+      setAboutSecondaryLinkPlatform(aboutConfig.secondaryLinkPlatform || 'auto');
+      setAboutLogoImage(aboutConfig.logoImage || '');
       setAboutDescription(aboutConfig.description || '');
       setAboutVision(aboutConfig.vision || '');
       setAboutHeroImage(aboutConfig.heroImage || '');
       setAboutFeatures(aboutConfig.features || []);
+    } else {
+      setAboutTitle('رفيق المصمم');
+      setAboutSubtitle('شريكك الإبداعي في كل خطوة');
+      setAboutDeveloperName('YOSSEF / تطوير');
+      setAboutPhoneNumber('01029892573');
+      setAboutVersionStatus('إصدار مكتمل ومستقر');
+      setAboutRating(5);
+      setAboutShowWhatsapp(true);
+      setAboutWhatsappNumber('01029892573');
+      setAboutWhatsappText('تواصل عبر واتساب مباشر (01029892573)');
+      setAboutWebLink('');
+      setAboutWebLinkText('زيارة الموقع الإلكتروني');
+      setAboutWebLinkPlatform('auto');
+      setAboutSecondaryLink('');
+      setAboutSecondaryLinkText('');
+      setAboutSecondaryLinkPlatform('auto');
+      setAboutLogoImage('');
     }
   }, [aboutConfig]);
 
@@ -493,14 +538,29 @@ export default function AdminPage() {
     try {
       await setDoc(doc(db, 'appConfig', 'about'), {
         title: aboutTitle,
+        appName: aboutTitle,
         subtitle: aboutSubtitle,
+        developerName: aboutDeveloperName,
+        phoneNumber: aboutPhoneNumber,
+        versionStatus: aboutVersionStatus,
+        rating: aboutRating,
+        showWhatsapp: aboutShowWhatsapp,
+        whatsappNumber: aboutWhatsappNumber,
+        whatsappText: aboutWhatsappText,
+        webLink: aboutWebLink,
+        webLinkText: aboutWebLinkText,
+        webLinkPlatform: aboutWebLinkPlatform,
+        secondaryLink: aboutSecondaryLink,
+        secondaryLinkText: aboutSecondaryLinkText,
+        secondaryLinkPlatform: aboutSecondaryLinkPlatform,
+        logoImage: aboutLogoImage,
         description: aboutDescription,
         vision: aboutVision,
         heroImage: aboutHeroImage,
         features: aboutFeatures,
         updatedAt: new Date().toISOString()
       }, { merge: true });
-      toast({ title: "تم النجاح", description: "تم تحديث صفحة حول التطبيق بنجاح!" });
+      toast({ title: "تم النجاح", description: "تم تحديث إعدادات عن التطبيق بنجاح!" });
     } catch (error: any) {
       handleFirestoreError(error, OperationType.UPDATE, 'appConfig/about');
     } finally {
@@ -1711,135 +1771,262 @@ export default function AdminPage() {
                 >
                   <section className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100">
                     <div className="flex items-center gap-3 mb-8">
-                      <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
+                      <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
                         <Info size={20} />
                       </div>
-                      <h2 className="text-xl font-bold">إعدادات صفحة حول التطبيق</h2>
+                      <div>
+                        <h2 className="text-xl font-bold">إعدادات عن التطبيق (بطاقة حول التطبيق)</h2>
+                        <p className="text-xs text-gray-400 font-medium mt-0.5">تعديل كافة بيانات بطاقة عن التطبيق والنافذة المنبثقة مباشرة</p>
+                      </div>
                     </div>
 
                     <div className="space-y-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
-                          <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block ml-2">العنوان الرئيسي</label>
+                          <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block ml-2">اسم التطبيق (العنوان الرئيسي)</label>
                           <input 
                             type="text" 
                             value={aboutTitle}
                             onChange={(e) => setAboutTitle(e.target.value)}
-                            className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all"
+                            placeholder="تطبيق مسلم للقرآن الكريم"
+                            className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500/20 transition-all"
                           />
                         </div>
                         <div className="space-y-2">
-                          <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block ml-2">العنوان الفرعي</label>
+                          <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block ml-2">العنوان الفرعي (الوصف)</label>
                           <input 
                             type="text" 
                             value={aboutSubtitle}
                             onChange={(e) => setAboutSubtitle(e.target.value)}
-                            className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all"
+                            placeholder="منصة للاستماع والتنزيل المباشر بأعلى جودة"
+                            className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500/20 transition-all"
                           />
                         </div>
                       </div>
 
+                      {/* Developer & Phone & Update Status */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block ml-2">تطوير وتصميم (اسم المطور)</label>
+                          <input 
+                            type="text" 
+                            value={aboutDeveloperName}
+                            onChange={(e) => setAboutDeveloperName(e.target.value)}
+                            placeholder="YOSSEF / تطوير"
+                            className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block ml-2">رقم الهاتف</label>
+                          <input 
+                            type="text" 
+                            value={aboutPhoneNumber}
+                            onChange={(e) => setAboutPhoneNumber(e.target.value)}
+                            placeholder="01029892573"
+                            className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500/20 transition-all font-mono"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block ml-2">حالة التحديث</label>
+                          <input 
+                            type="text" 
+                            value={aboutVersionStatus}
+                            onChange={(e) => setAboutVersionStatus(e.target.value)}
+                            placeholder="إصدار مكتمل ومستقر"
+                            className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Link 1 (Primary Button Settings) */}
+                      <div className="p-5 bg-gray-50/80 rounded-3xl border border-gray-100 space-y-4">
+                        <h4 className="text-xs font-black text-gray-800 uppercase tracking-wider flex items-center gap-2">
+                          <span>🌐</span> الزر الرئيسي (الرابط الأول)
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="space-y-1.5 md:col-span-1">
+                            <label className="text-[11px] font-bold text-gray-600 block ml-2">منصة الزر (تحديد اللون والأيقونة)</label>
+                            <select 
+                              value={aboutWebLinkPlatform}
+                              onChange={(e) => setAboutWebLinkPlatform(e.target.value)}
+                              className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                            >
+                              <option value="auto">✨ تلقائي (كشف المنصة من الرابط)</option>
+                              <option value="youtube">🔴 يوتيوب (YouTube - أحمر)</option>
+                              <option value="facebook">🔵 فيسبوك (Facebook - أزرق)</option>
+                              <option value="instagram">📸 إنستغرام (Instagram - وردي/متدرج)</option>
+                              <option value="whatsapp">💬 واتساب (WhatsApp - أخضر)</option>
+                              <option value="telegram">✈️ تليجرام (Telegram - أزرق سماوي)</option>
+                              <option value="tiktok">🎵 تيك توك (TikTok - أسود)</option>
+                              <option value="twitter">🐦 تويتر / X (أسود)</option>
+                              <option value="website">🌐 موقع إلكتروني (افتراضي - لون الهوية)</option>
+                            </select>
+                          </div>
+                          <div className="space-y-1.5 md:col-span-1">
+                            <label className="text-[11px] font-bold text-gray-600 block ml-2">نص الزر الرئيسي</label>
+                            <input 
+                              type="text" 
+                              value={aboutWebLinkText}
+                              onChange={(e) => setAboutWebLinkText(e.target.value)}
+                              placeholder="زيارة الموقع الإلكتروني"
+                              className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                            />
+                          </div>
+                          <div className="space-y-1.5 md:col-span-1">
+                            <label className="text-[11px] font-bold text-gray-600 block ml-2">رابط الزر (URL)</label>
+                            <input 
+                              type="text" 
+                              value={aboutWebLink}
+                              onChange={(e) => setAboutWebLink(e.target.value)}
+                              placeholder="https://..."
+                              className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all font-mono"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Link 2 (Secondary / Additional Button Settings) */}
+                      <div className="p-5 bg-gray-50/80 rounded-3xl border border-gray-100 space-y-4">
+                        <h4 className="text-xs font-black text-gray-800 uppercase tracking-wider flex items-center gap-2">
+                          <span>➕</span> الزر الإضافي الثاني (اختياري)
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="space-y-1.5 md:col-span-1">
+                            <label className="text-[11px] font-bold text-gray-600 block ml-2">منصة الزر (تحديد اللون والأيقونة)</label>
+                            <select 
+                              value={aboutSecondaryLinkPlatform}
+                              onChange={(e) => setAboutSecondaryLinkPlatform(e.target.value)}
+                              className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                            >
+                              <option value="auto">✨ تلقائي (كشف المنصة من الرابط)</option>
+                              <option value="youtube">🔴 يوتيوب (YouTube - أحمر)</option>
+                              <option value="facebook">🔵 فيسبوك (Facebook - أزرق)</option>
+                              <option value="instagram">📸 إنستغرام (Instagram - وردي/متدرج)</option>
+                              <option value="whatsapp">💬 واتساب (WhatsApp - أخضر)</option>
+                              <option value="telegram">✈️ تليجرام (Telegram - أزرق سماوي)</option>
+                              <option value="tiktok">🎵 تيك توك (TikTok - أسود)</option>
+                              <option value="twitter">🐦 تويتر / X (أسود)</option>
+                              <option value="website">🌐 موقع إلكتروني (افتراضي - لون الهوية)</option>
+                            </select>
+                          </div>
+                          <div className="space-y-1.5 md:col-span-1">
+                            <label className="text-[11px] font-bold text-gray-600 block ml-2">نص الزر الإضافي</label>
+                            <input 
+                              type="text" 
+                              value={aboutSecondaryLinkText}
+                              onChange={(e) => setAboutSecondaryLinkText(e.target.value)}
+                              placeholder="مثال: قناتنا على يوتيوب"
+                              className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                            />
+                          </div>
+                          <div className="space-y-1.5 md:col-span-1">
+                            <label className="text-[11px] font-bold text-gray-600 block ml-2">رابط الزر (URL)</label>
+                            <input 
+                              type="text" 
+                              value={aboutSecondaryLink}
+                              onChange={(e) => setAboutSecondaryLink(e.target.value)}
+                              placeholder="https://..."
+                              className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all font-mono"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* WhatsApp Settings & Toggle */}
+                      <div className="p-5 bg-emerald-50/40 border border-emerald-100 rounded-3xl space-y-4">
+                        <div className="flex items-center justify-between gap-4">
+                          <h4 className="text-xs font-black text-emerald-900 uppercase tracking-wider flex items-center gap-2">
+                            <span>💬</span> إعدادات زر الواتساب
+                          </h4>
+                          <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                            <input 
+                              type="checkbox"
+                              checked={aboutShowWhatsapp}
+                              onChange={(e) => setAboutShowWhatsapp(e.target.checked)}
+                              className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
+                            />
+                            <span className="text-xs font-bold text-gray-700">تفعيل إظهار زر الواتساب</span>
+                          </label>
+                        </div>
+
+                        {aboutShowWhatsapp && (
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 border-t border-emerald-100">
+                            <div className="space-y-1.5">
+                              <label className="text-[11px] font-bold text-gray-600 block ml-2">رقم الواتساب المباشر</label>
+                              <input 
+                                type="text" 
+                                value={aboutWhatsappNumber}
+                                onChange={(e) => setAboutWhatsappNumber(e.target.value)}
+                                placeholder="01029892573"
+                                className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all font-mono"
+                              />
+                            </div>
+                            <div className="space-y-1.5 md:col-span-2">
+                              <label className="text-[11px] font-bold text-gray-600 block ml-2">نص زر الواتساب</label>
+                              <input 
+                                type="text" 
+                                value={aboutWhatsappText}
+                                onChange={(e) => setAboutWhatsappText(e.target.value)}
+                                placeholder="تواصل عبر واتساب مباشر (01029892573)"
+                                className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
                       <div className="space-y-2">
-                        <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block ml-2">الوصف</label>
+                        <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block ml-2">رابط شعار مخصص (إذا رغبت في استبدال شعار رفيق المصمم بصورة)</label>
+                        <input 
+                          type="text" 
+                          value={aboutLogoImage}
+                          onChange={(e) => setAboutLogoImage(e.target.value)}
+                          placeholder="https://..."
+                          className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500/20 transition-all font-mono"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block ml-2">التقييم بالنجوم</label>
+                        <select 
+                          value={aboutRating}
+                          onChange={(e) => setAboutRating(Number(e.target.value))}
+                          className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                        >
+                          <option value={5}>5 نجوم ⭐⭐⭐⭐⭐</option>
+                          <option value={4}>4 نجوم ⭐⭐⭐⭐</option>
+                          <option value={3}>3 نجوم ⭐⭐⭐</option>
+                          <option value={2}>2 نجوم ⭐⭐</option>
+                          <option value={1}>نجمة واحدة ⭐</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block ml-2">الوصف الإضافي (اختياري)</label>
                         <textarea 
                           value={aboutDescription}
                           onChange={(e) => setAboutDescription(e.target.value)}
-                          className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-medium h-32 resize-none outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all"
+                          placeholder="وصف إضافي يظهر تحت البطاقة..."
+                          className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-medium h-24 resize-none outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500/20 transition-all"
                         />
                       </div>
 
                       <div className="space-y-2">
-                        <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block ml-2">الرؤية</label>
+                        <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block ml-2">الرؤية (اختياري)</label>
                         <textarea 
                           value={aboutVision}
                           onChange={(e) => setAboutVision(e.target.value)}
-                          className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-medium h-32 resize-none outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all"
+                          placeholder="رؤيتنا المستقبيلة..."
+                          className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-medium h-24 resize-none outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500/20 transition-all"
                         />
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block ml-2">رابط الصورة الرئيسية</label>
-                        <input 
-                          type="text" 
-                          value={aboutHeroImage}
-                          onChange={(e) => setAboutHeroImage(e.target.value)}
-                          className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all"
-                          placeholder="https://..."
-                        />
-                      </div>
-
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block ml-2">المميزات</label>
-                          <button 
-                            onClick={() => setAboutFeatures([...aboutFeatures, { icon: 'Zap', title: '', desc: '' }])}
-                            className="text-primary text-xs font-bold hover:underline"
-                          >
-                            + إضافة ميزة
-                          </button>
-                        </div>
-                        <div className="space-y-4">
-                          {aboutFeatures.map((feature, idx) => (
-                            <div key={idx} className="p-4 bg-gray-50 rounded-2xl border border-gray-100 space-y-4 relative">
-                              <button 
-                                onClick={() => setAboutFeatures(aboutFeatures.filter((_, i) => i !== idx))}
-                                className="absolute top-2 left-2 text-red-500 p-1 hover:bg-red-50 rounded-lg"
-                              >
-                                <X size={16} />
-                              </button>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <input 
-                                  type="text" 
-                                  placeholder="العنوان"
-                                  value={feature.title}
-                                  onChange={(e) => {
-                                    const newFeatures = [...aboutFeatures];
-                                    newFeatures[idx] = { ...newFeatures[idx], title: e.target.value };
-                                    setAboutFeatures(newFeatures);
-                                  }}
-                                  className="w-full bg-white border border-gray-100 rounded-xl px-4 py-2 text-sm font-bold outline-none"
-                                />
-                                <select 
-                                  value={feature.icon}
-                                  onChange={(e) => {
-                                    const newFeatures = [...aboutFeatures];
-                                    newFeatures[idx] = { ...newFeatures[idx], icon: e.target.value };
-                                    setAboutFeatures(newFeatures);
-                                  }}
-                                  className="w-full bg-white border border-gray-100 rounded-xl px-4 py-2 text-sm font-bold outline-none"
-                                >
-                                  <option value="Zap">صاعقة (Zap)</option>
-                                  <option value="ShieldCheck">درع (Shield)</option>
-                                  <option value="Heart">قلب (Heart)</option>
-                                  <option value="Star">نجمة (Star)</option>
-                                  <option value="Users">مستخدمين (Users)</option>
-                                  <option value="Target">هدف (Target)</option>
-                                  <option value="Rocket">صاروخ (Rocket)</option>
-                                  <option value="Award">جائزة (Award)</option>
-                                </select>
-                              </div>
-                              <input 
-                                type="text" 
-                                placeholder="الوصف"
-                                value={feature.desc}
-                                onChange={(e) => {
-                                  const newFeatures = [...aboutFeatures];
-                                  newFeatures[idx] = { ...newFeatures[idx], desc: e.target.value };
-                                  setAboutFeatures(newFeatures);
-                                }}
-                                className="w-full bg-white border border-gray-100 rounded-xl px-4 py-2 text-sm font-medium outline-none"
-                              />
-                            </div>
-                          ))}
-                        </div>
                       </div>
 
                       <button 
                         onClick={handleUpdateAbout}
                         disabled={isSaving}
-                        className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-sm hover:opacity-90 transition-all shadow-lg active:scale-95 disabled:opacity-50"
+                        className="w-full bg-emerald-600 text-white py-4 rounded-2xl font-bold text-sm hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20 active:scale-95 disabled:opacity-50"
                       >
-                        {isSaving ? 'جاري الحفظ...' : 'حفظ إعدادات صفحة حول التطبيق'}
+                        {isSaving ? 'جاري الحفظ...' : 'حفظ كافة إعدادات بطاقة عن التطبيق'}
                       </button>
                     </div>
                   </section>

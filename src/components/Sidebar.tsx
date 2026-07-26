@@ -10,6 +10,7 @@ import { useState, useEffect, Fragment } from 'react';
 import { cn } from '@/lib/utils';
 import { useCategories } from '@/components/providers/CategoryProvider';
 import LoginModal from './LoginModal';
+import AboutModal from './AboutModal';
 import SocialLinks from './SocialLinks';
 import { useTool } from './providers/ToolProvider';
 
@@ -23,6 +24,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { mainCategories } = useCategories();
   const { openTool } = useTool();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
   const [logoClicks, setLogoClicks] = useState(0);
   const router = useRouter();
 
@@ -136,10 +138,16 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                   <ul className="space-y-2">
                     {infoNav.map((item) => (
                       <li key={item.href}>
-                        <Link 
-                          href={item.href}
-                          onClick={onClose}
-                          className="flex items-center justify-between group py-3 px-4 rounded-2xl hover:bg-gray-50 transition-all"
+                        <button 
+                          onClick={() => {
+                            onClose();
+                            if (item.href === '/about') {
+                              setIsAboutModalOpen(true);
+                            } else {
+                              router.push(item.href);
+                            }
+                          }}
+                          className="w-full flex items-center justify-between group py-3 px-4 rounded-2xl hover:bg-gray-50 transition-all text-right"
                         >
                           <div className="flex items-center gap-4">
                             <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-white transition-all">
@@ -152,7 +160,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                             </span>
                           </div>
                           <ChevronLeft size={16} className="text-gray-300 transition-all group-hover:translate-x-[-4px] group-hover:text-primary" />
-                        </Link>
+                        </button>
                       </li>
                     ))}
                   </ul>
@@ -208,6 +216,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       )}
     </AnimatePresence>
       <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
+      <AboutModal isOpen={isAboutModalOpen} onClose={() => setIsAboutModalOpen(false)} />
     </>
   );
 }

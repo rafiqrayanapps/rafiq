@@ -25,6 +25,7 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { AffiliateAdSlot, useAffiliateAds } from '@/components/ads/AffiliateAdsManager';
 import AdBanner from '@/components/AdBanner';
 import RedDotBadge, { checkCategoryIsNew, checkItemIsNew, useViewedCategories, markCategoryAsViewed, markItemAsViewed } from '@/components/RedDotBadge';
+import ScrollReveal from '@/components/ScrollReveal';
 
 const FavoriteButton = ({ isFavorite, onClick, className }: { isFavorite: boolean, onClick: (e: any) => void, className?: string }) => (
     <button 
@@ -794,7 +795,11 @@ export default function CategoryPage() {
                                 const elements: React.ReactNode[] = [];
                                 
                                 filteredItems.forEach((item, index) => {
-                                    elements.push(renderItem(item, index));
+                                    elements.push(
+                                        <ScrollReveal key={`${item.id}-${index}`} staggerIndex={index}>
+                                            {renderItem(item, index)}
+                                        </ScrollReveal>
+                                    );
                                     
                                     const showAdHere = showAds && inlineShow && inlineOnLists && inlineScript && ((index + 1) % inlineFrequency === 0);
                                     if (showAdHere) {

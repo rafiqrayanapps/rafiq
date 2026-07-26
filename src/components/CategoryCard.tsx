@@ -14,9 +14,10 @@ export default function CategoryCard({ id, title, type, index }: CategoryCardPro
   return (
     <Link href={`/category/${id}`}>
       <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: index * 0.05 }}
+        initial={{ opacity: 0, y: 12 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: '0px' }}
+        transition={{ delay: Math.min(index * 0.025, 0.1), duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
         className="relative overflow-hidden rounded-[45px] p-6 aspect-square flex flex-col items-center justify-center text-center group cursor-pointer category-card-glow"
         style={{ background: 'var(--primary-gradient)' }}
       >
