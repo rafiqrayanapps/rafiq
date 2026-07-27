@@ -1146,33 +1146,62 @@ export default function AdminPage() {
       />
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 pt-6 pb-10">
-        {!isAdmin && user ? (
-          <div className="bg-card rounded-[28px] sm:rounded-[40px] p-8 sm:p-12 text-center shadow-2xl shadow-muted/50 border border-border">
-            <div className="w-16 h-16 sm:w-24 sm:h-24 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6 sm:mb-8">
-              <AlertTriangle size={32} className="sm:hidden" />
-              <AlertTriangle size={48} className="hidden sm:block" />
+        {!isAdmin ? (
+          !user ? (
+            <div className="bg-card rounded-[28px] sm:rounded-[40px] p-8 sm:p-12 text-center shadow-2xl shadow-muted/50 border border-border my-12">
+              <div className="w-16 h-16 sm:w-24 sm:h-24 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto mb-6 sm:mb-8">
+                <Lock size={32} className="sm:hidden" />
+                <Lock size={48} className="hidden sm:block" />
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-black mb-4 text-foreground">يتطلب دخول لوحة التحكم تسجيل الدخول</h1>
+              <p className="text-gray-500 dark:text-gray-400 mb-8 sm:mb-10 max-w-md mx-auto leading-relaxed text-sm sm:text-base">
+                لوحة التحكم مخصصة للمشرفين المعتمدين فقط. يرجى تسجيل الدخول بحساب المشرف للمتابعة.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <button 
+                  onClick={() => router.push('/login')}
+                  className="px-8 py-4 text-white rounded-2xl font-black hover:opacity-90 transition-all shadow-lg shadow-primary/20 active:scale-95 flex items-center justify-center gap-2"
+                  style={{ background: 'var(--primary-gradient)' }}
+                >
+                  <LogIn size={20} />
+                  <span>تسجيل دخول المشرف</span>
+                </button>
+                <button 
+                  onClick={() => router.push('/')}
+                  className="px-8 py-4 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded-2xl font-bold hover:bg-gray-200 transition-all active:scale-95"
+                >
+                  العودة للرئيسية
+                </button>
+              </div>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black mb-4 text-foreground">عذراً، ليس لديك صلاحية الوصول</h1>
-            <p className="text-gray-500 dark:text-gray-400 mb-8 sm:mb-10 max-w-md mx-auto leading-relaxed text-sm sm:text-base">
-              أنت مسجل الدخول حالياً بـ: <span className="font-bold text-foreground">{user.email}</span>
-              <br />
-              هذا البريد غير مدرج في قائمة المسؤولين المعتمدين.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <button 
-                onClick={() => router.push('/')}
-                className="px-8 py-4 bg-gray-100 text-gray-700 rounded-2xl font-bold hover:bg-gray-200 transition-all active:scale-95"
-              >
-                العودة للرئيسية
-              </button>
-              <button 
-                onClick={() => logout()}
-                className="px-8 py-4 bg-red-600 text-white rounded-2xl font-bold hover:bg-red-700 transition-all shadow-lg shadow-red-200 active:scale-95"
-              >
-                تسجيل الخروج
-              </button>
+          ) : (
+            <div className="bg-card rounded-[28px] sm:rounded-[40px] p-8 sm:p-12 text-center shadow-2xl shadow-muted/50 border border-border">
+              <div className="w-16 h-16 sm:w-24 sm:h-24 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6 sm:mb-8">
+                <AlertTriangle size={32} className="sm:hidden" />
+                <AlertTriangle size={48} className="hidden sm:block" />
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-black mb-4 text-foreground">عذراً، ليس لديك صلاحية الوصول</h1>
+              <p className="text-gray-500 dark:text-gray-400 mb-8 sm:mb-10 max-w-md mx-auto leading-relaxed text-sm sm:text-base">
+                أنت مسجل الدخول حالياً بـ: <span className="font-bold text-foreground">{user.email}</span>
+                <br />
+                هذا البريد غير مدرج في قائمة المسؤولين المعتمدين.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <button 
+                  onClick={() => router.push('/')}
+                  className="px-8 py-4 bg-gray-100 text-gray-700 rounded-2xl font-bold hover:bg-gray-200 transition-all active:scale-95"
+                >
+                  العودة للرئيسية
+                </button>
+                <button 
+                  onClick={() => logout()}
+                  className="px-8 py-4 bg-red-600 text-white rounded-2xl font-bold hover:bg-red-700 transition-all shadow-lg shadow-red-200 active:scale-95"
+                >
+                  تسجيل الخروج
+                </button>
+              </div>
             </div>
-          </div>
+          )
         ) : (
           <>
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8 sm:mb-10">

@@ -278,21 +278,12 @@ export default function MaintenanceView({
         </motion.div>
       )}
 
-      {/* Footer Branding & Admin Access */}
-      <div className="pt-6 border-t border-border/40 w-full max-w-md flex items-center justify-between text-[11px] text-muted-foreground font-medium">
-        <div className="flex items-center gap-1.5">
+      {/* Footer Branding */}
+      <div className="pt-6 border-t border-border/40 w-full max-w-md flex items-center justify-center text-[11px] text-muted-foreground font-medium text-center">
+        <div className="flex items-center justify-center gap-1.5">
           <ShieldCheck size={14} className="text-primary" />
           <span>رفيق المصمم - جميع الحقوق محفوظة</span>
         </div>
-        
-        <button
-          onClick={() => router.push('/admin')}
-          className="inline-flex items-center gap-1 text-muted-foreground hover:text-primary transition-colors font-bold"
-          title="دخول لوحة التحكم للمشرفين"
-        >
-          <LogIn size={13} />
-          <span>دخول المشرفين</span>
-        </button>
       </div>
     </div>
   );

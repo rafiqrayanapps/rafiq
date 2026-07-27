@@ -22,7 +22,7 @@ export default function SiteMaintenanceGuard({ children }: { children: React.Rea
   const { data: maintenanceConfig, isLoading } = useDoc(maintenanceRef);
 
   const isMaintenanceActive = maintenanceConfig?.isEnabled === true;
-  const isAdminRoute = pathname?.startsWith('/admin');
+  const isExemptRoute = pathname?.startsWith('/admin') || pathname?.startsWith('/login');
 
   const disableMaintenance = async () => {
     if (!firestore) return;
@@ -35,15 +35,15 @@ export default function SiteMaintenanceGuard({ children }: { children: React.Rea
     }
   };
 
-  // 1. If maintenance is ACTIVE and user is NOT on admin route and NOT logged in as admin:
-  if (isMaintenanceActive && !isAdminRoute && !isAdmin && !isLoading) {
+  // 1. If maintenance is ACTIVE and user is NOT on admin/login route and NOT logged in as admin:
+  if (isMaintenanceActive && !isExemptRoute && !isAdmin && !isLoading) {
     return <MaintenanceView isFullPage={true} />;
   }
 
   // 2. If maintenance is ACTIVE and user IS logged in as admin on a normal page:
   return (
     <>
-      {isMaintenanceActive && !isAdminRoute && isAdmin && (
+      {isMaintenanceActive && !isExemptRoute && isAdmin && (
         <div className="sticky top-0 z-[999] w-full bg-amber-500 text-slate-950 font-bold px-4 py-2 flex items-center justify-between gap-3 text-xs sm:text-sm shadow-md border-b border-amber-600/30">
           <div className="flex items-center gap-2">
             <Wrench size={16} className="animate-bounce shrink-0" />
