@@ -94,7 +94,7 @@ export default function MaintenanceView({
         transition={{ duration: 0.5 }}
         onClick={handleLogoClick}
         className="relative cursor-pointer select-none group mb-8 transition-all duration-300 hover:scale-105 active:scale-95"
-        title="رفيق المصمم (اضغط 7 مرات لتسجيل دخول المشرفين)"
+        title="رفيق المصمم"
       >
         <div className="flex items-center gap-2.5 px-6 py-3 rounded-2xl bg-card/80 dark:bg-card/50 border border-primary/20 backdrop-blur-xl shadow-xl shadow-primary/10 hover:border-primary/40 transition-all">
           <div 
@@ -113,18 +113,6 @@ export default function MaintenanceView({
             </span>
           </div>
         </div>
-
-        {/* Visual tap feedback indicator when getting close to 7 clicks */}
-        {logoClicks > 1 && logoClicks < 7 && (
-          <motion.div 
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="absolute -bottom-6 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-primary text-primary-foreground text-[11px] font-black shadow-lg z-20 pointer-events-none whitespace-nowrap flex items-center gap-1"
-          >
-            <Sparkles size={12} />
-            <span>متبقي {7 - logoClicks} ضغطات للوصول للوحة التحكم</span>
-          </motion.div>
-        )}
       </motion.div>
 
       {/* Top Status Pill */}
