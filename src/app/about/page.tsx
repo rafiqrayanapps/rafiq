@@ -1,13 +1,15 @@
 'use client';
 
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import Header from '@/components/Header';
-import { Star } from 'lucide-react';
+import { Star, Eye, EyeOff } from 'lucide-react';
 import { useDoc } from '@/hooks/useFirebase';
 import PlatformButton from '@/components/PlatformButton';
 
 export default function AboutPage() {
   const { data: aboutData, loading } = useDoc('appConfig', 'about');
+  const [isPhoneVisible, setIsPhoneVisible] = useState(false);
 
   if (loading) {
     return (
@@ -22,7 +24,16 @@ export default function AboutPage() {
   const subtitle = aboutData?.subtitle || 'شريكك الإبداعي في كل خطوة';
   const developerName = aboutData?.developerName || 'YOSSEF / تطوير';
   const phoneNumber = aboutData?.phoneNumber || '01029892573';
+  const hidePhoneNumber = aboutData?.hidePhoneNumber === true;
   const versionStatus = aboutData?.versionStatus || 'إصدار مكتمل ومستقر';
+
+  const formatMaskedPhone = (num: string) => {
+    if (!num) return '••••••••••';
+    if (num.length > 6) {
+      return `${num.slice(0, 4)}••••${num.slice(-3)}`;
+    }
+    return '••••••••••';
+  };
   
   // WhatsApp settings (showWhatsapp defaults to true if not explicitly false)
   const showWhatsapp = aboutData?.showWhatsapp !== false;
@@ -131,17 +142,33 @@ export default function AboutPage() {
             </div>
 
             {/* Row 2: Phone */}
-            <div 
-              className="flex items-center justify-between gap-2 pb-2.5"
-              style={{ borderBottom: '1px solid color-mix(in srgb, var(--primary) 15%, transparent)' }}
-            >
-              <span className="text-xs font-bold text-gray-600 dark:text-gray-400">
-                رقم الهاتف:
-              </span>
-              <span className="text-xs font-black text-gray-900 dark:text-gray-100 font-mono">
-                {phoneNumber}
-              </span>
-            </div>
+            {(!hidePhoneNumber || isPhoneVisible) && (
+              <div 
+                className="flex items-center justify-between gap-2 pb-2.5"
+                style={{ borderBottom: '1px solid color-mix(in srgb, var(--primary) 15%, transparent)' }}
+              >
+                <span className="text-xs font-bold text-gray-600 dark:text-gray-400">
+                  رقم الهاتف:
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsPhoneVisible(!isPhoneVisible)}
+                    className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors flex items-center justify-center"
+                    title={isPhoneVisible ? 'إخفاء الرقم' : 'إظهار الرقم'}
+                    aria-label={isPhoneVisible ? 'إخفاء الرقم' : 'إظهار الرقم'}
+                  >
+                    {isPhoneVisible ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                  <span 
+                    onClick={() => setIsPhoneVisible(!isPhoneVisible)}
+                    className="text-xs font-black text-gray-900 dark:text-gray-100 font-mono cursor-pointer select-none hover:opacity-80 transition-opacity"
+                  >
+                    {isPhoneVisible ? phoneNumber : formatMaskedPhone(phoneNumber)}
+                  </span>
+                </div>
+              </div>
+            )}
 
             {/* Row 3: Update Status */}
             <div className="flex items-center justify-between gap-2">

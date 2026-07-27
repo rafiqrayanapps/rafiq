@@ -5,8 +5,9 @@ import { useAuth, useCollection, useDoc, handleFirestoreError, OperationType } f
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import { cn } from '@/lib/utils';
-import { Shield, Globe, Database, AlertTriangle, CheckCircle, Copy, LogIn, Plus, FolderPlus, FilePlus, List, ChevronDown, Trash2, Palette, BellRing, Send, Lock, Download, Edit3, ChevronRight, X, Settings, UserPlus, MessageSquare, MessageCircle, User, ShieldCheck, Bell, MousePointer2, Hammer, Ticket, Zap, Home, Users, ArrowUp, ArrowDown, Info, Heart, Star, Target, Rocket, Award, Instagram, Twitter, Github, MapPin, Clock, Phone, Mail, ExternalLink, Share2 } from 'lucide-react';
+import { Shield, Globe, Database, AlertTriangle, CheckCircle, Copy, LogIn, Plus, FolderPlus, FilePlus, List, ChevronDown, Trash2, Palette, BellRing, Send, Lock, Download, Edit3, ChevronRight, X, Settings, UserPlus, MessageSquare, MessageCircle, User, ShieldCheck, Bell, MousePointer2, Hammer, Ticket, Zap, Home, Users, ArrowUp, ArrowDown, Info, Heart, Star, Target, Rocket, Award, Instagram, Twitter, Github, MapPin, Clock, Phone, Mail, ExternalLink, Share2, Wrench, Power, Eye } from 'lucide-react';
 import SocialLinks, { SocialPlatformIcon, getSocialPlatformInfo, SocialLinkItem } from '@/components/SocialLinks';
+import MaintenanceView from '@/components/MaintenanceView';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -44,7 +45,7 @@ export default function AdminPage() {
   const { user, isAdmin, isEditor, loading, loginWithGoogle, logout } = useAuth();
   const [currentDomain, setCurrentDomain] = useState('');
   const [copySuccess, setCopySuccess] = useState(false);
-  const [activeTab, setActiveTab] = useState<'menu' | 'users' | 'content' | 'colors' | 'notifications' | 'dialog' | 'floatingButton' | 'about' | 'contact' | 'tools' | 'ads' | 'social' | 'security'>('menu');
+  const [activeTab, setActiveTab] = useState<'menu' | 'users' | 'content' | 'colors' | 'notifications' | 'dialog' | 'floatingButton' | 'about' | 'contact' | 'tools' | 'ads' | 'social' | 'security' | 'maintenance'>('menu');
   const [viewLevel, setViewLevel] = useState<'categories' | 'subcategories' | 'items'>('categories');
   const router = useRouter();
 
@@ -151,6 +152,7 @@ export default function AdminPage() {
   const [aboutSubtitle, setAboutSubtitle] = useState('');
   const [aboutDeveloperName, setAboutDeveloperName] = useState('');
   const [aboutPhoneNumber, setAboutPhoneNumber] = useState('');
+  const [aboutHidePhoneNumber, setAboutHidePhoneNumber] = useState(false);
   const [aboutVersionStatus, setAboutVersionStatus] = useState('');
   const [aboutRating, setAboutRating] = useState(5);
   const [aboutWhatsappNumber, setAboutWhatsappNumber] = useState('');
@@ -247,6 +249,70 @@ export default function AdminPage() {
   const [newSocialName, setNewSocialName] = useState('');
   const [newSocialUrl, setNewSocialUrl] = useState('');
 
+  // Maintenance Config State
+  const { data: maintenanceConfig } = useDoc('appConfig', 'maintenance');
+  const [maintenanceEnabled, setMaintenanceEnabled] = useState(false);
+  const [maintenanceTitle, setMaintenanceTitle] = useState('الموقع قيد الصيانة والتحديث');
+  const [maintenanceMessage, setMaintenanceMessage] = useState('نعمل حالياً على إجراء تحديثات وتطويرات مهمة لنقدم لكم أفضل تجربة تصميم وأداء. يرجى العودة لاحقاً.');
+  const [maintenanceEstimatedTime, setMaintenanceEstimatedTime] = useState('ساعتين');
+  const [maintenanceShowSocial, setMaintenanceShowSocial] = useState(true);
+  const [maintenanceWhatsapp, setMaintenanceWhatsapp] = useState('');
+  const [maintenanceTelegram, setMaintenanceTelegram] = useState('');
+
+  useEffect(() => {
+    if (maintenanceConfig) {
+      setMaintenanceEnabled(maintenanceConfig.isEnabled ?? false);
+      setMaintenanceTitle(maintenanceConfig.title || 'الموقع قيد الصيانة والتحديث');
+      setMaintenanceMessage(maintenanceConfig.message || 'نعمل حالياً على إجراء تحديثات وتطويرات مهمة لنقدم لكم أفضل تجربة تصميم وأداء. يرجى العودة لاحقاً.');
+      setMaintenanceEstimatedTime(maintenanceConfig.estimatedTime || 'ساعتين');
+      setMaintenanceShowSocial(maintenanceConfig.showSocialLinks !== false);
+      setMaintenanceWhatsapp(maintenanceConfig.whatsappNumber || '');
+      setMaintenanceTelegram(maintenanceConfig.telegramUsername || '');
+    }
+  }, [maintenanceConfig]);
+
+  const handleSaveMaintenance = async () => {
+    setIsSaving(true);
+    try {
+      await setDoc(doc(db, 'appConfig', 'maintenance'), {
+        isEnabled: maintenanceEnabled,
+        title: maintenanceTitle,
+        message: maintenanceMessage,
+        estimatedTime: maintenanceEstimatedTime,
+        showSocialLinks: maintenanceShowSocial,
+        whatsappNumber: maintenanceWhatsapp,
+        telegramUsername: maintenanceTelegram,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+
+      toast({
+        title: "تم النجاح",
+        description: maintenanceEnabled ? "تم تفعيل وضع صيانة الموقع بنجاح!" : "تم إيقاف وضع صيانة الموقع بنجاح!"
+      });
+    } catch (error: any) {
+      handleFirestoreError(error, OperationType.UPDATE, 'appConfig/maintenance');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleQuickToggleMaintenance = async (newState: boolean) => {
+    setMaintenanceEnabled(newState);
+    try {
+      await setDoc(doc(db, 'appConfig', 'maintenance'), {
+        isEnabled: newState,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+
+      toast({
+        title: newState ? "تم تفعيل الصيانة" : "تم إيقاف الصيانة",
+        description: newState ? "الموقع الآن في وضع الصيانة للزوار" : "الموقع الآن متاح للزوار بشكل طبيعي",
+      });
+    } catch (error: any) {
+      handleFirestoreError(error, OperationType.UPDATE, 'appConfig/maintenance');
+    }
+  };
+
   useEffect(() => {
     if (socialConfig?.links) {
       setSocialLinksList(socialConfig.links);
@@ -318,6 +384,7 @@ export default function AdminPage() {
       setAboutSubtitle(aboutConfig.subtitle || 'شريكك الإبداعي في كل خطوة');
       setAboutDeveloperName(aboutConfig.developerName || 'YOSSEF / تطوير');
       setAboutPhoneNumber(aboutConfig.phoneNumber || '01029892573');
+      setAboutHidePhoneNumber(aboutConfig.hidePhoneNumber ?? false);
       setAboutVersionStatus(aboutConfig.versionStatus || 'إصدار مكتمل ومستقر');
       setAboutRating(typeof aboutConfig.rating === 'number' ? aboutConfig.rating : 5);
       setAboutShowWhatsapp(aboutConfig.showWhatsapp !== false);
@@ -339,6 +406,7 @@ export default function AdminPage() {
       setAboutSubtitle('شريكك الإبداعي في كل خطوة');
       setAboutDeveloperName('YOSSEF / تطوير');
       setAboutPhoneNumber('01029892573');
+      setAboutHidePhoneNumber(false);
       setAboutVersionStatus('إصدار مكتمل ومستقر');
       setAboutRating(5);
       setAboutShowWhatsapp(true);
@@ -542,6 +610,7 @@ export default function AdminPage() {
         subtitle: aboutSubtitle,
         developerName: aboutDeveloperName,
         phoneNumber: aboutPhoneNumber,
+        hidePhoneNumber: aboutHidePhoneNumber,
         versionStatus: aboutVersionStatus,
         rating: aboutRating,
         showWhatsapp: aboutShowWhatsapp,
@@ -1152,6 +1221,64 @@ export default function AdminPage() {
                     ))}
                   </div>
 
+                  {/* Quick Maintenance Control Widget */}
+                  <div className={cn(
+                    "p-6 sm:p-8 rounded-[2rem] sm:rounded-[2.5rem] border transition-all duration-300 flex flex-col sm:flex-row items-center justify-between gap-5 shadow-sm",
+                    maintenanceEnabled 
+                      ? "bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-200" 
+                      : "bg-emerald-500/10 border-emerald-500/30 text-emerald-900 dark:text-emerald-200"
+                  )}>
+                    <div className="flex items-center gap-4 text-right w-full sm:w-auto">
+                      <div className={cn(
+                        "w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 text-white font-bold shadow-lg",
+                        maintenanceEnabled ? "bg-amber-500 shadow-amber-500/30" : "bg-emerald-500 shadow-emerald-500/30"
+                      )}>
+                        <Wrench size={28} className={maintenanceEnabled ? "animate-spin" : ""} />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-black text-lg sm:text-xl">وضع صيانة الموقع والتطبيق</h3>
+                          <span className={cn(
+                            "text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider",
+                            maintenanceEnabled ? "bg-amber-500 text-white" : "bg-emerald-500 text-white"
+                          )}>
+                            {maintenanceEnabled ? "الصيانة مفعلة" : "الموقع يعمل"}
+                          </span>
+                        </div>
+                        <p className="text-xs sm:text-sm font-semibold opacity-80 mt-1">
+                          {maintenanceEnabled 
+                            ? "الموقع مغلق حالياً أمام جميع الزوار وتظهر لهم صفحة الصيانة والتطوير الاحترافية." 
+                            : "الموقع متاح ويعمل بشكل طبيعي لجميع المستخدمين والزوار."}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 shrink-0 w-full sm:w-auto justify-end">
+                      <button
+                        type="button"
+                        onClick={() => handleQuickToggleMaintenance(!maintenanceEnabled)}
+                        className={cn(
+                          "px-5 py-3 rounded-2xl font-black text-xs sm:text-sm transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 flex-1 sm:flex-none",
+                          maintenanceEnabled 
+                            ? "bg-emerald-600 hover:bg-emerald-700 text-white" 
+                            : "bg-amber-600 hover:bg-amber-700 text-white"
+                        )}
+                      >
+                        <Power size={18} />
+                        <span>{maintenanceEnabled ? "إيقاف الصيانة وتنشيط الموقع" : "تفعيل صيانة الموقع الآن"}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('maintenance')}
+                        className="px-4 py-3 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-2xl font-black text-xs sm:text-sm border border-gray-200 dark:border-gray-700 hover:bg-gray-50 transition-all flex items-center justify-center gap-1.5"
+                      >
+                        <Settings size={16} />
+                        <span>تخصيص الإعدادات</span>
+                      </button>
+                    </div>
+                  </div>
+
                   <div className="space-y-10">
                     {[
                       {
@@ -1168,6 +1295,7 @@ export default function AdminPage() {
                         items: [
                           { id: 'colors', label: 'ألوان الموقع', icon: Palette, desc: 'تخصيص ألوان الواجهة' },
                           { id: 'ads', label: 'إعلانات الموقع', icon: Award, desc: 'إدارة إعلانات Adsterra وشفراتها' },
+                          { id: 'maintenance', label: 'صيانة الموقع', icon: Wrench, desc: 'تفعيل وتخصيص صفحة صيانة الموقع للتطبيقات' },
                         ]
                       },
                       {
@@ -1817,7 +1945,18 @@ export default function AdminPage() {
                           />
                         </div>
                         <div className="space-y-2">
-                          <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block ml-2">رقم الهاتف</label>
+                          <div className="flex items-center justify-between">
+                            <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block ml-2">رقم الهاتف</label>
+                            <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-gray-600 dark:text-gray-400 hover:text-gray-900 transition-colors">
+                              <input 
+                                type="checkbox" 
+                                checked={aboutHidePhoneNumber}
+                                onChange={(e) => setAboutHidePhoneNumber(e.target.checked)}
+                                className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-gray-300"
+                              />
+                              <span>إخفاء الرقم افتراضياً</span>
+                            </label>
+                          </div>
                           <input 
                             type="text" 
                             value={aboutPhoneNumber}
@@ -3203,6 +3342,187 @@ export default function AdminPage() {
                         <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                       ) : <ShieldCheck size={20} />}
                       {isSaving ? 'جاري الحفظ...' : 'حفظ روابط مواقع التواصل الاجتماعي'}
+                    </button>
+                  </section>
+                </motion.div>
+              ) : activeTab === 'maintenance' ? (
+                <motion.div
+                  key="maintenance"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="space-y-8"
+                >
+                  <section className="bg-white rounded-[28px] sm:rounded-[40px] p-6 sm:p-10 shadow-sm border border-gray-100">
+                    <div className="flex items-center justify-between gap-4 mb-8">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-amber-500/10 text-amber-600 rounded-2xl flex items-center justify-center">
+                          <Wrench size={24} />
+                        </div>
+                        <div>
+                          <h2 className="text-xl sm:text-2xl font-black text-gray-900">إدارة صيانة الموقع والتطبيق</h2>
+                          <p className="text-xs font-bold text-gray-400 mt-0.5">تفعيل إغلاق الموقع المؤقت للزوار مع عرض صفحة صيانة حديثة ومصممة بألوان الموقع</p>
+                        </div>
+                      </div>
+
+                      <span className={cn(
+                        "px-4 py-2 rounded-full text-xs font-black uppercase tracking-wider hidden sm:inline-flex items-center gap-1.5",
+                        maintenanceEnabled ? "bg-amber-500 text-white" : "bg-emerald-500 text-white"
+                      )}>
+                        <Power size={14} />
+                        <span>{maintenanceEnabled ? "الصيانة نشطة الان" : "الموقع متاح للجميع"}</span>
+                      </span>
+                    </div>
+
+                    {/* Main Enable Switch Banner */}
+                    <div className={cn(
+                      "p-6 sm:p-8 rounded-3xl border transition-all mb-8 flex flex-col sm:flex-row items-center justify-between gap-6",
+                      maintenanceEnabled 
+                        ? "bg-amber-50 border-amber-200" 
+                        : "bg-gray-50 border-gray-200"
+                    )}>
+                      <div className="space-y-1 text-center sm:text-right">
+                        <h3 className="font-black text-base sm:text-lg text-gray-900 flex items-center justify-center sm:justify-start gap-2">
+                          <span>تفعيل وضع الصيانة العام للموقع</span>
+                          {maintenanceEnabled && <span className="flex h-2.5 w-2.5 relative"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span></span>}
+                        </h3>
+                        <p className="text-xs text-gray-500 font-bold max-w-xl">
+                          عند التفعيل، سيتم إعادة توجيه جميع الزوار لصفحة الصيانة التفاعلية العصريّة، بينما يمكنك أنت والمشرفين تصفح الموقع والعمل عليه بحرية.
+                        </p>
+                      </div>
+
+                      <button 
+                        type="button"
+                        onClick={() => setMaintenanceEnabled(!maintenanceEnabled)}
+                        className={cn(
+                          "w-20 h-10 rounded-full transition-all relative shrink-0 shadow-inner cursor-pointer",
+                          maintenanceEnabled ? "bg-amber-500" : "bg-gray-300"
+                        )}
+                      >
+                        <span className={cn(
+                          "w-8 h-8 bg-white rounded-full absolute top-1 transition-all shadow-md flex items-center justify-center text-xs font-black",
+                          maintenanceEnabled ? "left-1 text-amber-600" : "right-1 text-gray-400"
+                        )}>
+                          {maintenanceEnabled ? "ON" : "OFF"}
+                        </span>
+                      </button>
+                    </div>
+
+                    {/* Form inputs */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                      {/* Title Input */}
+                      <div className="space-y-2 md:col-span-2">
+                        <label className="text-xs font-black text-gray-700 block">عنوان صفحة الصيانة الرئيسية *</label>
+                        <input 
+                          type="text" 
+                          value={maintenanceTitle}
+                          onChange={(e) => setMaintenanceTitle(e.target.value)}
+                          placeholder="مثال: الموقع قيد الصيانة والتحديث"
+                          className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all"
+                        />
+                      </div>
+
+                      {/* Detailed Message */}
+                      <div className="space-y-2 md:col-span-2">
+                        <label className="text-xs font-black text-gray-700 block">رسالة الصيانة والشرح للزوار *</label>
+                        <textarea 
+                          rows={3}
+                          value={maintenanceMessage}
+                          onChange={(e) => setMaintenanceMessage(e.target.value)}
+                          placeholder="اكتب توضيحاً لطيفاً للزوار..."
+                          className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all resize-none"
+                        />
+                      </div>
+
+                      {/* Estimated Time */}
+                      <div className="space-y-2">
+                        <label className="text-xs font-black text-gray-700 block">الوقت المتوقع للانتهاء</label>
+                        <input 
+                          type="text" 
+                          value={maintenanceEstimatedTime}
+                          onChange={(e) => setMaintenanceEstimatedTime(e.target.value)}
+                          placeholder="مثال: ساعتين، قريباً جداً، 30 دقيقة"
+                          className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all"
+                        />
+                      </div>
+
+                      {/* WhatsApp support number */}
+                      <div className="space-y-2">
+                        <label className="text-xs font-black text-gray-700 block">رقم الواتساب للتواصل والدعم</label>
+                        <input 
+                          type="text" 
+                          value={maintenanceWhatsapp}
+                          onChange={(e) => setMaintenanceWhatsapp(e.target.value)}
+                          placeholder="مثال: 01029892573"
+                          className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-5 py-3.5 text-xs font-mono outline-none focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all dir-ltr"
+                          dir="ltr"
+                        />
+                      </div>
+
+                      {/* Telegram link */}
+                      <div className="space-y-2">
+                        <label className="text-xs font-black text-gray-700 block">حساب أو قناة التلجرام للتحديثات</label>
+                        <input 
+                          type="text" 
+                          value={maintenanceTelegram}
+                          onChange={(e) => setMaintenanceTelegram(e.target.value)}
+                          placeholder="مثال: https://t.me/rayanapp أو @rayanapp"
+                          className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-5 py-3.5 text-xs font-mono outline-none focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all dir-ltr"
+                          dir="ltr"
+                        />
+                      </div>
+
+                      {/* Show Social Links Toggle */}
+                      <div className="flex items-center justify-between p-5 bg-gray-50 rounded-2xl border border-gray-200 self-end">
+                        <div>
+                          <p className="font-bold text-xs text-gray-800">إظهار أزرار التواصل والدعم</p>
+                          <p className="text-[11px] text-gray-400">إظهار رابط التلجرام والواتساب في صفحة الصيانة</p>
+                        </div>
+                        <button 
+                          type="button"
+                          onClick={() => setMaintenanceShowSocial(!maintenanceShowSocial)}
+                          className={cn(
+                            "w-12 h-7 rounded-full transition-all relative shrink-0",
+                            maintenanceShowSocial ? "bg-primary" : "bg-gray-300"
+                          )}
+                        >
+                          <span className={cn(
+                            "w-5 h-5 bg-white rounded-full absolute top-1 transition-all shadow-sm",
+                            maintenanceShowSocial ? "left-1" : "right-1"
+                          )} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Live Preview Box */}
+                    <div className="mb-8 space-y-3">
+                      <div className="flex items-center gap-2 text-xs font-black text-gray-700">
+                        <Eye size={16} className="text-primary" />
+                        <span>معاينة حيّة ومباشرة لصفحة الصيانة (تتأثر بلون الهوية):</span>
+                      </div>
+
+                      <div className="p-4 sm:p-6 bg-slate-950 text-white rounded-3xl border border-gray-800 shadow-2xl relative overflow-hidden">
+                        <MaintenanceView 
+                          isFullPage={false}
+                          title={maintenanceTitle}
+                          message={maintenanceMessage}
+                          estimatedTime={maintenanceEstimatedTime}
+                          showSocialLinks={maintenanceShowSocial}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Save Button */}
+                    <button 
+                      onClick={handleSaveMaintenance}
+                      disabled={isSaving}
+                      className="w-full text-white h-14 rounded-2xl font-black text-sm hover:opacity-90 transition-all shadow-xl active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                      style={{ background: 'var(--primary-gradient)' }}
+                    >
+                      {isSaving ? (
+                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      ) : <ShieldCheck size={20} />}
+                      {isSaving ? 'جاري الحفظ...' : 'حفظ ونشر إعدادات الصيانة'}
                     </button>
                   </section>
                 </motion.div>

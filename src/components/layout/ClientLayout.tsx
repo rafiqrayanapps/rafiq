@@ -14,6 +14,7 @@ import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import BottomNav from "@/components/layout/BottomNav";
 import InterstitialAd from "@/components/InterstitialAd";
 import PopupAd from "@/components/PopupAd";
+import SiteMaintenanceGuard from "@/components/SiteMaintenanceGuard";
 import { useDoc } from '@/hooks/useFirebase';
 
 function SecurityApplier() {
@@ -95,17 +96,19 @@ export default function ClientLayout({
               </Suspense>
               <ServiceWorkerRegister />
               <ThemeApplier />
-              <GlobalDialog />
-              <PWAInstallModal />
-              <FloatingButton />
-              <div className="relative min-h-screen flex flex-col">
-                  <main className="flex-1">
-                      {children}
-                  </main>
-                  <Suspense fallback={null}>
-                    <BottomNav />
-                  </Suspense>
-              </div>
+              <SiteMaintenanceGuard>
+                <GlobalDialog />
+                <PWAInstallModal />
+                <FloatingButton />
+                <div className="relative min-h-screen flex flex-col">
+                    <main className="flex-1">
+                        {children}
+                    </main>
+                    <Suspense fallback={null}>
+                      <BottomNav />
+                    </Suspense>
+                </div>
+              </SiteMaintenanceGuard>
               <Toaster />
             </CategoryProvider>
           </ToolProvider>

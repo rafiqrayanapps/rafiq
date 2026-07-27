@@ -1,7 +1,8 @@
 'use client';
 
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Star } from 'lucide-react';
+import { X, Star, Eye, EyeOff } from 'lucide-react';
 import { useDoc } from '@/hooks/useFirebase';
 import PlatformButton from './PlatformButton';
 
@@ -12,13 +13,23 @@ interface AboutModalProps {
 
 export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
   const { data: aboutConfig } = useDoc('appConfig', 'about');
+  const [isPhoneVisible, setIsPhoneVisible] = useState(false);
 
   // Config values with fallbacks
   const appName = aboutConfig?.appName || aboutConfig?.title || 'رفيق المصمم';
   const subtitle = aboutConfig?.subtitle || 'شريكك الإبداعي في كل خطوة';
   const developerName = aboutConfig?.developerName || 'YOSSEF / تطوير';
   const phoneNumber = aboutConfig?.phoneNumber || '01029892573';
+  const hidePhoneNumber = aboutConfig?.hidePhoneNumber === true;
   const versionStatus = aboutConfig?.versionStatus || 'إصدار مكتمل ومستقر';
+
+  const formatMaskedPhone = (num: string) => {
+    if (!num) return '••••••••••';
+    if (num.length > 6) {
+      return `${num.slice(0, 4)}••••${num.slice(-3)}`;
+    }
+    return '••••••••••';
+  };
   
   // WhatsApp settings (showWhatsapp defaults to true if not explicitly false)
   const showWhatsapp = aboutConfig?.showWhatsapp !== false;
@@ -143,17 +154,33 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
               </div>
 
               {/* Row 2: Phone */}
-              <div 
-                className="flex items-center justify-between gap-2 pb-2.5"
-                style={{ borderBottom: '1px solid color-mix(in srgb, var(--primary) 15%, transparent)' }}
-              >
-                <span className="text-xs font-bold text-gray-600 dark:text-gray-400">
-                  رقم الهاتف:
-                </span>
-                <span className="text-xs font-black text-gray-900 dark:text-gray-100 font-mono">
-                  {phoneNumber}
-                </span>
-              </div>
+              {(!hidePhoneNumber || isPhoneVisible) && (
+                <div 
+                  className="flex items-center justify-between gap-2 pb-2.5"
+                  style={{ borderBottom: '1px solid color-mix(in srgb, var(--primary) 15%, transparent)' }}
+                >
+                  <span className="text-xs font-bold text-gray-600 dark:text-gray-400">
+                    رقم الهاتف:
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsPhoneVisible(!isPhoneVisible)}
+                      className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors flex items-center justify-center"
+                      title={isPhoneVisible ? 'إخفاء الرقم' : 'إظهار الرقم'}
+                      aria-label={isPhoneVisible ? 'إخفاء الرقم' : 'إظهار الرقم'}
+                    >
+                      {isPhoneVisible ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                    <span 
+                      onClick={() => setIsPhoneVisible(!isPhoneVisible)}
+                      className="text-xs font-black text-gray-900 dark:text-gray-100 font-mono cursor-pointer select-none hover:opacity-80 transition-opacity"
+                    >
+                      {isPhoneVisible ? phoneNumber : formatMaskedPhone(phoneNumber)}
+                    </span>
+                  </div>
+                </div>
+              )}
 
               {/* Row 3: Update Status */}
               <div className="flex items-center justify-between gap-2">
