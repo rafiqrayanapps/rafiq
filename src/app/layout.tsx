@@ -34,11 +34,14 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
+      { url: "https://i.suar.me/g4APl/m", sizes: "192x192", type: "image/png" },
+      { url: "https://i.suar.me/g4APl/m", sizes: "512x512", type: "image/png" },
       { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
       { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
     ],
     apple: [
-      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "https://i.suar.me/g4APl/m", sizes: "192x192", type: "image/png" },
+      { url: "https://i.suar.me/g4APl/m", sizes: "512x512", type: "image/png" },
     ],
   },
 };
@@ -60,8 +63,10 @@ export default function RootLayout({
     <html lang="ar" dir="rtl" className={`${inter.variable} ${cairo.variable} ${tajawal.variable}`} suppressHydrationWarning>
       <head>
         <link rel="manifest" href="/manifest.json" />
-        <link rel="apple-touch-icon" sizes="192x192" href="/icon-192.png" />
-        <link rel="apple-touch-icon" sizes="512x512" href="/icon-512.png" />
+        <link rel="apple-touch-icon" sizes="192x192" href="https://i.suar.me/g4APl/m" />
+        <link rel="apple-touch-icon" sizes="512x512" href="https://i.suar.me/g4APl/m" />
+        <link rel="icon" type="image/png" sizes="192x192" href="https://i.suar.me/g4APl/m" />
+        <link rel="icon" type="image/png" sizes="512x512" href="https://i.suar.me/g4APl/m" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />

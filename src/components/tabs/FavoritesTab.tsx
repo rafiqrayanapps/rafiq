@@ -12,6 +12,7 @@ import { cn, getDirectLink } from '@/lib/utils';
 import { useUserProfile } from '@/hooks/use-user-profile';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import ScrollReveal from '@/components/ScrollReveal';
+import QuickShareButton from '@/components/QuickShareButton';
 
 const FavoriteButton = ({ isFavorite, onClick, className }: { isFavorite: boolean, onClick: (e: any) => void, className?: string }) => (
     <button 
@@ -125,11 +126,12 @@ const AudioPlayerRow = ({
                 </div>
             </div>
             <div className="flex items-center gap-4">
-                <div className="flex gap-1.5">
+                <div className="flex gap-1.5 items-center">
                     <button onClick={onToggleFavorite} className="h-8 w-8 rounded-full bg-white shadow-sm flex items-center justify-center border transition-colors">
                         <Heart className={cn("h-4 w-4 transition-colors", isFavorite ? "text-primary fill-primary" : "text-gray-400")} />
                     </button>
                     {item.downloadUrl && <button onClick={() => onAction(() => window.open(item.downloadUrl, '_blank'))} className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground"><Download className="h-3.5 w-3.5" /></button>}
+                    <QuickShareButton item={item} variant="outline" size="icon" className="h-8 w-8 rounded-full border shadow-sm bg-white" />
                 </div>
                 <Slider dir="ltr" value={[isNaN(currentTime) ? 0 : currentTime]} max={isNaN(duration) || !isFinite(duration) || duration === 0 ? 100 : duration} step={0.1} onValueChange={(v) => { if(audioRef.current) audioRef.current.currentTime = v[0]; }} className="flex-1" />
             </div>
@@ -180,17 +182,20 @@ export default function FavoritesTab() {
                         <h3 className="text-xs font-black truncate">{item.title}</h3>
                         {item.description && <p className="text-[10px] font-bold text-muted-foreground truncate">{item.description}</p>}
                     </div>
-                    <Button 
-                        variant="default" 
-                        className={cn(
-                            "w-full rounded-2xl h-10 font-bold text-xs gap-2 shadow-sm active:scale-95 transition-transform",
-                            item.showDownloadButton === false && "hidden"
-                        )}
-                        onClick={() => handleAction(item, () => item.downloadUrl && window.open(item.downloadUrl, '_blank'))}
-                    >
-                        <Download className="h-3.5 w-3.5" />
-                        تحميل
-                    </Button>
+                    <div className="flex items-center gap-1.5 w-full">
+                        <Button 
+                            variant="default" 
+                            className={cn(
+                                "flex-1 rounded-2xl h-10 font-bold text-xs gap-2 shadow-sm active:scale-95 transition-transform",
+                                item.showDownloadButton === false && "hidden"
+                            )}
+                            onClick={() => handleAction(item, () => item.downloadUrl && window.open(item.downloadUrl, '_blank'))}
+                        >
+                            <Download className="h-3.5 w-3.5" />
+                            تحميل
+                        </Button>
+                        <QuickShareButton item={item} variant="outline" className="h-10 w-10 rounded-2xl shrink-0" />
+                    </div>
                 </div>
             );
         case 'style2':
@@ -215,17 +220,20 @@ export default function FavoritesTab() {
                         <h3 className="font-black text-lg text-foreground leading-tight">{item.title}</h3>
                         {item.description && <p className="text-[10px] font-bold text-muted-foreground mt-1">{item.description}</p>}
                     </div>
-                    <Button 
-                        variant="default" 
-                        className={cn(
-                            "w-full rounded-[1.5rem] h-12 font-bold gap-2 shadow-lg active:scale-95 transition-transform",
-                            item.showDownloadButton === false && "hidden"
-                        )}
-                        onClick={() => handleAction(item, () => item.downloadUrl && window.open(item.downloadUrl, '_blank'))}
-                    >
-                        <Download className="h-4 w-4" />
-                        تحميل
-                    </Button>
+                    <div className="flex items-center gap-2 w-full">
+                        <Button 
+                            variant="default" 
+                            className={cn(
+                                "flex-1 rounded-[1.5rem] h-12 font-bold gap-2 shadow-lg active:scale-95 transition-transform",
+                                item.showDownloadButton === false && "hidden"
+                            )}
+                            onClick={() => handleAction(item, () => item.downloadUrl && window.open(item.downloadUrl, '_blank'))}
+                        >
+                            <Download className="h-4 w-4" />
+                            تحميل
+                        </Button>
+                        <QuickShareButton item={item} variant="outline" className="h-12 w-12 rounded-[1.5rem] shrink-0" />
+                    </div>
                 </div>
             );
         case 'style3':
@@ -257,16 +265,19 @@ export default function FavoritesTab() {
                         </ScrollArea>
                     )}
 
-                    <Button 
-                        className={cn(
-                            "w-full rounded-2xl h-14 font-black text-lg gap-3 shadow-xl shadow-primary/20 active:scale-95 transition-transform",
-                            item.showDownloadButton === false && "hidden"
-                        )}
-                        onClick={() => handleAction(item, () => item.downloadUrl && window.open(item.downloadUrl, '_blank'))}
-                    >
-                        <Download className="h-6 w-6" />
-                        تحميل الآن
-                    </Button>
+                    <div className="flex items-center gap-3 w-full">
+                        <Button 
+                            className={cn(
+                                "flex-1 rounded-2xl h-14 font-black text-lg gap-3 shadow-xl shadow-primary/20 active:scale-95 transition-transform",
+                                item.showDownloadButton === false && "hidden"
+                            )}
+                            onClick={() => handleAction(item, () => item.downloadUrl && window.open(item.downloadUrl, '_blank'))}
+                        >
+                            <Download className="h-6 w-6" />
+                            تحميل الآن
+                        </Button>
+                        <QuickShareButton item={item} variant="outline" className="h-14 w-14 rounded-2xl shrink-0" />
+                    </div>
                 </div>
             );
         case 'style4':

@@ -26,6 +26,7 @@ import { AffiliateAdSlot, useAffiliateAds } from '@/components/ads/AffiliateAdsM
 import AdBanner from '@/components/AdBanner';
 import RedDotBadge, { checkCategoryIsNew, checkItemIsNew, useViewedCategories, markCategoryAsViewed, markItemAsViewed } from '@/components/RedDotBadge';
 import ScrollReveal from '@/components/ScrollReveal';
+import QuickShareButton from '@/components/QuickShareButton';
 
 const FavoriteButton = ({ isFavorite, onClick, className }: { isFavorite: boolean, onClick: (e: any) => void, className?: string }) => (
     <button 
@@ -139,7 +140,7 @@ const AudioPlayerRow = ({
                 </div>
             </div>
             <div className="flex items-center gap-4">
-                <div className="flex gap-1.5">
+                <div className="flex gap-1.5 items-center">
                     <button onClick={onToggleFavorite} className="h-8 w-8 rounded-full bg-white shadow-sm flex items-center justify-center border transition-colors">
                         <Heart className={cn("h-4 w-4 transition-colors", isFavorite ? "text-primary fill-primary" : "text-gray-400")} />
                     </button>
@@ -151,6 +152,7 @@ const AudioPlayerRow = ({
                             <Download className="h-3.5 w-3.5" />
                         </button>
                     )}
+                    <QuickShareButton item={item} category={category} variant="outline" size="icon" className="h-8 w-8 rounded-full border shadow-sm bg-white" />
                 </div>
                 <Slider 
                     dir="ltr"
@@ -278,17 +280,25 @@ export default function CategoryPage() {
                         <h3 className="text-xs font-black truncate">{item.title}</h3>
                         {item.description && <p className="text-[10px] font-bold text-muted-foreground truncate">{item.description}</p>}
                     </div>
-                    <Button 
-                        variant="default" 
-                        className={cn(
-                            "w-full rounded-2xl h-10 font-bold text-xs gap-2 shadow-sm active:scale-95 transition-transform",
-                            item.showDownloadButton === false && "hidden"
-                        )}
-                        onClick={() => handleAction(item, () => { markItemAsViewed(item.id); item.downloadUrl && window.open(item.downloadUrl, '_blank'); })}
-                    >
-                        <Download className="h-3.5 w-3.5" />
-                        تحميل
-                    </Button>
+                    <div className="flex items-center gap-1.5 w-full">
+                        <Button 
+                            variant="default" 
+                            className={cn(
+                                "flex-1 rounded-2xl h-10 font-bold text-xs gap-2 shadow-sm active:scale-95 transition-transform",
+                                item.showDownloadButton === false && "hidden"
+                            )}
+                            onClick={() => handleAction(item, () => { markItemAsViewed(item.id); item.downloadUrl && window.open(item.downloadUrl, '_blank'); })}
+                        >
+                            <Download className="h-3.5 w-3.5" />
+                            تحميل
+                        </Button>
+                        <QuickShareButton 
+                            item={item} 
+                            category={category}
+                            variant="outline" 
+                            className="h-10 w-10 rounded-2xl shrink-0 border-border bg-card hover:bg-accent" 
+                        />
+                    </div>
                 </div>
             );
         case 'style2': // Banners - Full Width
@@ -320,17 +330,25 @@ export default function CategoryPage() {
                         <h3 className="font-black text-lg text-foreground leading-tight">{item.title}</h3>
                         {item.description && <p className="text-[10px] font-bold text-muted-foreground mt-1">{item.description}</p>}
                     </div>
-                    <Button 
-                        variant="default" 
-                        className={cn(
-                            "w-full rounded-[1.5rem] h-12 font-bold gap-2 shadow-lg active:scale-95 transition-transform",
-                            item.showDownloadButton === false && "hidden"
-                        )}
-                        onClick={() => handleAction(item, () => { markItemAsViewed(item.id); item.downloadUrl && window.open(item.downloadUrl, '_blank'); })}
-                    >
-                        <Download className="h-4 w-4" />
-                        تحميل
-                    </Button>
+                    <div className="flex items-center gap-2 w-full">
+                        <Button 
+                            variant="default" 
+                            className={cn(
+                                "flex-1 rounded-[1.5rem] h-12 font-bold gap-2 shadow-lg active:scale-95 transition-transform",
+                                item.showDownloadButton === false && "hidden"
+                            )}
+                            onClick={() => handleAction(item, () => { markItemAsViewed(item.id); item.downloadUrl && window.open(item.downloadUrl, '_blank'); })}
+                        >
+                            <Download className="h-4 w-4" />
+                            تحميل
+                        </Button>
+                        <QuickShareButton 
+                            item={item} 
+                            category={category}
+                            variant="outline" 
+                            className="h-12 w-12 rounded-[1.5rem] shrink-0 border-border bg-card hover:bg-accent" 
+                        />
+                    </div>
                 </div>
             );
         case 'style3': // Apps Style - App Store Look
@@ -388,16 +406,24 @@ export default function CategoryPage() {
                         </div>
                     </div>
                     
-                    {/* Primary Action Button */}
-                    <Button 
-                        className={cn(
-                            "w-full rounded-full h-14 font-black text-lg gap-3 shadow-lg shadow-red-500/20 bg-red-600 hover:bg-red-700 text-white active:scale-95 transition-all",
-                            item.showDownloadButton === false && "hidden"
-                        )}
-                        onClick={() => handleAction(item, () => item.downloadUrl && window.open(item.downloadUrl, '_blank'))}
-                    >
-                        تثبيت
-                    </Button>
+                    {/* Primary Action Row */}
+                    <div className="flex items-center gap-3">
+                        <Button 
+                            className={cn(
+                                "flex-1 rounded-full h-14 font-black text-lg gap-3 shadow-lg shadow-red-500/20 bg-red-600 hover:bg-red-700 text-white active:scale-95 transition-all",
+                                item.showDownloadButton === false && "hidden"
+                            )}
+                            onClick={() => handleAction(item, () => item.downloadUrl && window.open(item.downloadUrl, '_blank'))}
+                        >
+                            تثبيت
+                        </Button>
+                        <QuickShareButton 
+                            item={item} 
+                            category={category}
+                            variant="outline" 
+                            className="h-14 w-14 rounded-full shrink-0 border-2" 
+                        />
+                    </div>
 
                     {/* Screenshots */}
                     {item.screenshots && item.screenshots.length > 0 && (
@@ -496,6 +522,7 @@ export default function CategoryPage() {
                                         <Copy className="h-5 w-5" />
                                     </Button>
                                 )}
+                                <QuickShareButton item={item} category={category} variant="ghost" size="icon" className="h-10 w-10 rounded-full hover:bg-primary/10 text-primary" />
                             </div>
                         </div>
                         <div className="relative group flex flex-col gap-3">
@@ -929,6 +956,14 @@ export default function CategoryPage() {
                                 زيارة الموقع
                             </Button>
                         )}
+                        <QuickShareButton 
+                            item={selectedAiTool} 
+                            category={category}
+                            variant="outline" 
+                            showLabel 
+                            label="مشاركة الرابط" 
+                            className="w-full h-14 rounded-2xl font-black text-lg gap-3" 
+                        />
                         <Button 
                             variant="secondary"
                             className="w-full h-14 rounded-2xl font-black text-lg gap-3"

@@ -7,6 +7,7 @@ export interface Category {
   order?: number;
   visibility?: 'public';
   isUnderMaintenance?: boolean;
+  showShareButton?: boolean;
   fileTypes?: string;
   displayStyle?: string;
   subCategoryLayout?: 'horizontal' | 'vertical';
@@ -26,10 +27,15 @@ export interface ContentItem {
   videoUrl?: string;
   audioUrl?: string;
   downloadUrl?: string;
+  downloadUrlLabel?: string;
+  downloadUrl2?: string;
+  downloadUrl2Label?: string;
+  extraLinks?: Array<{ label?: string; url: string }>;
   sourceUrl?: string;
   prompt?: string;
   showCopyButton?: boolean;
   showDownloadButton?: boolean;
+  showShareButton?: boolean;
   order?: number;
   visibility?: 'public';
   status?: 'pending' | 'approved' | 'rejected';

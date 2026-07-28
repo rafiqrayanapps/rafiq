@@ -817,6 +817,7 @@ export default function AdminPage() {
         displayStyle: editingCategory.displayStyle || 'style1',
         subCategoryLayout: editingCategory.subCategoryLayout || 'vertical',
         isUnderMaintenance: editingCategory.isUnderMaintenance || false,
+        showShareButton: editingCategory.showShareButton !== false,
         isNew: editingCategory.isNew !== undefined ? editingCategory.isNew : true,
         hasNewContent: true,
         accentColor: editingCategory.accentColor || '',
@@ -858,6 +859,7 @@ export default function AdminPage() {
         displayStyle: editingSubCategory.displayStyle || 'style1',
         fileTypes: editingSubCategory.fileTypes || '',
         isUnderMaintenance: editingSubCategory.isUnderMaintenance || false,
+        showShareButton: editingSubCategory.showShareButton !== false,
         isNew: editingSubCategory.isNew !== undefined ? editingSubCategory.isNew : true,
         hasNewContent: true,
         accentColor: editingSubCategory.accentColor || '',
@@ -893,6 +895,9 @@ export default function AdminPage() {
         title: editingItem.title,
         description: editingItem.description || '',
         downloadUrl: editingItem.downloadUrl || '',
+        downloadUrlLabel: editingItem.downloadUrlLabel || '',
+        downloadUrl2: editingItem.downloadUrl2 || '',
+        downloadUrl2Label: editingItem.downloadUrl2Label || '',
         videoUrl: editingItem.videoUrl || '',
         imageUrl: editingItem.imageUrl || editingItem.downloadUrl || '',
         style: editingItem.style || '',
@@ -905,6 +910,7 @@ export default function AdminPage() {
         sourceUrl: editingItem.sourceUrl || '',
         showCopyButton: editingItem.showCopyButton !== false,
         showDownloadButton: editingItem.showDownloadButton !== false,
+        showShareButton: editingItem.showShareButton !== false,
         order: items.length,
         isNew: true,
         createdAt: nowIso,
@@ -947,6 +953,7 @@ export default function AdminPage() {
         displayStyle: editingCategory.displayStyle || 'style1',
         subCategoryLayout: editingCategory.subCategoryLayout || 'vertical',
         isUnderMaintenance: editingCategory.isUnderMaintenance || false,
+        showShareButton: editingCategory.showShareButton !== false,
         isNew: editingCategory.isNew || false,
         hasNewContent: editingCategory.hasNewContent || false,
         accentColor: editingCategory.accentColor || '',
@@ -974,6 +981,7 @@ export default function AdminPage() {
         displayStyle: editingSubCategory.displayStyle || 'style1',
         fileTypes: editingSubCategory.fileTypes || '',
         isUnderMaintenance: editingSubCategory.isUnderMaintenance || false,
+        showShareButton: editingSubCategory.showShareButton !== false,
         isNew: editingSubCategory.isNew || false,
         hasNewContent: editingSubCategory.hasNewContent || false,
         accentColor: editingSubCategory.accentColor || '',
@@ -1003,6 +1011,9 @@ export default function AdminPage() {
         title: editingItem.title,
         description: editingItem.description || '',
         downloadUrl: editingItem.downloadUrl || '',
+        downloadUrlLabel: editingItem.downloadUrlLabel || '',
+        downloadUrl2: editingItem.downloadUrl2 || '',
+        downloadUrl2Label: editingItem.downloadUrl2Label || '',
         videoUrl: editingItem.videoUrl || '',
         imageUrl: editingItem.imageUrl || '',
         style: editingItem.style || '',
@@ -1015,6 +1026,7 @@ export default function AdminPage() {
         sourceUrl: editingItem.sourceUrl || '',
         showCopyButton: editingItem.showCopyButton !== false,
         showDownloadButton: editingItem.showDownloadButton !== false,
+        showShareButton: editingItem.showShareButton !== false,
         updatedAt: new Date().toISOString()
       });
       setEditingItem(null);
@@ -4040,6 +4052,23 @@ export default function AdminPage() {
                             )}
 
                             <div className="flex items-center justify-between p-4 sm:p-6 bg-gray-50 rounded-2xl sm:rounded-[28px] border-2 border-gray-100">
+                              <span className="text-xs sm:text-sm font-bold text-gray-900">زر مشاركة المحتوى (إظهار/إخفاء)</span>
+                              <button 
+                                type="button"
+                                onClick={() => setEditingCategory({...editingCategory, showShareButton: editingCategory.showShareButton === false ? true : false})}
+                                className={cn(
+                                  "w-12 h-7 sm:w-14 sm:h-8 rounded-full transition-all relative",
+                                  editingCategory.showShareButton !== false ? "bg-primary" : "bg-gray-200"
+                                )}
+                              >
+                                <div className={cn(
+                                  "absolute top-0.5 sm:top-1 w-6 h-6 bg-white rounded-full transition-all",
+                                  editingCategory.showShareButton !== false ? "right-0.5 sm:right-1" : "right-5 sm:right-7"
+                                )} />
+                              </button>
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 sm:p-6 bg-gray-50 rounded-2xl sm:rounded-[28px] border-2 border-gray-100">
                               <span className="text-xs sm:text-sm font-bold text-gray-900">وضع الصيانة</span>
                               <button 
                                 type="button"
@@ -4182,6 +4211,23 @@ export default function AdminPage() {
                             )}
 
                             <div className="flex items-center justify-between p-4 sm:p-6 bg-gray-50 rounded-2xl sm:rounded-[28px] border-2 border-gray-100">
+                              <span className="text-xs sm:text-sm font-bold text-gray-900">زر مشاركة المحتوى (إظهار/إخفاء)</span>
+                              <button 
+                                type="button"
+                                onClick={() => setEditingSubCategory({...editingSubCategory, showShareButton: editingSubCategory.showShareButton === false ? true : false})}
+                                className={cn(
+                                  "w-12 h-7 sm:w-14 sm:h-8 rounded-full transition-all relative",
+                                  editingSubCategory.showShareButton !== false ? "bg-primary" : "bg-gray-200"
+                                )}
+                              >
+                                <div className={cn(
+                                  "absolute top-0.5 sm:top-1 w-6 h-6 bg-white rounded-full transition-all",
+                                  editingSubCategory.showShareButton !== false ? "right-0.5 sm:right-1" : "right-5 sm:right-7"
+                                )} />
+                              </button>
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 sm:p-6 bg-gray-50 rounded-2xl sm:rounded-[28px] border-2 border-gray-100">
                               <span className="text-xs sm:text-sm font-bold text-gray-900">وضع الصيانة</span>
                               <button 
                                 type="button"
@@ -4275,17 +4321,32 @@ export default function AdminPage() {
 
                               {/* Download / Audio URL */}
                               {(currentParentStyle === 'style1' || currentParentStyle === 'style2' || currentParentStyle === 'style3' || currentParentStyle === 'style4' || currentParentStyle === 'style5' || currentParentStyle === 'style6') && (
-                                <div className="space-y-2 sm:space-y-3">
-                                  <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">
-                                    {currentParentStyle === 'style4' || currentParentStyle === 'style6' ? 'رابط الملف الصوتي' : currentParentStyle === 'style5' ? 'رابط الملف / التحميل (اختياري - يظهر زر التحميل عند إضافته)' : 'رابط التحميل المباشر'}
-                                  </label>
-                                  <input 
-                                    type="url" 
-                                    value={editingItem.downloadUrl || ''}
-                                    onChange={(e) => setEditingItem({...editingItem, downloadUrl: e.target.value})}
-                                    className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all"
-                                    placeholder="https://..."
-                                  />
+                                <div className="space-y-4">
+                                  <div className="space-y-2 sm:space-y-3">
+                                    <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">
+                                      {currentParentStyle === 'style4' || currentParentStyle === 'style6' ? 'رابط الملف الصوتي' : currentParentStyle === 'style5' ? 'رابط الملف / التحميل (اختياري - يظهر زر التحميل عند إضافته)' : 'رابط التحميل المباشر (اللوجو 1)'}
+                                    </label>
+                                    <input 
+                                      type="url" 
+                                      value={editingItem.downloadUrl || ''}
+                                      onChange={(e) => setEditingItem({...editingItem, downloadUrl: e.target.value})}
+                                      className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all"
+                                      placeholder="https://..."
+                                    />
+                                  </div>
+
+                                  <div className="space-y-2 sm:space-y-3">
+                                    <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">
+                                      رابط التحميل الثاني (اللوجو 2 / الملحق 2) - اختياري
+                                    </label>
+                                    <input 
+                                      type="url" 
+                                      value={editingItem.downloadUrl2 || ''}
+                                      onChange={(e) => setEditingItem({...editingItem, downloadUrl2: e.target.value})}
+                                      className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all"
+                                      placeholder="https://... (اختياري عند وجود ملفين أو لوجو ثاني)"
+                                    />
+                                  </div>
                                 </div>
                               )}
 
@@ -4435,6 +4496,22 @@ export default function AdminPage() {
                                   </button>
                                 </div>
                               )}
+                              <div className="flex items-center justify-between p-3 sm:p-4 bg-gray-50 rounded-xl sm:rounded-2xl border border-gray-100 group">
+                                <span className="text-[10px] sm:text-xs font-bold">زر المشاركة</span>
+                                <button 
+                                  type="button"
+                                  onClick={() => setEditingItem({...editingItem, showShareButton: editingItem.showShareButton === false ? true : false})}
+                                  className={cn(
+                                    "w-8 h-5 sm:w-10 sm:h-6 rounded-full transition-all relative",
+                                    editingItem.showShareButton !== false ? "bg-primary" : "bg-gray-300"
+                                  )}
+                                >
+                                  <div className={cn(
+                                    "absolute top-0.5 sm:top-1 w-4 h-4 bg-white rounded-full transition-all",
+                                    editingItem.showShareButton !== false ? "right-0.5 sm:right-1" : "right-3.5 sm:right-5"
+                                  )} />
+                                </button>
+                              </div>
                             </div>
 
                             <button 

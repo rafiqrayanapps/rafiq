@@ -8,6 +8,7 @@ import { motion } from 'framer-motion';
 import Sidebar from '@/components/Sidebar';
 import AdBanner from '@/components/AdBanner';
 import ScrollReveal from '@/components/ScrollReveal';
+import QuickShareButton from '@/components/QuickShareButton';
 
 export default function SubCategoryPage() {
   const { id } = useParams();
@@ -93,15 +94,18 @@ export default function SubCategoryPage() {
                       </div>
                     </div>
                     
-                    {item.showDownloadButton !== false && (
-                      <button 
-                        className="text-primary-foreground px-4 py-2 rounded-xl text-sm font-bold active:scale-95 transition-transform"
-                        style={{ background: 'var(--primary-gradient)' }}
-                        onClick={() => item.downloadUrl && window.open(item.downloadUrl, '_blank')}
-                      >
-                        تحميل
-                      </button>
-                    )}
+                    <div className="flex items-center gap-2 shrink-0">
+                      {item.showDownloadButton !== false && (
+                        <button 
+                          className="text-primary-foreground px-4 py-2 rounded-xl text-sm font-bold active:scale-95 transition-transform"
+                          style={{ background: 'var(--primary-gradient)' }}
+                          onClick={() => item.downloadUrl && window.open(item.downloadUrl, '_blank')}
+                        >
+                          تحميل
+                        </button>
+                      )}
+                      <QuickShareButton item={item} category={subCategory} variant="outline" className="h-9 w-9 rounded-xl shrink-0" />
+                    </div>
                   </ScrollReveal>
                 );
 
