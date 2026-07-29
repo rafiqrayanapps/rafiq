@@ -89,7 +89,7 @@ function BottomNavContent() {
     <>
       <div className={cn(
         "fixed left-0 right-0 z-50 px-4 flex justify-center pointer-events-none transition-all duration-300",
-        showBottomAd ? "bottom-[88px]" : "bottom-4"
+        showBottomAd ? "bottom-[68px]" : "bottom-4"
       )}>
         <nav 
           className="relative flex items-stretch h-16 w-full max-w-md backdrop-blur-xl border border-gray-200/50 shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-[2rem] pointer-events-auto px-2 transition-colors duration-500"
@@ -158,8 +158,8 @@ function BottomNavContent() {
         </div>
 
         {showBottomAd && (
-          <div className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-zinc-950/95 border-t border-gray-200/30 dark:border-zinc-800/30 flex justify-center items-center py-1.5 px-4 h-[76px] pointer-events-auto">
-            <div className="w-full max-w-md">
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-transparent flex justify-center items-center py-0.5 px-4 h-[64px] pointer-events-auto">
+            <div className="w-full max-w-md bg-transparent">
               <AdBanner height="60px" className="my-0" />
             </div>
           </div>

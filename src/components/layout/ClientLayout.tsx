@@ -15,6 +15,7 @@ import BottomNav from "@/components/layout/BottomNav";
 import InterstitialAd from "@/components/InterstitialAd";
 import PopupAd from "@/components/PopupAd";
 import SiteMaintenanceGuard from "@/components/SiteMaintenanceGuard";
+import ChunkErrorListener from "@/components/ChunkErrorListener";
 import { useDoc } from '@/hooks/useFirebase';
 
 function SecurityApplier() {
@@ -86,6 +87,7 @@ export default function ClientLayout({
 }) {
   return (
     <FirebaseClientProvider>
+      <ChunkErrorListener />
       <PWAProvider>
         <ToolProvider>
           <CategoryProvider>

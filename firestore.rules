@@ -40,6 +40,21 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // --- API Keys Rules ---
+    match /apiKeys/{keyId} {
+      allow read, write: if true;
+    }
+
+    match /subcategories/{subId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /items/{itemId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // --- App Configuration Rules ---
     match /appConfig/{docId} {
       allow read: if true;

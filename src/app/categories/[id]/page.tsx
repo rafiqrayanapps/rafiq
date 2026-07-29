@@ -24,7 +24,7 @@ import { useCategories } from '@/components/providers/CategoryProvider';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { AffiliateAdSlot, useAffiliateAds } from '@/components/ads/AffiliateAdsManager';
 import AdBanner from '@/components/AdBanner';
-import RedDotBadge, { checkCategoryIsNew, checkItemIsNew, useViewedCategories, markCategoryAsViewed, markItemAsViewed } from '@/components/RedDotBadge';
+import RedDotBadge, { checkCategoryIsNew, checkItemIsNew, getLatestCategoryWithNewContent, useViewedCategories, markCategoryAsViewed, markItemAsViewed } from '@/components/RedDotBadge';
 import ScrollReveal from '@/components/ScrollReveal';
 import QuickShareButton from '@/components/QuickShareButton';
 
@@ -197,6 +197,10 @@ export default function CategoryPage() {
       if (category.displayStyle === 'style7' && category.parentId) return subCategories.get(category.parentId) || [];
       return subCategories.get(id) || [];
   }, [subCategories, id, category]);
+
+  const latestSubCatId = useMemo(() => {
+    return getLatestCategoryWithNewContent(currentSubCategories, undefined, viewedData);
+  }, [currentSubCategories, viewedData]);
 
   const itemsQuery = useMemoFirebase(() => id ? collection(firestore!, 'categories', id, 'items') : null, [firestore, id]);
   const { data: rawItems, isLoading: areItemsLoading } = useCollection<any>(itemsQuery);
@@ -745,7 +749,7 @@ export default function CategoryPage() {
                                              className="animate-in fade-in zoom-in-95 duration-500 fill-mode-both group relative"
                                              style={{ animationDelay: `${idx * 50}ms` }}
                                          >
-                                             {checkCategoryIsNew(subCat, undefined, viewedData) && (
+                                             {subCat.id === latestSubCatId && (
                                                  <RedDotBadge size="sm" showLabel={false} className="absolute -top-1 -right-1" />
                                              )}
                                              <div className={cn(
@@ -778,7 +782,7 @@ export default function CategoryPage() {
                                                style={{ background: subCat.useCustomAccent && subCat.accentColor ? `linear-gradient(135deg, ${subCat.accentColor}, ${subCat.accentColor}dd)` : 'var(--primary-gradient)' }}
                                              >
                                              <div className="absolute -bottom-4 -right-4 bg-white/10 w-16 h-16 rounded-full group-hover:scale-150 transition-transform duration-700" />
-                                             {checkCategoryIsNew(subCat, undefined, viewedData) && (
+                                             {subCat.id === latestSubCatId && (
                                                  <RedDotBadge className="absolute top-4 left-4" />
                                              )}
                                              {subCat.fileTypes && (

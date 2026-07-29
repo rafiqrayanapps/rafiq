@@ -1,40 +1,21 @@
 import { NextResponse } from 'next/server';
-import { adminDb } from '@/firebase/admin';
+import { getFirestoreDoc } from '@/lib/serverFirestore';
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { prompt } = body;
 
-    // 1. Fetch config from Firestore using Admin SDK (bypasses security rules)
+    // 1. Fetch config from Firestore
     let modelId = '@google/imagen-4'; 
-    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'rafiq-87f88';
 
     try {
-      const configDoc = await adminDb.collection('settings').doc('ai_config').get();
-      if (configDoc.exists) {
-        const data = configDoc.data();
-        if (data?.model_id) {
-          modelId = data.model_id;
-        }
+      const configData = await getFirestoreDoc('settings/ai_config');
+      if (configData?.model_id) {
+        modelId = configData.model_id;
       }
     } catch (err: any) {
-      console.warn('Admin DB fetch failed, trying public REST API fallback:', err.message);
-      try {
-        // Fallback to REST API for public documents if Admin SDK fails
-        const restUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/settings/ai_config`;
-        const restRes = await fetch(restUrl);
-        if (restRes.ok) {
-          const restData = await restRes.json();
-          const modelIdVal = restData.fields?.model_id?.stringValue;
-          if (modelIdVal) {
-            modelId = modelIdVal;
-            console.log('Successfully fetched model_id via REST API:', modelId);
-          }
-        }
-      } catch (restErr) {
-        console.error('REST API fallback also failed:', restErr);
-      }
+      console.warn('Firestore fetch failed for ai_config:', err.message);
     }
 
     const rawAccountId = process.env.CLOUDFLARE_ACCOUNT_ID;

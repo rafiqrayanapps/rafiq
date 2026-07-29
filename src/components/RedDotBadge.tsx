@@ -232,6 +232,72 @@ export function checkCategoryIsNew(
   return false;
 }
 
+/**
+ * Returns the ID of the SINGLE category that has the newest published post/content
+ * which has not yet been viewed by the user.
+ */
+export function getLatestCategoryWithNewContent(
+  categoriesList: any[],
+  subCategoriesMap?: Map<string, any[]>,
+  viewedData?: ViewedCategoriesData
+): string | null {
+  if (!categoriesList || categoriesList.length === 0) return null;
+
+  let maxTimestamp = 0;
+  let latestCategoryId: string | null = null;
+
+  const timestamps = viewedData?.timestamps || getViewedCategoryTimestamps();
+  const viewedIds = viewedData?.viewedIds || getViewedCategoryIds();
+
+  categoriesList.forEach((cat) => {
+    if (!cat || !cat.id) return;
+
+    const viewTime = timestamps[cat.id] || 0;
+    const catTimes: number[] = [];
+
+    // Category's own content addition timestamp
+    if (cat.lastContentAddedAt) {
+      const t = new Date(cat.lastContentAddedAt).getTime();
+      if (!isNaN(t)) catTimes.push(t);
+    }
+    if (cat.createdAt) {
+      const t = new Date(cat.createdAt).getTime();
+      if (!isNaN(t)) catTimes.push(t);
+    }
+
+    // Subcategories' content timestamps
+    const subList = subCategoriesMap ? subCategoriesMap.get(cat.id) || [] : [];
+    subList.forEach((sub) => {
+      if (!sub) return;
+      if (sub.lastContentAddedAt) {
+        const t = new Date(sub.lastContentAddedAt).getTime();
+        if (!isNaN(t)) catTimes.push(t);
+      }
+      if (sub.createdAt) {
+        const t = new Date(sub.createdAt).getTime();
+        if (!isNaN(t)) catTimes.push(t);
+      }
+    });
+
+    if (catTimes.length > 0) {
+      const latestTimeForCat = Math.max(...catTimes);
+      // Only highlight if content was added after user last viewed this category
+      if (latestTimeForCat > viewTime) {
+        if (latestTimeForCat > maxTimestamp) {
+          maxTimestamp = latestTimeForCat;
+          latestCategoryId = cat.id;
+        }
+      }
+    } else if ((cat.isNew || cat.hasNewContent) && (!viewedIds.includes(cat.id) || viewTime === 0)) {
+      if (maxTimestamp === 0 && !latestCategoryId) {
+        latestCategoryId = cat.id;
+      }
+    }
+  });
+
+  return latestCategoryId;
+}
+
 interface RedDotBadgeProps {
   showLabel?: boolean;
   className?: string;

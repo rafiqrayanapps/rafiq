@@ -16,7 +16,7 @@ import Sidebar from '@/components/Sidebar';
 import FavoritesTab from '@/components/tabs/FavoritesTab';
 import NotificationsTab from '@/components/tabs/NotificationsTab';
 import AdBanner from '@/components/AdBanner';
-import RedDotBadge, { checkCategoryIsNew, useViewedCategories, markCategoryAsViewed } from '@/components/RedDotBadge';
+import RedDotBadge, { checkCategoryIsNew, getLatestCategoryWithNewContent, useViewedCategories, markCategoryAsViewed } from '@/components/RedDotBadge';
 import ScrollReveal from '@/components/ScrollReveal';
 
 function HomeContent() {
@@ -42,6 +42,10 @@ function HomeContent() {
     if (!searchTerm) return base;
     return base.filter(cat => cat.name.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [allMainCategories, allCategories, searchTerm]);
+
+  const latestNewCategoryId = useMemo(() => {
+    return getLatestCategoryWithNewContent(displayCategories, subCategories, viewedData);
+  }, [displayCategories, subCategories, viewedData]);
 
   const handleCategoryClick = (category: WithId<CategoryType>) => {
     markCategoryAsViewed(category.id);
@@ -124,7 +128,7 @@ function HomeContent() {
                         } as React.CSSProperties}>
                           <div className="absolute -bottom-4 -right-4 bg-white/10 w-16 h-16 rounded-full group-hover:scale-150 transition-transform duration-700" />
                           
-                          {checkCategoryIsNew(cat, subCategories.get(cat.id), viewedData) && (
+                          {cat.id === latestNewCategoryId && (
                               <RedDotBadge className="absolute top-4 left-4" />
                           )}
 

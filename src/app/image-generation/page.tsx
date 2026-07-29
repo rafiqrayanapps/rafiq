@@ -826,12 +826,6 @@ export default function ImageGenerationPage() {
                                 <RefreshCw className={cn("h-4 w-4", isGenerating && "animate-spin")} />
                                 <span>توليد مرة أخرى</span>
                             </button>
-
-                            <button 
-                                className="w-12 h-12 flex items-center justify-center bg-[#F8FAFF] text-[#64748B] rounded-2xl border border-blue-100 hover:bg-blue-50 transition-colors"
-                            >
-                                <Share2 className="h-5 w-5" />
-                            </button>
                         </div>
                     </div>
 

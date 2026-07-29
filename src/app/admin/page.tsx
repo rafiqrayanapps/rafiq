@@ -1,11 +1,10 @@
 'use client';
-
 import { useState, useEffect } from 'react';
 import { useAuth, useCollection, useDoc, handleFirestoreError, OperationType } from '@/hooks/useFirebase';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import { cn } from '@/lib/utils';
-import { Shield, Globe, Database, AlertTriangle, CheckCircle, Copy, LogIn, Plus, FolderPlus, FilePlus, List, ChevronDown, Trash2, Palette, BellRing, Send, Lock, Download, Edit3, ChevronRight, X, Settings, UserPlus, MessageSquare, MessageCircle, User, ShieldCheck, Bell, MousePointer2, Hammer, Ticket, Zap, Home, Users, ArrowUp, ArrowDown, Info, Heart, Star, Target, Rocket, Award, Instagram, Twitter, Github, MapPin, Clock, Phone, Mail, ExternalLink, Share2, Wrench, Power, Eye } from 'lucide-react';
+import { Shield, Globe, Database, AlertTriangle, CheckCircle, Copy, LogIn, Plus, FolderPlus, FilePlus, List, ChevronDown, Trash2, Palette, BellRing, Send, Lock, Download, Edit3, ChevronRight, X, Settings, UserPlus, MessageSquare, MessageCircle, User, ShieldCheck, Bell, MousePointer2, Hammer, Ticket, Zap, Home, Users, ArrowUp, ArrowDown, Info, Heart, Star, Target, Rocket, Award, Instagram, Twitter, Github, MapPin, Clock, Phone, Mail, ExternalLink, Share2, Wrench, Power, Eye, KeyRound, Code2, Terminal, Check, EyeOff } from 'lucide-react';
 import SocialLinks, { SocialPlatformIcon, getSocialPlatformInfo, SocialLinkItem } from '@/components/SocialLinks';
 import MaintenanceView from '@/components/MaintenanceView';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -14,7 +13,6 @@ import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { db } from '@/firebase';
 import { collection, addDoc, serverTimestamp, deleteDoc, doc, updateDoc, setDoc } from 'firebase/firestore';
-
 const iconMap: Record<string, any> = {
   Phone,
   Mail,
@@ -38,22 +36,36 @@ const iconMap: Record<string, any> = {
   Rocket,
   Award
 };
-
 export default function AdminPage() {
   const { toast } = useToast();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { user, isAdmin, isEditor, loading, loginWithGoogle, logout } = useAuth();
   const [currentDomain, setCurrentDomain] = useState('');
   const [copySuccess, setCopySuccess] = useState(false);
-  const [activeTab, setActiveTab] = useState<'menu' | 'users' | 'content' | 'colors' | 'notifications' | 'dialog' | 'floatingButton' | 'about' | 'contact' | 'tools' | 'ads' | 'social' | 'security' | 'maintenance'>('menu');
+  const [activeTab, setActiveTab] = useState<'menu' | 'users' | 'content' | 'colors' | 'notifications' | 'dialog' | 'floatingButton' | 'about' | 'contact' | 'tools' | 'ads' | 'social' | 'security' | 'maintenance' | 'api'>('menu');
   const [viewLevel, setViewLevel] = useState<'categories' | 'subcategories' | 'items'>('categories');
   const router = useRouter();
+  // API Management State
+  const { data: apiConfig } = useDoc('appConfig', 'api');
+  const { data: apiKeysList } = useCollection('apiKeys');
+  const [apiEnabled, setApiEnabled] = useState(true);
+  const [newKeyName, setNewKeyName] = useState('');
+  const [generatedKey, setGeneratedKey] = useState('');
+  const [visibleKeyId, setVisibleKeyId] = useState<string | null>(null);
+  const [testEndpoint, setTestEndpoint] = useState('/api/v1/content');
+  const [testApiKey, setTestApiKey] = useState('');
+  const [testResult, setTestResult] = useState<any>(null);
+  const [isTestingApi, setIsTestingApi] = useState(false);
 
+  useEffect(() => {
+    if (apiConfig) {
+      setApiEnabled(apiConfig.enabled !== false);
+    }
+  }, [apiConfig]);
   // User Management State
   const { data: whitelistData } = useCollection('whitelist');
   const [newUserId, setNewUserId] = useState('');
   const [newUserRole, setNewUserRole] = useState<'admin' | 'editor'>('editor');
-
   // System Management State
   const { data: theme } = useDoc('appConfig', 'theme');
   const [primaryColor, setPrimaryColor] = useState('#3B82F6');
@@ -63,6 +75,10 @@ export default function AdminPage() {
   const [cardColor, setCardColor] = useState('#ffffff');
   const [darkCardColor, setDarkCardColor] = useState('#020617');
   const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'high-contrast'>('light');
+  const [autoThemeEnabled, setAutoThemeEnabled] = useState(false);
+  const [autoThemeMode, setAutoThemeMode] = useState<'system' | 'time'>('system');
+  const [autoThemeDarkStart, setAutoThemeDarkStart] = useState('18:00');
+  const [autoThemeDarkEnd, setAutoThemeDarkEnd] = useState('06:00');
   const [useGradient, setUseGradient] = useState(false);
   const [gradientStart, setGradientStart] = useState('#3B82F6');
   const [gradientEnd, setGradientEnd] = useState('#8B5CF6');
@@ -71,7 +87,6 @@ export default function AdminPage() {
   const [bottomNavColor, setBottomNavColor] = useState('#ffffff');
   const [darkBottomNavColor, setDarkBottomNavColor] = useState('#020617');
   const [customCss, setCustomCss] = useState('');
-
   useEffect(() => {
     if (theme?.primaryColor) setPrimaryColor(theme.primaryColor);
     if (theme?.darkPrimaryColor) setDarkPrimaryColor(theme.darkPrimaryColor);
@@ -80,6 +95,10 @@ export default function AdminPage() {
     if (theme?.cardColor) setCardColor(theme.cardColor);
     if (theme?.darkCardColor) setDarkCardColor(theme.darkCardColor);
     if (theme?.themeMode) setThemeMode(theme.themeMode);
+    if (theme?.autoThemeEnabled !== undefined) setAutoThemeEnabled(theme.autoThemeEnabled);
+    if (theme?.autoThemeMode) setAutoThemeMode(theme.autoThemeMode);
+    if (theme?.autoThemeDarkStart) setAutoThemeDarkStart(theme.autoThemeDarkStart);
+    if (theme?.autoThemeDarkEnd) setAutoThemeDarkEnd(theme.autoThemeDarkEnd);
     if (theme?.useGradient !== undefined) setUseGradient(theme.useGradient);
     if (theme?.gradientStart) setGradientStart(theme.gradientStart);
     if (theme?.gradientEnd) setGradientEnd(theme.gradientEnd);
@@ -96,27 +115,22 @@ export default function AdminPage() {
   const [editingCategory, setEditingCategory] = useState<any>(null);
   const [editingSubCategory, setEditingSubCategory] = useState<any>(null);
   const [expandedCatId, setExpandedCatId] = useState<string | null>(null);
-
   const [isSaving, setIsSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [selectedManagerId, setSelectedManagerId] = useState<{type: 'category' | 'subcategory', id: string} | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-
   const handleSetViewLevel = (level: 'categories' | 'subcategories' | 'items') => {
     setViewLevel(level);
     setSearchQuery('');
   };
-
   const handleSetSelectedManager = (idObj: {type: 'category' | 'subcategory', id: string} | null) => {
     setSelectedManagerId(idObj);
     setSearchQuery('');
   };
-
   // Delete Confirmation State
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string, type: string, label: string } | null>(null);
   const [deleteCountdown, setDeleteCountdown] = useState(0);
   const [canDelete, setCanDelete] = useState(false);
-
   useEffect(() => {
     let timer: any;
     if (deleteConfirm && deleteCountdown > 0) {
@@ -128,13 +142,11 @@ export default function AdminPage() {
     }
     return () => clearInterval(timer);
   }, [deleteConfirm, deleteCountdown]);
-
   const initiateDelete = (id: string, type: string, label: string) => {
     setDeleteConfirm({ id, type, label });
     setDeleteCountdown(5);
     setCanDelete(false);
   };
-
   // Dialog State
   const { data: dialogConfig } = useDoc('appConfig', 'dialog');
   const [dialogTitle, setDialogTitle] = useState('');
@@ -145,7 +157,6 @@ export default function AdminPage() {
   const [dialogFrequency, setDialogFrequency] = useState(24); // hours
   const [dialogFrequencyUnit, setDialogFrequencyUnit] = useState<'hours' | 'minutes'>('hours');
   const [isDialogActive, setIsDialogActive] = useState(false);
-
   // About Page State
   const { data: aboutConfig } = useDoc('appConfig', 'about');
   const [aboutTitle, setAboutTitle] = useState('');
@@ -169,21 +180,18 @@ export default function AdminPage() {
   const [aboutVision, setAboutVision] = useState('');
   const [aboutHeroImage, setAboutHeroImage] = useState('');
   const [aboutFeatures, setAboutFeatures] = useState<any[]>([]);
-
   // Contact Page State
   const { data: contactConfig } = useDoc('appConfig', 'contact');
   const [contactTitle, setContactTitle] = useState('');
   const [contactSubtitle, setContactSubtitle] = useState('');
   const [contactBtnLink, setContactBtnLink] = useState('');
   const [isContactBtnActive, setIsContactBtnActive] = useState(false);
-
   // Floating Button State
   const { data: fbConfig } = useDoc('appConfig', 'floatingButton');
   const [fbLabel, setFbLabel] = useState('');
   const [fbLink, setFbLink] = useState('');
   const [fbDuration, setFbDuration] = useState(30);
   const [isFbActive, setIsFbActive] = useState(false);
-
   // Tool Config State
   const { data: toolConfig } = useDoc('toolConfig', 'global');
   const [chatId, setChatId] = useState('');
@@ -191,15 +199,24 @@ export default function AdminPage() {
   const [promptGenId, setPromptGenId] = useState('');
   const [storyGenId, setStoryGenId] = useState('');
   const [globalApiKey, setGlobalApiKey] = useState('');
-
   // Ads Config State
   const { data: adsConfig } = useDoc('appConfig', 'ads');
   const [showAds, setShowAds] = useState(false);
+  const [globalShowShareButton, setGlobalShowShareButton] = useState(true);
+  const [customAdSlots, setCustomAdSlots] = useState<Array<{
+    id: string;
+    title: string;
+    companyName?: string;
+    script: string;
+    placement: 'all' | 'home' | 'lists' | 'content' | 'top' | 'bottom';
+    height?: string;
+    active: boolean;
+    notes?: string;
+  }>>([]);
   const [showHomeAd, setShowHomeAd] = useState(true);
   const [showContentAds, setShowContentAds] = useState(true);
   const [adScript, setAdScript] = useState('');
   const [inlineAdFrequency, setInlineAdFrequency] = useState(4);
-
   // Expanded Ads State
   // Banner Ads State
   const [bannerShow, setBannerShow] = useState(false);
@@ -209,7 +226,6 @@ export default function AdminPage() {
   const [bannerScript, setBannerScript] = useState('');
   const [bannerCategoryMode, setBannerCategoryMode] = useState<'all' | 'specific'>('all');
   const [bannerCategories, setBannerCategories] = useState<string[]>([]);
-
   // Interstitial Ads State
   const [interstitialShow, setInterstitialShow] = useState(false);
   const [interstitialHome, setInterstitialHome] = useState(false);
@@ -218,7 +234,6 @@ export default function AdminPage() {
   const [interstitialScript, setInterstitialScript] = useState('');
   const [interstitialCategoryMode, setInterstitialCategoryMode] = useState<'all' | 'specific'>('all');
   const [interstitialCategories, setInterstitialCategories] = useState<string[]>([]);
-
   // Popup Ads State
   const [popupShow, setPopupShow] = useState(false);
   const [popupHome, setPopupHome] = useState(false);
@@ -227,7 +242,6 @@ export default function AdminPage() {
   const [popupScript, setPopupScript] = useState('');
   const [popupCategoryMode, setPopupCategoryMode] = useState<'all' | 'specific'>('all');
   const [popupCategories, setPopupCategories] = useState<string[]>([]);
-
   // Inline Ads State
   const [inlineShow, setInlineShow] = useState(false);
   const [inlineHome, setInlineHome] = useState(false);
@@ -237,18 +251,15 @@ export default function AdminPage() {
   const [inlineFrequency, setInlineFrequency] = useState(4);
   const [inlineCategoryMode, setInlineCategoryMode] = useState<'all' | 'specific'>('all');
   const [inlineCategories, setInlineCategories] = useState<string[]>([]);
-
   // Security Config State
   const { data: securityConfig } = useDoc('appConfig', 'security');
   const [preventCopy, setPreventCopy] = useState(true);
   const [preventContextMenu, setPreventContextMenu] = useState(true);
-
   // Social Config State
   const { data: socialConfig } = useDoc('appConfig', 'social');
   const [socialLinksList, setSocialLinksList] = useState<SocialLinkItem[]>([]);
   const [newSocialName, setNewSocialName] = useState('');
   const [newSocialUrl, setNewSocialUrl] = useState('');
-
   // Maintenance Config State
   const { data: maintenanceConfig } = useDoc('appConfig', 'maintenance');
   const [maintenanceEnabled, setMaintenanceEnabled] = useState(false);
@@ -258,7 +269,6 @@ export default function AdminPage() {
   const [maintenanceShowSocial, setMaintenanceShowSocial] = useState(true);
   const [maintenanceWhatsapp, setMaintenanceWhatsapp] = useState('');
   const [maintenanceTelegram, setMaintenanceTelegram] = useState('');
-
   useEffect(() => {
     if (maintenanceConfig) {
       setMaintenanceEnabled(maintenanceConfig.isEnabled ?? false);
@@ -270,7 +280,6 @@ export default function AdminPage() {
       setMaintenanceTelegram(maintenanceConfig.telegramUsername || '');
     }
   }, [maintenanceConfig]);
-
   const handleSaveMaintenance = async () => {
     setIsSaving(true);
     try {
@@ -284,7 +293,6 @@ export default function AdminPage() {
         telegramUsername: maintenanceTelegram,
         updatedAt: new Date().toISOString()
       }, { merge: true });
-
       toast({
         title: "تم النجاح",
         description: maintenanceEnabled ? "تم تفعيل وضع صيانة الموقع بنجاح!" : "تم إيقاف وضع صيانة الموقع بنجاح!"
@@ -295,7 +303,6 @@ export default function AdminPage() {
       setIsSaving(false);
     }
   };
-
   const handleQuickToggleMaintenance = async (newState: boolean) => {
     setMaintenanceEnabled(newState);
     try {
@@ -303,7 +310,6 @@ export default function AdminPage() {
         isEnabled: newState,
         updatedAt: new Date().toISOString()
       }, { merge: true });
-
       toast({
         title: newState ? "تم تفعيل الصيانة" : "تم إيقاف الصيانة",
         description: newState ? "الموقع الآن في وضع الصيانة للزوار" : "الموقع الآن متاح للزوار بشكل طبيعي",
@@ -313,12 +319,112 @@ export default function AdminPage() {
     }
   };
 
+  // API Management Handlers
+  const handleCreateApiKey = async () => {
+    if (!newKeyName.trim()) {
+      toast({ title: 'تنبيه', description: 'يرجى كتابة اسم تعريفي لمفتاح الـ API', variant: 'destructive' });
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const rawKey = 'ak_live_' + Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2) + Date.now().toString(36);
+      await addDoc(collection(db, 'apiKeys'), {
+        name: newKeyName.trim(),
+        key: rawKey,
+        active: true,
+        createdAt: new Date().toISOString(),
+        usageCount: 0
+      });
+      setNewKeyName('');
+      setGeneratedKey(rawKey);
+      toast({ title: 'تم الإنشاء بنجاح', description: 'تم توليد مفتاح API جديد وحفظه في النظام!' });
+    } catch (error: any) {
+      handleFirestoreError(error, OperationType.WRITE, 'apiKeys');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleToggleApiKey = async (id: string, currentActive: boolean) => {
+    try {
+      await updateDoc(doc(db, 'apiKeys', id), {
+        active: !currentActive
+      });
+      toast({
+        title: !currentActive ? 'تم تفعيل المفتاح' : 'تم تعطيل المفتاح',
+        description: !currentActive ? 'المفتاح جاهز للاستخدام الآن' : 'تم إيقاف صلاحية هذا المفتاح مؤقتاً'
+      });
+    } catch (error: any) {
+      handleFirestoreError(error, OperationType.UPDATE, `apiKeys/${id}`);
+    }
+  };
+
+  const handleDeleteApiKey = async (id: string) => {
+    if (!confirm('هل أنت متاكد من حذف مفتاح الـ API هذا نهائياً؟')) return;
+    try {
+      await deleteDoc(doc(db, 'apiKeys', id));
+      toast({ title: 'تم الحذف', description: 'تم حذف المفتاح بنجاح' });
+    } catch (error: any) {
+      handleFirestoreError(error, OperationType.DELETE, `apiKeys/${id}`);
+    }
+  };
+
+  const handleSaveApiGlobalConfig = async (enabled: boolean) => {
+    setApiEnabled(enabled);
+    try {
+      await setDoc(doc(db, 'appConfig', 'api'), {
+        enabled,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+      toast({
+        title: enabled ? "تم تفعيل الـ API" : "تم تعطيل الـ API",
+        description: enabled ? "يمكن للتطبيقات الخارجية الآن استهلاك خدمات الـ API" : "تم إغلاق طلبات الـ API الخارجية مؤقتاً",
+      });
+    } catch (error: any) {
+      handleFirestoreError(error, OperationType.UPDATE, 'appConfig/api');
+    }
+  };
+
+  const handleRunApiTest = async () => {
+    setIsTestingApi(true);
+    setTestResult(null);
+    try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (testApiKey) {
+        headers['x-api-key'] = testApiKey;
+      }
+      const res = await fetch(testEndpoint, {
+        method: testEndpoint.includes('generate-image') || testEndpoint.includes('validate') ? 'POST' : 'GET',
+        headers,
+        body: testEndpoint.includes('generate-image')
+          ? JSON.stringify({ prompt: 'شعارات وتصميم ثلاثي الأبعاد' })
+          : testEndpoint.includes('validate')
+          ? JSON.stringify({})
+          : undefined,
+      });
+      const data = await res.json();
+      setTestResult({
+        status: res.status,
+        ok: res.ok,
+        data,
+      });
+    } catch (err: any) {
+      setTestResult({
+        status: 500,
+        ok: false,
+        data: { error: err.message || 'فشل الاتصال بالخادم' },
+      });
+    } finally {
+      setIsTestingApi(false);
+    }
+  };
   useEffect(() => {
     if (socialConfig?.links) {
       setSocialLinksList(socialConfig.links);
     }
   }, [socialConfig]);
-
   const handleAddSocialLink = () => {
     if (!newSocialUrl.trim()) {
       toast({ title: "تنبيه", description: "يرجى إضافة رابط المنصة", variant: "destructive" });
@@ -336,15 +442,12 @@ export default function AdminPage() {
     setNewSocialUrl('');
     toast({ title: "تم الإضافة", description: `تمت إضافة ${newLink.name} بنجاح!` });
   };
-
   const handleRemoveSocialLink = (id: string) => {
     setSocialLinksList(prev => prev.filter(item => item.id !== id));
   };
-
   const handleToggleSocialLink = (id: string) => {
     setSocialLinksList(prev => prev.map(item => item.id === id ? { ...item, enabled: item.enabled === false } : item));
   };
-
   const handleSaveSocialLinks = async () => {
     setIsSaving(true);
     try {
@@ -359,12 +462,10 @@ export default function AdminPage() {
       setIsSaving(false);
     }
   };
-
   // Dynamic Contacts State
   const { data: contactsData } = useCollection('contacts');
   const [editingContact, setEditingContact] = useState<any>(null);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
-
   useEffect(() => {
     if (dialogConfig) {
       setDialogTitle(dialogConfig.title || '');
@@ -377,7 +478,6 @@ export default function AdminPage() {
       setIsDialogActive(dialogConfig.isActive || false);
     }
   }, [dialogConfig]);
-
   useEffect(() => {
     if (aboutConfig) {
       setAboutTitle(aboutConfig.title || aboutConfig.appName || 'رفيق المصمم');
@@ -421,7 +521,6 @@ export default function AdminPage() {
       setAboutLogoImage('');
     }
   }, [aboutConfig]);
-
   useEffect(() => {
     if (contactConfig) {
       setContactTitle(contactConfig.title || '');
@@ -430,7 +529,6 @@ export default function AdminPage() {
       setIsContactBtnActive(contactConfig.showWhatsAppBtn || false);
     }
   }, [contactConfig]);
-
   useEffect(() => {
     if (fbConfig) {
       setFbLabel(fbConfig.label || '');
@@ -439,7 +537,6 @@ export default function AdminPage() {
       setIsFbActive(fbConfig.isActive || false);
     }
   }, [fbConfig]);
-
   useEffect(() => {
     if (toolConfig) {
       setChatId(toolConfig.chatId || '');
@@ -449,15 +546,15 @@ export default function AdminPage() {
       setGlobalApiKey(toolConfig.globalApiKey || '');
     }
   }, [toolConfig]);
-
   useEffect(() => {
     if (adsConfig) {
-      setShowAds(adsConfig.showAds ?? false);
+      setShowAds(adsConfig.showAds !== false);
+      setGlobalShowShareButton(adsConfig.showShareButton ?? adsConfig.globalShowShareButton ?? true);
+      setCustomAdSlots(Array.isArray(adsConfig.customSlots) ? adsConfig.customSlots : []);
       setShowHomeAd(adsConfig.showHomeAd ?? true);
       setShowContentAds(adsConfig.showContentAds ?? true);
       setAdScript(adsConfig.adScript ?? '');
       setInlineAdFrequency(adsConfig.inlineAdFrequency ?? 4);
-
       // Hydrate new structured settings
       setBannerShow(adsConfig.banner?.show ?? adsConfig.showAds ?? false);
       setBannerHome(adsConfig.banner?.showOnHome ?? adsConfig.showHomeAd ?? true);
@@ -466,7 +563,6 @@ export default function AdminPage() {
       setBannerScript(adsConfig.banner?.script ?? adsConfig.adScript ?? '');
       setBannerCategoryMode(adsConfig.banner?.categoryMode || 'all');
       setBannerCategories(adsConfig.banner?.targetCategories || []);
-
       setInterstitialShow(adsConfig.interstitial?.show ?? false);
       setInterstitialHome(adsConfig.interstitial?.showOnHome ?? false);
       setInterstitialLists(adsConfig.interstitial?.showOnLists ?? false);
@@ -474,7 +570,6 @@ export default function AdminPage() {
       setInterstitialScript(adsConfig.interstitial?.script ?? '');
       setInterstitialCategoryMode(adsConfig.interstitial?.categoryMode || 'all');
       setInterstitialCategories(adsConfig.interstitial?.targetCategories || []);
-
       setPopupShow(adsConfig.popup?.show ?? false);
       setPopupHome(adsConfig.popup?.showOnHome ?? false);
       setPopupLists(adsConfig.popup?.showOnLists ?? false);
@@ -482,7 +577,6 @@ export default function AdminPage() {
       setPopupScript(adsConfig.popup?.script ?? '');
       setPopupCategoryMode(adsConfig.popup?.categoryMode || 'all');
       setPopupCategories(adsConfig.popup?.targetCategories || []);
-
       setInlineShow(adsConfig.inline?.show ?? adsConfig.showAds ?? false);
       setInlineHome(adsConfig.inline?.showOnHome ?? false);
       setInlineLists(adsConfig.inline?.showOnLists ?? adsConfig.showContentAds ?? true);
@@ -493,40 +587,37 @@ export default function AdminPage() {
       setInlineCategories(adsConfig.inline?.targetCategories || []);
     }
   }, [adsConfig]);
-
   useEffect(() => {
     if (securityConfig) {
       setPreventCopy(securityConfig.preventCopy ?? true);
       setPreventContextMenu(securityConfig.preventContextMenu ?? true);
+      if (securityConfig.showShareButton !== undefined) {
+        setGlobalShowShareButton(securityConfig.showShareButton);
+      } else if (securityConfig.globalShowShareButton !== undefined) {
+        setGlobalShowShareButton(securityConfig.globalShowShareButton);
+      }
     }
   }, [securityConfig]);
-
   const { data: allCategoriesData } = useCollection('categories');
   const { data: notifications } = useCollection('notifications');
-  
   // Items fetching based on selection
   const itemsPath = selectedManagerId?.id ? `categories/${selectedManagerId.id}/items` : null;
   const { data: itemsData } = useCollection(itemsPath || '');
-
   const allCategories = (allCategoriesData || []).sort((a, b) => (a.order || 0) - (b.order || 0));
   const categories = allCategories.filter(c => !c.parentId);
   const subCategories = allCategories.filter(c => c.parentId);
   const items = itemsData || [];
   const contacts = (contactsData || []).sort((a, b) => (a.order || 0) - (b.order || 0));
-
   const currentParentStyle = (allCategoriesData || []).find(c => c.id === selectedManagerId?.id)?.displayStyle || 'style1';
   const relevantSubs = subCategories.filter(s => s.parentId === selectedManagerId?.id);
   const hasSubCategories = relevantSubs.length > 0;
-
   const handleMoveCategory = async (id: string, direction: 'up' | 'down') => {
     const currentIndex = categories.findIndex(c => c.id === id);
     if (direction === 'up' && currentIndex === 0) return;
     if (direction === 'down' && currentIndex === categories.length - 1) return;
-
     const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
     const currentCat = categories[currentIndex];
     const targetCat = categories[targetIndex];
-
     setIsSaving(true);
     try {
       await updateDoc(doc(db, 'categories', currentCat.id), { order: targetIndex });
@@ -537,13 +628,11 @@ export default function AdminPage() {
       setIsSaving(false);
     }
   };
-
   useEffect(() => {
     if (typeof window !== 'undefined') {
       setCurrentDomain(window.location.origin);
     }
   }, []);
-
   // Remove the automatic redirect to allow debugging
   // useEffect(() => {
   //   if (!loading && !isAdmin && user) {
@@ -551,7 +640,6 @@ export default function AdminPage() {
   //     router.push('/');
   //   }
   // }, [isAdmin, loading, user, router]);
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -559,7 +647,6 @@ export default function AdminPage() {
       </div>
     );
   }
-
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newUserId) return;
@@ -578,7 +665,6 @@ export default function AdminPage() {
       setIsSaving(false);
     }
   };
-
   const handleUpdateDialog = async () => {
     setIsSaving(true);
     try {
@@ -600,7 +686,6 @@ export default function AdminPage() {
       setIsSaving(false);
     }
   };
-
   const handleUpdateAbout = async () => {
     setIsSaving(true);
     try {
@@ -636,7 +721,6 @@ export default function AdminPage() {
       setIsSaving(false);
     }
   };
-
   const handleUpdateContact = async () => {
     setIsSaving(true);
     try {
@@ -654,7 +738,6 @@ export default function AdminPage() {
       setIsSaving(false);
     }
   };
-
   const handleSaveContactItem = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingContact?.label || !editingContact?.value) return;
@@ -670,7 +753,6 @@ export default function AdminPage() {
         active: editingContact.active !== false,
         updatedAt: new Date().toISOString()
       };
-
       if (editingContact.id) {
         await updateDoc(doc(db, 'contacts', editingContact.id), data);
       } else {
@@ -685,7 +767,6 @@ export default function AdminPage() {
       setIsSaving(false);
     }
   };
-
   const handleUpdateFloatingButton = async () => {
     setIsSaving(true);
     try {
@@ -703,7 +784,6 @@ export default function AdminPage() {
       setIsSaving(false);
     }
   };
-
   const handleUpdateTools = async () => {
     setIsSaving(true);
     try {
@@ -722,13 +802,33 @@ export default function AdminPage() {
       setIsSaving(false);
     }
   };
-
+  const handleAddCustomSlot = () => {
+    const newSlot = {
+      id: 'slot_' + Date.now(),
+      title: `مساحة إعلانية مخصصة #${customAdSlots.length + 1}`,
+      companyName: '',
+      script: '',
+      placement: 'all' as const,
+      height: '60px',
+      active: true,
+      notes: ''
+    };
+    setCustomAdSlots([...customAdSlots, newSlot]);
+  };
+  const handleUpdateCustomSlot = (id: string, updated: any) => {
+    setCustomAdSlots(customAdSlots.map(s => s.id === id ? { ...s, ...updated } : s));
+  };
+  const handleRemoveCustomSlot = (id: string) => {
+    setCustomAdSlots(customAdSlots.filter(s => s.id !== id));
+  };
   const handleUpdateAds = async () => {
     setIsSaving(true);
     try {
       await setDoc(doc(db, 'appConfig', 'ads'), {
         showAds,
-        
+        showShareButton: globalShowShareButton,
+        globalShowShareButton: globalShowShareButton,
+        customSlots: customAdSlots,
         // Structured multiple ad configurations
         banner: {
           show: bannerShow,
@@ -767,13 +867,11 @@ export default function AdminPage() {
           categoryMode: inlineCategoryMode,
           targetCategories: inlineCategories
         },
-
         // Legacy compatibility support
         showHomeAd: bannerHome,
         showContentAds: bannerLists || bannerContent,
         adScript: bannerScript || inlineScript || adScript,
         inlineAdFrequency: inlineFrequency,
-
         updatedAt: new Date().toISOString()
       }, { merge: true });
       toast({ title: "تم النجاح", description: "تم تحديث إعدادات الإعلانات بنجاح!" });
@@ -783,29 +881,34 @@ export default function AdminPage() {
       setIsSaving(false);
     }
   };
-
   const handleSaveSecurity = async () => {
     setIsSaving(true);
     try {
       await setDoc(doc(db, 'appConfig', 'security'), {
         preventCopy,
         preventContextMenu,
+        showShareButton: globalShowShareButton,
+        globalShowShareButton: globalShowShareButton,
         updatedAt: new Date().toISOString()
       }, { merge: true });
-      toast({ title: "تم النجاح", description: "تم تحديث إعدادات حماية المحتوى بنجاح!" });
+
+      await setDoc(doc(db, 'appConfig', 'ads'), {
+        showShareButton: globalShowShareButton,
+        globalShowShareButton: globalShowShareButton,
+      }, { merge: true });
+
+      toast({ title: "تم النجاح", description: "تم تحديث إعدادات حماية المحتوى والمشاركة بنجاح!" });
     } catch (error: any) {
       handleFirestoreError(error, OperationType.UPDATE, 'appConfig/security');
     } finally {
       setIsSaving(false);
     }
   };
-
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopySuccess(true);
     setTimeout(() => setCopySuccess(false), 2000);
   };
-
   const handleAddCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingCategory?.name) return;
@@ -834,7 +937,6 @@ export default function AdminPage() {
       setIsSaving(false);
     }
   };
-
   const handleDeleteUser = async (email: string) => {
     setIsSaving(true);
     try {
@@ -846,7 +948,6 @@ export default function AdminPage() {
       setIsSaving(false);
     }
   };
-
   const handleAddSubCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingSubCategory?.name || !editingSubCategory?.categoryId) return;
@@ -884,7 +985,6 @@ export default function AdminPage() {
       setIsSaving(false);
     }
   };
-
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingItem?.title || !editingItem?.subCategoryId) return;
@@ -941,7 +1041,6 @@ export default function AdminPage() {
       setIsSaving(false);
     }
   };
-
   const handleUpdateCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingCategory) return;
@@ -968,7 +1067,6 @@ export default function AdminPage() {
       setIsSaving(false);
     }
   };
-
   const handleUpdateSubCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingSubCategory) return;
@@ -996,7 +1094,6 @@ export default function AdminPage() {
       setIsSaving(false);
     }
   };
-
   const handleUpdateItem = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingItem) return;
@@ -1037,20 +1134,16 @@ export default function AdminPage() {
       setIsSaving(false);
     }
   };
-
   const handleMoveSubCategory = async (id: string, direction: 'up' | 'down') => {
     const parentId = subCategories.find(s => s.id === id)?.parentId;
     if (!parentId) return;
-    
     const relevantSubs = subCategories.filter(s => s.parentId === parentId);
     const currentIndex = relevantSubs.findIndex(s => s.id === id);
     if (direction === 'up' && currentIndex === 0) return;
     if (direction === 'down' && currentIndex === relevantSubs.length - 1) return;
-
     const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
     const currentSub = relevantSubs[currentIndex];
     const targetSub = relevantSubs[targetIndex];
-
     setIsSaving(true);
     try {
       await updateDoc(doc(db, 'categories', currentSub.id), { order: targetIndex });
@@ -1061,7 +1154,6 @@ export default function AdminPage() {
       setIsSaving(false);
     }
   };
-
   const handleUpdateTheme = async () => {
     setIsSaving(true);
     try {
@@ -1073,6 +1165,10 @@ export default function AdminPage() {
         cardColor,
         darkCardColor,
         themeMode,
+        autoThemeEnabled,
+        autoThemeMode,
+        autoThemeDarkStart,
+        autoThemeDarkEnd,
         useGradient,
         gradientStart,
         gradientEnd,
@@ -1091,7 +1187,6 @@ export default function AdminPage() {
       setIsSaving(false);
     }
   };
-
   const handleSendNotification = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!notifTitle || !notifBody) return;
@@ -1115,7 +1210,6 @@ export default function AdminPage() {
       setIsSaving(false);
     }
   };
-
   const handleDelete = async (path: string) => {
     try {
       await deleteDoc(doc(db, path));
@@ -1125,11 +1219,9 @@ export default function AdminPage() {
       handleFirestoreError(error, OperationType.DELETE, path);
     }
   };
-
   const domainToAuthorize = currentDomain.replace(/^https?:\/\//, '');
   const devDomain = "ais-dev-wdz3ydwwnvsr5dasvcbb6c-177196040326.europe-west2.run.app";
   const preDomain = "ais-pre-wdz3ydwwnvsr5dasvcbb6c-177196040326.europe-west2.run.app";
-
   const getHeaderTitle = () => {
     switch (activeTab) {
       case 'users': return 'إدارة المستخدمين';
@@ -1146,17 +1238,15 @@ export default function AdminPage() {
       default: return 'لوحة التحكم';
     }
   };
-
   return (
     <div className="min-h-screen bg-background text-foreground font-sans pb-20" dir="rtl">
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
-      <Header 
-        title={getHeaderTitle()} 
+      <Header
+        title={getHeaderTitle()}
         onMenuClick={activeTab === 'menu' ? () => setIsSidebarOpen(true) : undefined}
         showBackButton={activeTab !== 'menu'}
         onBackClick={() => setActiveTab('menu')}
       />
-
       <main className="max-w-6xl mx-auto px-4 sm:px-6 pt-6 pb-10">
         {!isAdmin ? (
           !user ? (
@@ -1170,7 +1260,7 @@ export default function AdminPage() {
                 لوحة التحكم مخصصة للمشرفين المعتمدين فقط. يرجى تسجيل الدخول بحساب المشرف للمتابعة.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <button 
+                <button
                   onClick={() => router.push('/login')}
                   className="px-8 py-4 text-white rounded-2xl font-black hover:opacity-90 transition-all shadow-lg shadow-primary/20 active:scale-95 flex items-center justify-center gap-2"
                   style={{ background: 'var(--primary-gradient)' }}
@@ -1178,7 +1268,7 @@ export default function AdminPage() {
                   <LogIn size={20} />
                   <span>تسجيل دخول المشرف</span>
                 </button>
-                <button 
+                <button
                   onClick={() => router.push('/')}
                   className="px-8 py-4 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded-2xl font-bold hover:bg-gray-200 transition-all active:scale-95"
                 >
@@ -1199,13 +1289,13 @@ export default function AdminPage() {
                 هذا البريد غير مدرج في قائمة المسؤولين المعتمدين.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <button 
+                <button
                   onClick={() => router.push('/')}
                   className="px-8 py-4 bg-gray-100 text-gray-700 rounded-2xl font-bold hover:bg-gray-200 transition-all active:scale-95"
                 >
                   العودة للرئيسية
                 </button>
-                <button 
+                <button
                   onClick={() => logout()}
                   className="px-8 py-4 bg-red-600 text-white rounded-2xl font-bold hover:bg-red-700 transition-all shadow-lg shadow-red-200 active:scale-95"
                 >
@@ -1225,14 +1315,13 @@ export default function AdminPage() {
                   <span className="block sm:inline text-primary/70 sm:text-inherit">الملكية</span>
                 </h1>
               </div>
-              <button 
+              <button
                 onClick={() => logout()}
                 className="bg-muted text-foreground/70 px-4 py-2 sm:px-5 sm:py-3 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm hover:bg-muted/80 transition-colors w-full sm:w-auto text-center"
               >
                 تسجيل الخروج
               </button>
             </div>
-
             <AnimatePresence mode="wait">
               {activeTab === 'menu' ? (
                 <motion.div
@@ -1261,12 +1350,11 @@ export default function AdminPage() {
                       </div>
                     ))}
                   </div>
-
                   {/* Quick Maintenance Control Widget */}
                   <div className={cn(
                     "p-6 sm:p-8 rounded-[2rem] sm:rounded-[2.5rem] border transition-all duration-300 flex flex-col sm:flex-row items-center justify-between gap-5 shadow-sm",
-                    maintenanceEnabled 
-                      ? "bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-200" 
+                    maintenanceEnabled
+                      ? "bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-200"
                       : "bg-emerald-500/10 border-emerald-500/30 text-emerald-900 dark:text-emerald-200"
                   )}>
                     <div className="flex items-center gap-4 text-right w-full sm:w-auto">
@@ -1287,28 +1375,26 @@ export default function AdminPage() {
                           </span>
                         </div>
                         <p className="text-xs sm:text-sm font-semibold opacity-80 mt-1">
-                          {maintenanceEnabled 
-                            ? "الموقع مغلق حالياً أمام جميع الزوار وتظهر لهم صفحة الصيانة والتطوير الاحترافية." 
+                          {maintenanceEnabled
+                            ? "الموقع مغلق حالياً أمام جميع الزوار وتظهر لهم صفحة الصيانة والتطوير الاحترافية."
                             : "الموقع متاح ويعمل بشكل طبيعي لجميع المستخدمين والزوار."}
                         </p>
                       </div>
                     </div>
-
                     <div className="flex items-center gap-3 shrink-0 w-full sm:w-auto justify-end">
                       <button
                         type="button"
                         onClick={() => handleQuickToggleMaintenance(!maintenanceEnabled)}
                         className={cn(
                           "px-5 py-3 rounded-2xl font-black text-xs sm:text-sm transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 flex-1 sm:flex-none",
-                          maintenanceEnabled 
-                            ? "bg-emerald-600 hover:bg-emerald-700 text-white" 
+                          maintenanceEnabled
+                            ? "bg-emerald-600 hover:bg-emerald-700 text-white"
                             : "bg-amber-600 hover:bg-amber-700 text-white"
                         )}
                       >
                         <Power size={18} />
                         <span>{maintenanceEnabled ? "إيقاف الصيانة وتنشيط الموقع" : "تفعيل صيانة الموقع الآن"}</span>
                       </button>
-
                       <button
                         type="button"
                         onClick={() => setActiveTab('maintenance')}
@@ -1319,14 +1405,14 @@ export default function AdminPage() {
                       </button>
                     </div>
                   </div>
-
                   <div className="space-y-10">
                     {[
                       {
-                        title: 'إدارة المحتوى والمستخدمين',
+                        title: 'إدارة المحتوى والمستخدمين والربط البرمجي',
                         items: [
                           { id: 'content', label: 'المحتوى والأقسام', icon: Home, desc: 'إدارة الأقسام والمنشورات' },
                           { id: 'users', label: 'المستخدمين', icon: Users, desc: 'إدارة صلاحيات الوصول' },
+                          { id: 'api', label: 'الربط البرمجي (API)', icon: Code2, desc: 'مفاتيح الوصول وتوثيق واجهات الموقع الخارجية' },
                           { id: 'tools', label: 'إعدادات الأدوات', icon: Hammer, desc: 'تغيير معرفات Cloudflare للادوات' },
                           { id: 'security', label: 'حماية المحتوى والنسخ', icon: Lock, desc: 'منع النسخ وحماية حقوق النشر والزر الأيمن' },
                         ]
@@ -1395,13 +1481,12 @@ export default function AdminPage() {
                       </div>
                       <h2 className="text-lg sm:text-xl font-bold">إضافة مستخدم جديد</h2>
                     </div>
-                    
                     <form onSubmit={handleAddUser} className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
                       <div className="space-y-2">
                         <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block ml-2">البريد الإلكتروني</label>
-                        <input 
-                          type="email" 
-                          placeholder="example@gmail.com" 
+                        <input
+                          type="email"
+                          placeholder="example@gmail.com"
                           value={newUserId}
                           onChange={(e) => setNewUserId(e.target.value)}
                           className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all"
@@ -1410,7 +1495,7 @@ export default function AdminPage() {
                       </div>
                       <div className="space-y-2">
                         <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block ml-2">الصلاحية</label>
-                        <select 
+                        <select
                           value={newUserRole}
                           onChange={(e) => setNewUserRole(e.target.value as any)}
                           className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all appearance-none"
@@ -1419,8 +1504,8 @@ export default function AdminPage() {
                           <option value="editor">محرر (Editor)</option>
                         </select>
                       </div>
-                      <button 
-                        type="submit" 
+                      <button
+                        type="submit"
                         disabled={isSaving}
                         className="text-white py-4 rounded-2xl font-bold text-sm hover:opacity-90 transition-all shadow-lg shadow-primary/20 active:scale-95 disabled:opacity-50"
                         style={{ background: 'var(--primary-gradient)' }}
@@ -1429,7 +1514,6 @@ export default function AdminPage() {
                       </button>
                     </form>
                   </section>
-
                   <section className="bg-white rounded-[28px] sm:rounded-[40px] p-6 sm:p-10 shadow-sm border border-gray-100">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8 sm:mb-10">
                       <div className="space-y-1">
@@ -1441,7 +1525,6 @@ export default function AdminPage() {
                         <Users size={24} className="hidden sm:block" />
                       </div>
                     </div>
-
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                       {whitelistData?.map((entry: any, idx: number) => (
                         <div key={`${entry.id}-${idx}`} className="bg-white rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-8 border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-500 group relative overflow-hidden">
@@ -1466,7 +1549,6 @@ export default function AdminPage() {
                               {entry.role === 'admin' ? 'مسؤول' : 'محرر'}
                             </div>
                           </div>
-
                           {/* Status Badge */}
                           <div className="flex items-center gap-2 mb-6">
                             <div className="px-4 py-1.5 bg-green-50 text-green-600 rounded-full text-[10px] font-black flex items-center gap-2">
@@ -1477,7 +1559,6 @@ export default function AdminPage() {
                               مجاني
                             </div>
                           </div>
-
                           {/* Stats Card */}
                           <div className="bg-gray-50/50 rounded-[2rem] p-6 border border-gray-100 mb-6 relative overflow-hidden group-hover:bg-white transition-colors duration-500">
                             <div className="grid grid-cols-2 gap-4 relative z-10">
@@ -1497,10 +1578,9 @@ export default function AdminPage() {
                             </div>
                             <p className="text-[9px] text-gray-300 font-bold mt-4 text-center">آخر ظهور: اليوم في 10:00 م</p>
                           </div>
-
                           {/* Actions */}
                           <div className="flex gap-3">
-                            <button 
+                            <button
                               onClick={() => initiateDelete(entry.email, 'user', entry.email)}
                               className="flex-1 py-4 bg-red-50 text-red-500 rounded-2xl font-black text-xs flex items-center justify-center gap-2 hover:bg-red-500 hover:text-white transition-all active:scale-95"
                             >
@@ -1532,7 +1612,6 @@ export default function AdminPage() {
                       </div>
                       <h2 className="text-xl font-bold text-foreground">ألوان الموقع والمظهر</h2>
                     </div>
-                    
                     <div className="space-y-8">
                       <div className="p-6 bg-muted rounded-2xl border border-border">
                         <label className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block mb-4">نمط المظهر الافتراضي</label>
@@ -1548,8 +1627,8 @@ export default function AdminPage() {
                               onClick={() => setThemeMode(mode.id as any)}
                               className={cn(
                                 "flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all",
-                                themeMode === mode.id 
-                                  ? "bg-card border-primary shadow-md text-primary" 
+                                themeMode === mode.id
+                                  ? "bg-card border-primary shadow-md text-primary"
                                   : "bg-card/50 border-transparent text-gray-400 hover:border-border"
                               )}
                             >
@@ -1560,6 +1639,96 @@ export default function AdminPage() {
                         </div>
                       </div>
 
+                      {/* Auto Theme Switcher Feature Block */}
+                      <div className="p-6 bg-muted rounded-2xl border border-border space-y-6">
+                        <div className="flex items-center justify-between gap-4">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xl">🌓</span>
+                              <p className="text-sm font-bold text-foreground">التبديل التلقائي بين الوضع الفاتح والداكن</p>
+                            </div>
+                            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
+                              تغيير المظهر تلقائياً وبشكل سلس بناءً على إعدادات نظام المستخدم أو توقيت الجهاز المحلي
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setAutoThemeEnabled(!autoThemeEnabled)}
+                            className={cn(
+                              "w-14 h-8 rounded-full transition-all relative shrink-0",
+                              autoThemeEnabled ? "bg-primary" : "bg-muted-foreground/30"
+                            )}
+                          >
+                            <div className={cn(
+                              "absolute top-1 w-6 h-6 bg-white rounded-full transition-all shadow-sm",
+                              autoThemeEnabled ? "right-1" : "right-7"
+                            )} />
+                          </button>
+                        </div>
+
+                        {autoThemeEnabled && (
+                          <div className="space-y-5 pt-4 border-t border-border/60 animate-in fade-in duration-300">
+                            <div>
+                              <label className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block mb-3">
+                                معيار التبديل التلقائي
+                              </label>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {[
+                                  { id: 'system', label: 'إعدادات النظام (الجهاز)', desc: 'يتبع الوضع الداكن/الفاتح بالهاتف تلقائياً', icon: '📱' },
+                                  { id: 'time', label: 'توقيت الجهاز (ساعات الليل)', desc: 'تبديل تلقائي بناءً على ساعات الليل والنهار', icon: '⏰' }
+                                ].map((item) => (
+                                  <button
+                                    key={item.id}
+                                    type="button"
+                                    onClick={() => setAutoThemeMode(item.id as any)}
+                                    className={cn(
+                                      "flex flex-col text-right p-4 rounded-2xl border-2 transition-all gap-1",
+                                      autoThemeMode === item.id
+                                        ? "bg-card border-primary shadow-sm text-primary"
+                                        : "bg-card/50 border-transparent text-gray-400 hover:border-border"
+                                    )}
+                                  >
+                                    <div className="flex items-center gap-2 font-bold text-xs">
+                                      <span>{item.icon}</span>
+                                      <span>{item.label}</span>
+                                    </div>
+                                    <span className="text-[10px] text-gray-400 dark:text-gray-500">{item.desc}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            {autoThemeMode === 'time' && (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                                <div className="space-y-1.5">
+                                  <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                    <span>🌙</span>
+                                    <span>بداية الوضع الداكن (مساءً)</span>
+                                  </label>
+                                  <input
+                                    type="time"
+                                    value={autoThemeDarkStart}
+                                    onChange={(e) => setAutoThemeDarkStart(e.target.value)}
+                                    className="w-full bg-card border border-border rounded-xl px-4 py-2.5 text-xs font-bold text-foreground focus:ring-2 focus:ring-primary outline-none"
+                                  />
+                                </div>
+                                <div className="space-y-1.5">
+                                  <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                    <span>☀️</span>
+                                    <span>بداية الوضع الفاتح (صباحاً)</span>
+                                  </label>
+                                  <input
+                                    type="time"
+                                    value={autoThemeDarkEnd}
+                                    onChange={(e) => setAutoThemeDarkEnd(e.target.value)}
+                                    className="w-full bg-card border border-border rounded-xl px-4 py-2.5 text-xs font-bold text-foreground focus:ring-2 focus:ring-primary outline-none"
+                                  />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                       <div className="p-6 bg-muted rounded-2xl border border-border">
                         <label className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block mb-4">تفعيل التدرج اللوني (Gradient)</label>
                         <div className="flex items-center justify-between">
@@ -1567,7 +1736,7 @@ export default function AdminPage() {
                             <p className="text-sm font-bold text-foreground">استخدام التدرج</p>
                             <p className="text-[10px] text-gray-400 dark:text-gray-500">سيتم تطبيق التدرج على الأزرار والعناصر الرئيسية</p>
                           </div>
-                          <button 
+                          <button
                             onClick={() => setUseGradient(!useGradient)}
                             className={cn(
                               "w-14 h-8 rounded-full transition-all relative",
@@ -1581,7 +1750,6 @@ export default function AdminPage() {
                           </button>
                         </div>
                       </div>
-
                       {useGradient && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div className="p-6 bg-muted rounded-2xl border border-border">
@@ -1614,7 +1782,6 @@ export default function AdminPage() {
                           </div>
                         </div>
                       )}
-
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="p-6 bg-muted rounded-2xl border border-border">
                           <label className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block mb-4">اللون الرئيسي (فاتح)</label>
@@ -1673,19 +1840,17 @@ export default function AdminPage() {
                           </div>
                         </div>
                       </div>
-
                       <div className="p-6 bg-muted rounded-2xl border border-border">
                         <label className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block mb-4">كود CSS مخصص</label>
-                        <textarea 
-                          value={customCss} 
-                          onChange={(e) => setCustomCss(e.target.value)} 
+                        <textarea
+                          value={customCss}
+                          onChange={(e) => setCustomCss(e.target.value)}
                           className="w-full bg-card border border-border rounded-xl px-4 py-4 text-sm font-mono font-bold h-48 resize-none focus:ring-2 focus:ring-primary/20 outline-none text-foreground"
                           placeholder="/* اكتب كود CSS هنا... */&#10;.my-class {&#10;  color: red;&#10;}"
                           dir="ltr"
                         />
                       </div>
-
-                      <button 
+                      <button
                         onClick={handleUpdateTheme}
                         disabled={isSaving}
                         className="w-full text-white py-4 rounded-2xl font-bold text-sm hover:opacity-90 transition-all shadow-lg shadow-primary/20 disabled:opacity-50 active:scale-95 flex items-center justify-center gap-2"
@@ -1716,13 +1881,12 @@ export default function AdminPage() {
                       </div>
                       <h2 className="text-xl font-bold">إرسال إشعار جديد</h2>
                     </div>
-
                     <form onSubmit={handleSendNotification} className="space-y-6">
                       <div className="space-y-2">
                         <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block ml-2">عنوان الإشعار</label>
-                        <input 
-                          type="text" 
-                          placeholder="اكتب العنوان هنا..." 
+                        <input
+                          type="text"
+                          placeholder="اكتب العنوان هنا..."
                           value={notifTitle}
                           onChange={(e) => setNotifTitle(e.target.value)}
                           className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all"
@@ -1731,8 +1895,8 @@ export default function AdminPage() {
                       </div>
                       <div className="space-y-2">
                         <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block ml-2">محتوى الرسالة</label>
-                        <textarea 
-                          placeholder="اكتب تفاصيل الرسالة..." 
+                        <textarea
+                          placeholder="اكتب تفاصيل الرسالة..."
                           value={notifBody}
                           onChange={(e) => setNotifBody(e.target.value)}
                           className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-medium h-32 resize-none outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all"
@@ -1741,16 +1905,16 @@ export default function AdminPage() {
                       </div>
                       <div className="space-y-2">
                         <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block ml-2">رابط الإشعار (اختياري)</label>
-                        <input 
-                          type="text" 
-                          placeholder="https://example.com" 
+                        <input
+                          type="text"
+                          placeholder="https://example.com"
                           value={notifLink}
                           onChange={(e) => setNotifLink(e.target.value)}
                           className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all"
                         />
                       </div>
-                      <button 
-                        type="submit" 
+                      <button
+                        type="submit"
                         disabled={isSaving}
                         className="w-full bg-gray-900 text-white py-4 rounded-2xl font-bold text-sm hover:bg-black transition-all shadow-xl active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
                       >
@@ -1759,7 +1923,6 @@ export default function AdminPage() {
                       </button>
                     </form>
                   </section>
-
                   <section className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100">
                     <div className="flex items-center gap-3 mb-8">
                       <div className="w-10 h-10 bg-gray-50 text-gray-600 rounded-xl flex items-center justify-center">
@@ -1793,8 +1956,8 @@ export default function AdminPage() {
                                 </div>
                             </div>
                           </div>
-                          <button 
-                            onClick={() => initiateDelete(`notifications/${notif.id}`, 'إشعار', notif.title)} 
+                          <button
+                            onClick={() => initiateDelete(`notifications/${notif.id}`, 'إشعار', notif.title)}
                             className="text-gray-300 hover:text-red-500 hover:bg-red-50 p-2 rounded-xl transition-all"
                           >
                             <Trash2 size={18} />
@@ -1824,14 +1987,13 @@ export default function AdminPage() {
                       </div>
                       <h2 className="text-xl font-bold">إعدادات الديالوج (iPhone Style)</h2>
                     </div>
-
                     <div className="space-y-6">
                       <div className="flex items-center justify-between p-6 bg-gray-50 rounded-2xl border border-gray-100">
                         <div>
                           <p className="font-bold">تفعيل الديالوج</p>
                           <p className="text-xs text-gray-400">إظهار الديالوج للمستخدمين عند الدخول</p>
                         </div>
-                        <button 
+                        <button
                           onClick={() => setIsDialogActive(!isDialogActive)}
                           className={cn(
                             "w-14 h-8 rounded-full transition-all relative",
@@ -1844,31 +2006,28 @@ export default function AdminPage() {
                           )} />
                         </button>
                       </div>
-
                       <div className="space-y-2">
                         <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block ml-2">العنوان</label>
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           value={dialogTitle}
                           onChange={(e) => setDialogTitle(e.target.value)}
                           className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all"
                         />
                       </div>
-
                       <div className="space-y-2">
                         <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block ml-2">الرسالة</label>
-                        <textarea 
+                        <textarea
                           value={dialogMessage}
                           onChange={(e) => setDialogMessage(e.target.value)}
                           className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-medium h-24 resize-none outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all"
                         />
                       </div>
-
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
                           <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block ml-2">نص زر الإجراء (اشتراك/تحميل)</label>
-                          <input 
-                            type="text" 
+                          <input
+                            type="text"
                             value={dialogActionText}
                             onChange={(e) => setDialogActionText(e.target.value)}
                             className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all"
@@ -1876,31 +2035,29 @@ export default function AdminPage() {
                         </div>
                         <div className="space-y-2">
                           <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block ml-2">نص زر الإلغاء</label>
-                          <input 
-                            type="text" 
+                          <input
+                            type="text"
                             value={dialogCancelText}
                             onChange={(e) => setDialogCancelText(e.target.value)}
                             className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all"
                           />
                         </div>
                       </div>
-
                       <div className="space-y-2">
                         <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block ml-2">رابط زر الإجراء (اختياري)</label>
-                        <input 
-                          type="url" 
+                        <input
+                          type="url"
                           placeholder="https://example.com"
                           value={dialogActionUrl}
                           onChange={(e) => setDialogActionUrl(e.target.value)}
                           className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all"
                         />
                       </div>
-
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
                           <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block ml-2">تكرار الظهور</label>
-                          <input 
-                            type="number" 
+                          <input
+                            type="number"
                             value={dialogFrequency}
                             onChange={(e) => setDialogFrequency(parseInt(e.target.value))}
                             className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all"
@@ -1908,7 +2065,7 @@ export default function AdminPage() {
                         </div>
                         <div className="space-y-2">
                           <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block ml-2">الوحدة</label>
-                          <select 
+                          <select
                             value={dialogFrequencyUnit}
                             onChange={(e) => setDialogFrequencyUnit(e.target.value as any)}
                             className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all appearance-none"
@@ -1918,8 +2075,7 @@ export default function AdminPage() {
                           </select>
                         </div>
                       </div>
-
-                      <button 
+                      <button
                         onClick={handleUpdateDialog}
                         disabled={isSaving}
                         className="w-full text-white py-4 rounded-2xl font-bold text-sm hover:opacity-90 transition-all shadow-lg active:scale-95 disabled:opacity-50"
@@ -1948,13 +2104,12 @@ export default function AdminPage() {
                         <p className="text-xs text-gray-400 font-medium mt-0.5">تعديل كافة بيانات بطاقة عن التطبيق والنافذة المنبثقة مباشرة</p>
                       </div>
                     </div>
-
                     <div className="space-y-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
                           <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block ml-2">اسم التطبيق (العنوان الرئيسي)</label>
-                          <input 
-                            type="text" 
+                          <input
+                            type="text"
                             value={aboutTitle}
                             onChange={(e) => setAboutTitle(e.target.value)}
                             placeholder="تطبيق مسلم للقرآن الكريم"
@@ -1963,8 +2118,8 @@ export default function AdminPage() {
                         </div>
                         <div className="space-y-2">
                           <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block ml-2">العنوان الفرعي (الوصف)</label>
-                          <input 
-                            type="text" 
+                          <input
+                            type="text"
                             value={aboutSubtitle}
                             onChange={(e) => setAboutSubtitle(e.target.value)}
                             placeholder="منصة للاستماع والتنزيل المباشر بأعلى جودة"
@@ -1972,13 +2127,12 @@ export default function AdminPage() {
                           />
                         </div>
                       </div>
-
                       {/* Developer & Phone & Update Status */}
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div className="space-y-2">
                           <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block ml-2">تطوير وتصميم (اسم المطور)</label>
-                          <input 
-                            type="text" 
+                          <input
+                            type="text"
                             value={aboutDeveloperName}
                             onChange={(e) => setAboutDeveloperName(e.target.value)}
                             placeholder="YOSSEF / تطوير"
@@ -1989,8 +2143,8 @@ export default function AdminPage() {
                           <div className="flex items-center justify-between">
                             <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block ml-2">رقم الهاتف</label>
                             <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-gray-600 dark:text-gray-400 hover:text-gray-900 transition-colors">
-                              <input 
-                                type="checkbox" 
+                              <input
+                                type="checkbox"
                                 checked={aboutHidePhoneNumber}
                                 onChange={(e) => setAboutHidePhoneNumber(e.target.checked)}
                                 className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-gray-300"
@@ -1998,8 +2152,8 @@ export default function AdminPage() {
                               <span>إخفاء الرقم افتراضياً</span>
                             </label>
                           </div>
-                          <input 
-                            type="text" 
+                          <input
+                            type="text"
                             value={aboutPhoneNumber}
                             onChange={(e) => setAboutPhoneNumber(e.target.value)}
                             placeholder="01029892573"
@@ -2008,8 +2162,8 @@ export default function AdminPage() {
                         </div>
                         <div className="space-y-2">
                           <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block ml-2">حالة التحديث</label>
-                          <input 
-                            type="text" 
+                          <input
+                            type="text"
                             value={aboutVersionStatus}
                             onChange={(e) => setAboutVersionStatus(e.target.value)}
                             placeholder="إصدار مكتمل ومستقر"
@@ -2017,7 +2171,6 @@ export default function AdminPage() {
                           />
                         </div>
                       </div>
-
                       {/* Link 1 (Primary Button Settings) */}
                       <div className="p-5 bg-gray-50/80 rounded-3xl border border-gray-100 space-y-4">
                         <h4 className="text-xs font-black text-gray-800 uppercase tracking-wider flex items-center gap-2">
@@ -2026,7 +2179,7 @@ export default function AdminPage() {
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                           <div className="space-y-1.5 md:col-span-1">
                             <label className="text-[11px] font-bold text-gray-600 block ml-2">منصة الزر (تحديد اللون والأيقونة)</label>
-                            <select 
+                            <select
                               value={aboutWebLinkPlatform}
                               onChange={(e) => setAboutWebLinkPlatform(e.target.value)}
                               className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
@@ -2044,8 +2197,8 @@ export default function AdminPage() {
                           </div>
                           <div className="space-y-1.5 md:col-span-1">
                             <label className="text-[11px] font-bold text-gray-600 block ml-2">نص الزر الرئيسي</label>
-                            <input 
-                              type="text" 
+                            <input
+                              type="text"
                               value={aboutWebLinkText}
                               onChange={(e) => setAboutWebLinkText(e.target.value)}
                               placeholder="زيارة الموقع الإلكتروني"
@@ -2054,8 +2207,8 @@ export default function AdminPage() {
                           </div>
                           <div className="space-y-1.5 md:col-span-1">
                             <label className="text-[11px] font-bold text-gray-600 block ml-2">رابط الزر (URL)</label>
-                            <input 
-                              type="text" 
+                            <input
+                              type="text"
                               value={aboutWebLink}
                               onChange={(e) => setAboutWebLink(e.target.value)}
                               placeholder="https://..."
@@ -2064,7 +2217,6 @@ export default function AdminPage() {
                           </div>
                         </div>
                       </div>
-
                       {/* Link 2 (Secondary / Additional Button Settings) */}
                       <div className="p-5 bg-gray-50/80 rounded-3xl border border-gray-100 space-y-4">
                         <h4 className="text-xs font-black text-gray-800 uppercase tracking-wider flex items-center gap-2">
@@ -2073,7 +2225,7 @@ export default function AdminPage() {
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                           <div className="space-y-1.5 md:col-span-1">
                             <label className="text-[11px] font-bold text-gray-600 block ml-2">منصة الزر (تحديد اللون والأيقونة)</label>
-                            <select 
+                            <select
                               value={aboutSecondaryLinkPlatform}
                               onChange={(e) => setAboutSecondaryLinkPlatform(e.target.value)}
                               className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
@@ -2091,8 +2243,8 @@ export default function AdminPage() {
                           </div>
                           <div className="space-y-1.5 md:col-span-1">
                             <label className="text-[11px] font-bold text-gray-600 block ml-2">نص الزر الإضافي</label>
-                            <input 
-                              type="text" 
+                            <input
+                              type="text"
                               value={aboutSecondaryLinkText}
                               onChange={(e) => setAboutSecondaryLinkText(e.target.value)}
                               placeholder="مثال: قناتنا على يوتيوب"
@@ -2101,8 +2253,8 @@ export default function AdminPage() {
                           </div>
                           <div className="space-y-1.5 md:col-span-1">
                             <label className="text-[11px] font-bold text-gray-600 block ml-2">رابط الزر (URL)</label>
-                            <input 
-                              type="text" 
+                            <input
+                              type="text"
                               value={aboutSecondaryLink}
                               onChange={(e) => setAboutSecondaryLink(e.target.value)}
                               placeholder="https://..."
@@ -2111,7 +2263,6 @@ export default function AdminPage() {
                           </div>
                         </div>
                       </div>
-
                       {/* WhatsApp Settings & Toggle */}
                       <div className="p-5 bg-emerald-50/40 border border-emerald-100 rounded-3xl space-y-4">
                         <div className="flex items-center justify-between gap-4">
@@ -2119,7 +2270,7 @@ export default function AdminPage() {
                             <span>💬</span> إعدادات زر الواتساب
                           </h4>
                           <label className="inline-flex items-center gap-2 cursor-pointer select-none">
-                            <input 
+                            <input
                               type="checkbox"
                               checked={aboutShowWhatsapp}
                               onChange={(e) => setAboutShowWhatsapp(e.target.checked)}
@@ -2128,13 +2279,12 @@ export default function AdminPage() {
                             <span className="text-xs font-bold text-gray-700">تفعيل إظهار زر الواتساب</span>
                           </label>
                         </div>
-
                         {aboutShowWhatsapp && (
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 border-t border-emerald-100">
                             <div className="space-y-1.5">
                               <label className="text-[11px] font-bold text-gray-600 block ml-2">رقم الواتساب المباشر</label>
-                              <input 
-                                type="text" 
+                              <input
+                                type="text"
                                 value={aboutWhatsappNumber}
                                 onChange={(e) => setAboutWhatsappNumber(e.target.value)}
                                 placeholder="01029892573"
@@ -2143,8 +2293,8 @@ export default function AdminPage() {
                             </div>
                             <div className="space-y-1.5 md:col-span-2">
                               <label className="text-[11px] font-bold text-gray-600 block ml-2">نص زر الواتساب</label>
-                              <input 
-                                type="text" 
+                              <input
+                                type="text"
                                 value={aboutWhatsappText}
                                 onChange={(e) => setAboutWhatsappText(e.target.value)}
                                 placeholder="تواصل عبر واتساب مباشر (01029892573)"
@@ -2154,21 +2304,19 @@ export default function AdminPage() {
                           </div>
                         )}
                       </div>
-
                       <div className="space-y-2">
                         <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block ml-2">رابط شعار مخصص (إذا رغبت في استبدال شعار رفيق المصمم بصورة)</label>
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           value={aboutLogoImage}
                           onChange={(e) => setAboutLogoImage(e.target.value)}
                           placeholder="https://..."
                           className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500/20 transition-all font-mono"
                         />
                       </div>
-
                       <div className="space-y-2">
                         <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block ml-2">التقييم بالنجوم</label>
-                        <select 
+                        <select
                           value={aboutRating}
                           onChange={(e) => setAboutRating(Number(e.target.value))}
                           className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500/20 transition-all"
@@ -2180,28 +2328,25 @@ export default function AdminPage() {
                           <option value={1}>نجمة واحدة ⭐</option>
                         </select>
                       </div>
-
                       <div className="space-y-2">
                         <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block ml-2">الوصف الإضافي (اختياري)</label>
-                        <textarea 
+                        <textarea
                           value={aboutDescription}
                           onChange={(e) => setAboutDescription(e.target.value)}
                           placeholder="وصف إضافي يظهر تحت البطاقة..."
                           className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-medium h-24 resize-none outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500/20 transition-all"
                         />
                       </div>
-
                       <div className="space-y-2">
                         <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block ml-2">الرؤية (اختياري)</label>
-                        <textarea 
+                        <textarea
                           value={aboutVision}
                           onChange={(e) => setAboutVision(e.target.value)}
                           placeholder="رؤيتنا المستقبيلة..."
                           className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-medium h-24 resize-none outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500/20 transition-all"
                         />
                       </div>
-
-                      <button 
+                      <button
                         onClick={handleUpdateAbout}
                         disabled={isSaving}
                         className="w-full bg-emerald-600 text-white py-4 rounded-2xl font-bold text-sm hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20 active:scale-95 disabled:opacity-50"
@@ -2226,13 +2371,12 @@ export default function AdminPage() {
                       </div>
                       <h2 className="text-xl font-bold">إعدادات صفحة تواصل معنا</h2>
                     </div>
-
                     <div className="space-y-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
                           <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block ml-2">العنوان الرئيسي</label>
-                          <input 
-                            type="text" 
+                          <input
+                            type="text"
                             value={contactTitle}
                             onChange={(e) => setContactTitle(e.target.value)}
                             className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all"
@@ -2240,19 +2384,18 @@ export default function AdminPage() {
                         </div>
                         <div className="space-y-2">
                           <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block ml-2">العنوان الفرعي</label>
-                          <input 
-                            type="text" 
+                          <input
+                            type="text"
                             value={contactSubtitle}
                             onChange={(e) => setContactSubtitle(e.target.value)}
                             className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all"
                           />
                         </div>
                       </div>
-
                       <div className="p-6 bg-green-50 rounded-[2rem] border border-green-100 space-y-4">
                         <div className="flex items-center justify-between">
                             <h4 className="text-sm font-black text-green-700">زر واتساب العائم</h4>
-                            <div 
+                            <div
                                 onClick={() => setIsContactBtnActive(!isContactBtnActive)}
                                 className={cn(
                                     "w-12 h-6 rounded-full p-1 cursor-pointer transition-colors",
@@ -2267,8 +2410,8 @@ export default function AdminPage() {
                         </div>
                         <div className="space-y-2">
                           <label className="text-[10px] font-bold text-green-600 uppercase">رابط محادثة واتساب (https://wa.me/xxx)</label>
-                          <input 
-                            type="text" 
+                          <input
+                            type="text"
                             value={contactBtnLink}
                             onChange={(e) => setContactBtnLink(e.target.value)}
                             className="w-full bg-white border border-green-100 rounded-xl px-4 py-2 text-xs font-bold outline-none"
@@ -2276,8 +2419,7 @@ export default function AdminPage() {
                           />
                         </div>
                       </div>
-
-                      <button 
+                      <button
                         onClick={handleUpdateContact}
                         disabled={isSaving}
                         className="w-full h-14 rounded-2xl text-white font-bold bg-primary shadow-lg shadow-primary/20 transition-all active:scale-95 disabled:opacity-50"
@@ -2286,14 +2428,13 @@ export default function AdminPage() {
                       </button>
                     </div>
                   </section>
-
                   <section className="bg-white rounded-[3rem] p-8 shadow-sm border border-gray-100 space-y-8">
                     <div className="flex items-center justify-between">
                         <div className="space-y-1">
                             <h2 className="text-xl font-black text-[#1A1C1E]">وسائل التواصل</h2>
                             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-relaxed">إضافة أو حذف وسائل التواصل المعروضة</p>
                         </div>
-                        <button 
+                        <button
                             onClick={() => {
                                 setEditingContact({ type: 'phone', label: '', value: '', icon: 'Phone', actionUrl: '', order: contacts.length, active: true });
                                 setIsContactModalOpen(true);
@@ -2303,7 +2444,6 @@ export default function AdminPage() {
                             <Plus size={24} />
                         </button>
                     </div>
-
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {contacts.map((contact, idx) => {
                             const Icon = iconMap[contact.icon] || Phone;
@@ -2322,7 +2462,7 @@ export default function AdminPage() {
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button 
+                                        <button
                                             onClick={() => {
                                                 setEditingContact(contact);
                                                 setIsContactModalOpen(true);
@@ -2331,7 +2471,7 @@ export default function AdminPage() {
                                         >
                                             <Edit3 size={16} />
                                         </button>
-                                        <button 
+                                        <button
                                             onClick={() => initiateDelete(`contacts/${contact.id}`, 'وسيلة تواصل', contact.label)}
                                             className="p-2 text-red-500 bg-red-50 rounded-xl hover:bg-red-500 hover:text-white transition-all"
                                         >
@@ -2343,11 +2483,10 @@ export default function AdminPage() {
                         })}
                     </div>
                   </section>
-
                   {isContactModalOpen && (
                       <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 sm:p-0">
                           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsContactModalOpen(false)} />
-                          <motion.div 
+                          <motion.div
                             initial={{ scale: 0.9, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             className="bg-white rounded-[3rem] w-full max-w-lg p-10 relative z-10 shadow-3xl space-y-8"
@@ -2358,12 +2497,11 @@ export default function AdminPage() {
                                     <X size={24} />
                                 </button>
                             </div>
-
                             <form onSubmit={handleSaveContactItem} className="space-y-6">
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
                                         <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mr-4">التسمية</label>
-                                        <input 
+                                        <input
                                             required
                                             value={editingContact?.label || ''}
                                             onChange={(e) => setEditingContact({...editingContact, label: e.target.value})}
@@ -2373,7 +2511,7 @@ export default function AdminPage() {
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mr-4">القيمة</label>
-                                        <input 
+                                        <input
                                             required
                                             value={editingContact?.value || ''}
                                             onChange={(e) => setEditingContact({...editingContact, value: e.target.value})}
@@ -2382,11 +2520,10 @@ export default function AdminPage() {
                                         />
                                     </div>
                                 </div>
-
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
                                         <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mr-4">النوع</label>
-                                        <select 
+                                        <select
                                             value={editingContact?.type || 'phone'}
                                             onChange={(e) => setEditingContact({...editingContact, type: e.target.value})}
                                             className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none appearance-none"
@@ -2399,7 +2536,7 @@ export default function AdminPage() {
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mr-4">الأيقونة</label>
-                                        <select 
+                                        <select
                                             value={editingContact?.icon || 'Phone'}
                                             onChange={(e) => setEditingContact({...editingContact, icon: e.target.value})}
                                             className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none appearance-none"
@@ -2416,10 +2553,9 @@ export default function AdminPage() {
                                         </select>
                                     </div>
                                 </div>
-
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mr-4">رابط الإجراء (tel:, mailto:, ...)</label>
-                                    <input 
+                                    <input
                                         required
                                         value={editingContact?.actionUrl || ''}
                                         onChange={(e) => setEditingContact({...editingContact, actionUrl: e.target.value})}
@@ -2427,11 +2563,10 @@ export default function AdminPage() {
                                         placeholder="tel:+9665xxxxxxxx"
                                     />
                                 </div>
-
                                 <div className="flex items-center gap-6">
                                     <div className="flex-1 space-y-2">
                                         <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mr-4">الترتيب</label>
-                                        <input 
+                                        <input
                                             type="number"
                                             value={editingContact?.order || 0}
                                             onChange={(e) => setEditingContact({...editingContact, order: parseInt(e.target.value)})}
@@ -2439,7 +2574,7 @@ export default function AdminPage() {
                                         />
                                     </div>
                                     <div className="flex items-center gap-3 mt-6">
-                                        <input 
+                                        <input
                                             type="checkbox"
                                             checked={editingContact?.active !== false}
                                             onChange={(e) => setEditingContact({...editingContact, active: e.target.checked})}
@@ -2448,8 +2583,7 @@ export default function AdminPage() {
                                         <label className="text-xs font-black">نشط</label>
                                     </div>
                                 </div>
-
-                                <button 
+                                <button
                                     type="submit"
                                     disabled={isSaving}
                                     className="w-full h-14 rounded-2xl bg-primary text-white font-black text-sm shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50"
@@ -2476,14 +2610,13 @@ export default function AdminPage() {
                       </div>
                       <h2 className="text-xl font-bold">إعدادات الزر العائم</h2>
                     </div>
-
                     <div className="space-y-6">
                       <div className="flex items-center justify-between p-6 bg-gray-50 rounded-2xl border border-gray-100">
                         <div>
                           <p className="font-bold">تفعيل الزر العائم</p>
                           <p className="text-xs text-gray-400">إظهار زر التواصل السريع في الزاوية</p>
                         </div>
-                        <button 
+                        <button
                           onClick={() => setIsFbActive(!isFbActive)}
                           className={cn(
                             "w-14 h-8 rounded-full transition-all relative",
@@ -2496,39 +2629,35 @@ export default function AdminPage() {
                           )} />
                         </button>
                       </div>
-
                       <div className="space-y-2">
                         <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block ml-2">نص الزر</label>
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           value={fbLabel}
                           onChange={(e) => setFbLabel(e.target.value)}
                           className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all"
                         />
                       </div>
-
                       <div className="space-y-2">
                         <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block ml-2">الرابط (واتساب أو تيليجرام)</label>
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           value={fbLink}
                           onChange={(e) => setFbLink(e.target.value)}
                           className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all"
                           placeholder="https://wa.me/..."
                         />
                       </div>
-
                       <div className="space-y-2">
                         <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block ml-2">مدة الظهور (بالأيام)</label>
-                        <input 
-                          type="number" 
+                        <input
+                          type="number"
                           value={fbDuration}
                           onChange={(e) => setFbDuration(parseInt(e.target.value))}
                           className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all"
                         />
                       </div>
-
-                      <button 
+                      <button
                         onClick={handleUpdateFloatingButton}
                         disabled={isSaving}
                         className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-sm hover:opacity-90 transition-all shadow-lg active:scale-95 disabled:opacity-50"
@@ -2553,7 +2682,6 @@ export default function AdminPage() {
                       </div>
                       <h2 className="text-xl font-bold">إعدادات الأدوات (Copy ID)</h2>
                     </div>
-
                     <div className="space-y-6">
                       <div className="p-6 bg-red-50 border border-red-100 rounded-2xl flex items-start gap-4 mb-4">
                         <AlertTriangle className="text-red-500 shrink-0 mt-1" size={20} />
@@ -2562,13 +2690,12 @@ export default function AdminPage() {
                           <p className="text-xs text-red-700 leading-relaxed font-bold">هذه المعرفات هي مفاتيح تشغيل الأدوات. إذا تركت الحقل فارغاً، سيتم تعطيل الأداة تلقائياً للمستخدمين مع رسالة تخبرهم بأن الأداة معطلة من قبل الإدارة.</p>
                         </div>
                       </div>
-
                       <div className="grid grid-cols-1 gap-6">
                         <div className="space-y-2">
                           <label className="text-xs font-black text-gray-400 uppercase tracking-wider block ml-2">معرف أداة الدردشة الذكية (Chat Worker ID)</label>
                           <div className="relative">
-                            <input 
-                              type="text" 
+                            <input
+                              type="text"
                               value={chatId}
                               onChange={(e) => setChatId(e.target.value)}
                               className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all ltr"
@@ -2578,12 +2705,11 @@ export default function AdminPage() {
                             {chatId && <div className="absolute left-4 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-green-500 shadow-sm shadow-green-200" />}
                           </div>
                         </div>
-
                         <div className="space-y-2">
                           <label className="text-xs font-black text-gray-400 uppercase tracking-wider block ml-2">معرف أداة توليد الصور (Image Gen ID)</label>
                           <div className="relative">
-                            <input 
-                              type="text" 
+                            <input
+                              type="text"
                               value={imageGenId}
                               onChange={(e) => setImageGenId(e.target.value)}
                               className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all ltr"
@@ -2593,12 +2719,11 @@ export default function AdminPage() {
                             {imageGenId && <div className="absolute left-4 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-green-500 shadow-sm shadow-green-200" />}
                           </div>
                         </div>
-
                         <div className="space-y-2">
                           <label className="text-xs font-black text-gray-400 uppercase tracking-wider block ml-2">معرف أداة تحليل الصور (Prompt Gen ID)</label>
                           <div className="relative">
-                            <input 
-                              type="text" 
+                            <input
+                              type="text"
                               value={promptGenId}
                               onChange={(e) => setPromptGenId(e.target.value)}
                               className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all ltr"
@@ -2608,12 +2733,11 @@ export default function AdminPage() {
                             {promptGenId && <div className="absolute left-4 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-green-500 shadow-sm shadow-green-200" />}
                           </div>
                         </div>
-
                         <div className="space-y-2">
                           <label className="text-xs font-black text-gray-400 uppercase tracking-wider block ml-2">معرف مولد القصص (Story Gen ID)</label>
                           <div className="relative">
-                            <input 
-                              type="text" 
+                            <input
+                              type="text"
                               value={storyGenId}
                               onChange={(e) => setStoryGenId(e.target.value)}
                               className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all ltr"
@@ -2623,12 +2747,11 @@ export default function AdminPage() {
                             {storyGenId && <div className="absolute left-4 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-green-500 shadow-sm shadow-green-200" />}
                           </div>
                         </div>
-
                         <div className="space-y-2">
                           <label className="text-xs font-black text-gray-400 uppercase tracking-wider block ml-2">مفتاح API العالمي (Global Gemini Key)</label>
                           <div className="relative">
-                            <input 
-                              type="password" 
+                            <input
+                              type="password"
                               value={globalApiKey}
                               onChange={(e) => setGlobalApiKey(e.target.value)}
                               className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all ltr"
@@ -2639,8 +2762,7 @@ export default function AdminPage() {
                           </div>
                         </div>
                       </div>
-
-                      <button 
+                      <button
                         onClick={handleUpdateTools}
                         disabled={isSaving}
                         className="w-full text-white h-14 rounded-2xl font-black text-sm hover:opacity-90 transition-all shadow-xl active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 mt-4"
@@ -2662,24 +2784,27 @@ export default function AdminPage() {
                   exit={{ opacity: 0, y: -20 }}
                   className="space-y-8"
                 >
-                  <section className="bg-white rounded-[2rem] p-8 shadow-sm border border-gray-100">
-                    <div className="flex items-center justify-between mb-8 border-b border-gray-100 pb-6">
+                  <section className="bg-white rounded-[2rem] p-5 sm:p-8 shadow-sm border border-gray-100">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 border-b border-gray-100 pb-6">
                       <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-primary/10 text-primary rounded-2xl flex items-center justify-center">
+                        <div className="w-12 h-12 bg-primary/10 text-primary rounded-2xl flex items-center justify-center shrink-0">
                           <Award size={24} />
                         </div>
                         <div>
-                          <h2 className="text-xl font-black">إدارة الإعلانات المتقدمة</h2>
-                          <p className="text-xs text-gray-400 mt-1">تحكم كامل بمواضع الإعلانات ونوعها (Adsterra والشبكات الأخرى)</p>
+                          <h2 className="text-lg sm:text-xl font-black text-gray-900">إدارة الإعلانات المتقدمة</h2>
+                          <p className="text-xs text-gray-400 mt-1">تحكم كامل بمواضع الإعلانات المخصصة وحجوزات الشركات</p>
                         </div>
                       </div>
-                      
-                      <div className="flex items-center gap-3 bg-gray-50 px-4 py-2 rounded-2xl border border-gray-100">
-                        <span className="text-xs text-gray-500 font-bold">الحالة العامة للإعلانات:</span>
-                        <button 
+                      <div className="flex items-center justify-between sm:justify-start gap-4 bg-gray-50 px-4 py-3 rounded-2xl border border-gray-100">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full animate-pulse bg-emerald-500" />
+                          <span className="text-xs text-gray-700 font-bold">الحالة العامة للإعلانات:</span>
+                        </div>
+                        <button
+                          type="button"
                           onClick={() => setShowAds(!showAds)}
                           className={cn(
-                            "w-12 h-7 rounded-full transition-all relative",
+                            "w-12 h-7 rounded-full transition-all relative shrink-0",
                             showAds ? "bg-primary" : "bg-gray-300"
                           )}
                         >
@@ -2690,9 +2815,141 @@ export default function AdminPage() {
                         </button>
                       </div>
                     </div>
-
                     {showAds ? (
                       <div className="space-y-8">
+                        {/* Company Sponsored Ad Slots Builder */}
+                        <div className="p-6 bg-gradient-to-br from-primary/5 via-primary/10 to-transparent rounded-[2rem] border border-primary/20 space-y-6">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-primary/10">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="p-1.5 bg-primary/20 text-primary rounded-xl font-bold text-xs">جديد</span>
+                                <p className="font-black text-lg text-gray-900">مساحات حجز الإعلانات والشركات (Sponsored Banner Slots)</p>
+                              </div>
+                              <p className="text-xs text-gray-500 mt-1">
+                                أنشئ مساحات إعلانية متعددة للشركات والمستثمرين بضغط زر (+)، ولكل خانة كودها وموقعها وارتفاعها الخطي المستقل
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={handleAddCustomSlot}
+                              className="px-5 py-3 rounded-2xl bg-primary text-white font-black text-xs hover:bg-primary/90 transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 shrink-0"
+                            >
+                              <Plus size={18} />
+                              <span>إضافة مساحة إعلانية جديدة (+)</span>
+                            </button>
+                          </div>
+                          {customAdSlots.length === 0 ? (
+                            <div className="text-center py-8 bg-white/60 rounded-2xl border border-dashed border-gray-300 p-6 space-y-2">
+                              <p className="text-xs font-bold text-gray-600">لا توجد مساحات إعلانية مخصصة للشركات حالياً.</p>
+                              <p className="text-[11px] text-gray-400">انقر على زر &quot;إضافة مساحة إعلانية جديدة (+)&quot; أعلاه لإضافة أول حجز إعلاني لشركة.</p>
+                            </div>
+                          ) : (
+                            <div className="space-y-4">
+                              {customAdSlots.map((slot, idx) => (
+                                <div key={slot.id} className="p-5 bg-white rounded-2xl border border-gray-200 shadow-sm space-y-4 transition-all hover:border-primary/40">
+                                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-gray-100">
+                                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                                      <span className="w-8 h-8 rounded-xl bg-gray-100 font-mono font-black text-xs text-gray-600 flex items-center justify-center shrink-0">
+                                        #{idx + 1}
+                                      </span>
+                                      <input
+                                        type="text"
+                                        value={slot.title || ''}
+                                        onChange={(e) => handleUpdateCustomSlot(slot.id, { title: e.target.value })}
+                                        placeholder="اسم المساحة الإعلانية (مثال: إعلان شركة X)"
+                                        className="font-black text-sm text-gray-900 bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5 outline-none focus:bg-white focus:border-primary transition-all flex-1 min-w-0"
+                                      />
+                                    </div>
+                                    <div className="flex items-center gap-3 shrink-0">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleUpdateCustomSlot(slot.id, { active: !slot.active })}
+                                        className={cn(
+                                          "px-3 py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5",
+                                          slot.active ? "bg-emerald-50 border-emerald-300 text-emerald-700" : "bg-gray-100 border-gray-200 text-gray-500"
+                                        )}
+                                      >
+                                        <div className={cn("w-2 h-2 rounded-full", slot.active ? "bg-emerald-500" : "bg-gray-400")} />
+                                        <span>{slot.active ? "مفعّلة" : "معطلة"}</span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemoveCustomSlot(slot.id)}
+                                        className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
+                                        title="حذف هذه المساحة"
+                                      >
+                                        <Trash2 size={18} />
+                                      </button>
+                                    </div>
+                                  </div>
+                                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                    <div>
+                                      <label className="text-[11px] font-bold text-gray-500 block mb-1">اسم الشركة / المحجوز باسم:</label>
+                                      <input
+                                        type="text"
+                                        value={slot.companyName || ''}
+                                        onChange={(e) => handleUpdateCustomSlot(slot.id, { companyName: e.target.value })}
+                                        placeholder="اسم الشركة الممثلة"
+                                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:bg-white focus:border-primary"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="text-[11px] font-bold text-gray-500 block mb-1">موقع وظهور المساحة:</label>
+                                      <select
+                                        value={slot.placement || 'all'}
+                                        onChange={(e) => handleUpdateCustomSlot(slot.id, { placement: e.target.value as any })}
+                                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:bg-white focus:border-primary"
+                                      >
+                                        <option value="all">جميع الصفحات (كل الموقع)</option>
+                                        <option value="home">الصفحة الرئيسية فقط</option>
+                                        <option value="lists">صفحات القوائم والأقسام</option>
+                                        <option value="content">صفحات المحتوى والتفاصيل</option>
+                                        <option value="top">أعلى الصفحة</option>
+                                        <option value="bottom">أسفل الصفحة</option>
+                                      </select>
+                                    </div>
+                                    <div>
+                                      <label className="text-[11px] font-bold text-gray-500 block mb-1">ارتفاع الخانة (Height):</label>
+                                      <select
+                                        value={slot.height || '60px'}
+                                        onChange={(e) => handleUpdateCustomSlot(slot.id, { height: e.target.value })}
+                                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:bg-white focus:border-primary"
+                                      >
+                                        <option value="60px">60 بكسل (قياسي)</option>
+                                        <option value="90px">90 بكسل (متوسط)</option>
+                                        <option value="120px">120 بكسل</option>
+                                        <option value="250px">250 بكسل (كبير)</option>
+                                        <option value="300px">300 بكسل (بانر مربع)</option>
+                                        <option value="auto">تلقائي (حسب الكود)</option>
+                                      </select>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label className="text-[11px] font-bold text-gray-500 block mb-1">شفرة الإعلان الخاصة بالشركة (HTML / Script / Image Link):</label>
+                                    <textarea
+                                      value={slot.script || ''}
+                                      onChange={(e) => handleUpdateCustomSlot(slot.id, { script: e.target.value })}
+                                      rows={3}
+                                      dir="ltr"
+                                      placeholder="<script>...</script> أو <a href='...'><img src='...' /></a>"
+                                      className="w-full bg-gray-900 text-emerald-400 font-mono text-xs rounded-xl p-3 outline-none focus:ring-2 focus:ring-primary/20 ltr"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="text-[11px] font-bold text-gray-500 block mb-1">ملاحظات حجز الإعلان / تاريخ انتهاء الحجز:</label>
+                                    <input
+                                      type="text"
+                                      value={slot.notes || ''}
+                                      onChange={(e) => handleUpdateCustomSlot(slot.id, { notes: e.target.value })}
+                                      placeholder="مثال: ينتهي الحجز بتاريخ 30 ديسمبر 2026"
+                                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-medium outline-none focus:bg-white focus:border-primary"
+                                    />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                         {/* Helper function for category targeting */}
                         {(() => {
                           const renderCategorySelector = (
@@ -2728,7 +2985,6 @@ export default function AdminPage() {
                                   </button>
                                 </div>
                               </div>
-
                               {mode === 'specific' && (
                                 <div className="space-y-2 pt-2 border-t border-gray-100 animate-in fade-in duration-200">
                                   <p className="text-[11px] text-gray-500 font-medium">
@@ -2753,8 +3009,8 @@ export default function AdminPage() {
                                             }}
                                             className={cn(
                                               "px-3.5 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-2",
-                                              isSelected 
-                                                ? "bg-primary/10 border-primary text-primary shadow-sm" 
+                                              isSelected
+                                                ? "bg-primary/10 border-primary text-primary shadow-sm"
                                                 : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100"
                                             )}
                                           >
@@ -2769,7 +3025,6 @@ export default function AdminPage() {
                               )}
                             </div>
                           );
-
                           return (
                             <>
                               {/* 1. Banner Ads Control */}
@@ -2779,7 +3034,7 @@ export default function AdminPage() {
                                     <p className="font-black text-base text-gray-800">1. إعلانات البانر (Banner Ads)</p>
                                     <p className="text-xs text-gray-400 mt-0.5">إعلانات مستطيلة تظهر في أعلى أو أسفل الصفحات</p>
                                   </div>
-                                  <button 
+                                  <button
                                     onClick={() => setBannerShow(!bannerShow)}
                                     className={cn(
                                       "w-12 h-7 rounded-full transition-all relative",
@@ -2792,7 +3047,6 @@ export default function AdminPage() {
                                     )} />
                                   </button>
                                 </div>
-
                                 {bannerShow && (
                                   <div className="space-y-4 animate-in fade-in duration-200">
                                     <div className="space-y-2">
@@ -2808,7 +3062,6 @@ export default function AdminPage() {
                                           <span>الصفحة الرئيسية</span>
                                           {bannerHome && <div className="w-2 h-2 rounded-full bg-primary" />}
                                         </button>
-
                                         <button
                                           onClick={() => setBannerLists(!bannerLists)}
                                           className={cn(
@@ -2819,7 +3072,6 @@ export default function AdminPage() {
                                           <span>صفحة القوائم</span>
                                           {bannerLists && <div className="w-2 h-2 rounded-full bg-primary" />}
                                         </button>
-
                                         <button
                                           onClick={() => setBannerContent(!bannerContent)}
                                           className={cn(
@@ -2832,7 +3084,6 @@ export default function AdminPage() {
                                         </button>
                                       </div>
                                     </div>
-
                                     {/* Category selector for Banner */}
                                     {renderCategorySelector(
                                       bannerCategoryMode,
@@ -2841,10 +3092,9 @@ export default function AdminPage() {
                                       setBannerCategories,
                                       'تحديد أقسام ظهور إعلان البانر'
                                     )}
-
                                     <div className="space-y-2">
                                       <label className="text-xs font-black text-gray-500 block">شفرة إعلان البانر (Script Code)</label>
-                                      <textarea 
+                                      <textarea
                                         value={bannerScript}
                                         onChange={(e) => setBannerScript(e.target.value)}
                                         rows={4}
@@ -2856,7 +3106,6 @@ export default function AdminPage() {
                                   </div>
                                 )}
                               </div>
-
                               {/* 2. Interstitial Ads Control */}
                               <div className="p-6 bg-gray-50/50 rounded-[2rem] border border-gray-100 space-y-4">
                                 <div className="flex items-center justify-between pb-4 border-b border-gray-100/60">
@@ -2864,7 +3113,7 @@ export default function AdminPage() {
                                     <p className="font-black text-base text-gray-800">2. الإعلانات البينية وملء الشاشة (Interstitial Ads)</p>
                                     <p className="text-xs text-gray-400 mt-0.5">تظهر ملء الشاشة عند التنقل بين الأقسام</p>
                                   </div>
-                                  <button 
+                                  <button
                                     onClick={() => setInterstitialShow(!interstitialShow)}
                                     className={cn(
                                       "w-12 h-7 rounded-full transition-all relative",
@@ -2877,7 +3126,6 @@ export default function AdminPage() {
                                     )} />
                                   </button>
                                 </div>
-
                                 {interstitialShow && (
                                   <div className="space-y-4 animate-in fade-in duration-200">
                                     <div className="space-y-2">
@@ -2893,7 +3141,6 @@ export default function AdminPage() {
                                           <span>الصفحة الرئيسية</span>
                                           {interstitialHome && <div className="w-2 h-2 rounded-full bg-primary" />}
                                         </button>
-
                                         <button
                                           onClick={() => setInterstitialLists(!interstitialLists)}
                                           className={cn(
@@ -2904,7 +3151,6 @@ export default function AdminPage() {
                                           <span>صفحة القوائم</span>
                                           {interstitialLists && <div className="w-2 h-2 rounded-full bg-primary" />}
                                         </button>
-
                                         <button
                                           onClick={() => setInterstitialContent(!interstitialContent)}
                                           className={cn(
@@ -2917,7 +3163,6 @@ export default function AdminPage() {
                                         </button>
                                       </div>
                                     </div>
-
                                     {/* Category selector for Interstitial */}
                                     {renderCategorySelector(
                                       interstitialCategoryMode,
@@ -2926,10 +3171,9 @@ export default function AdminPage() {
                                       setInterstitialCategories,
                                       'تحديد أقسام ظهور الإعلان البيني'
                                     )}
-
                                     <div className="space-y-2">
                                       <label className="text-xs font-black text-gray-500 block">شفرة الإعلان البيني / Popunder (Script Code)</label>
-                                      <textarea 
+                                      <textarea
                                         value={interstitialScript}
                                         onChange={(e) => setInterstitialScript(e.target.value)}
                                         rows={4}
@@ -2941,7 +3185,6 @@ export default function AdminPage() {
                                   </div>
                                 )}
                               </div>
-
                               {/* 3. Popup Ads Control */}
                               <div className="p-6 bg-gray-50/50 rounded-[2rem] border border-gray-100 space-y-4">
                                 <div className="flex items-center justify-between pb-4 border-b border-gray-100/60">
@@ -2949,7 +3192,7 @@ export default function AdminPage() {
                                     <p className="font-black text-base text-gray-800">3. الإعلانات المنبثقة (Popup Ads)</p>
                                     <p className="text-xs text-gray-400 mt-0.5">نافذة منبثقة أو نافذة حوار تظهر للزائر في القسم المحدد</p>
                                   </div>
-                                  <button 
+                                  <button
                                     onClick={() => setPopupShow(!popupShow)}
                                     className={cn(
                                       "w-12 h-7 rounded-full transition-all relative",
@@ -2962,7 +3205,6 @@ export default function AdminPage() {
                                     )} />
                                   </button>
                                 </div>
-
                                 {popupShow && (
                                   <div className="space-y-4 animate-in fade-in duration-200">
                                     <div className="space-y-2">
@@ -2978,7 +3220,6 @@ export default function AdminPage() {
                                           <span>الصفحة الرئيسية</span>
                                           {popupHome && <div className="w-2 h-2 rounded-full bg-primary" />}
                                         </button>
-
                                         <button
                                           onClick={() => setPopupLists(!popupLists)}
                                           className={cn(
@@ -2989,7 +3230,6 @@ export default function AdminPage() {
                                           <span>صفحة القوائم</span>
                                           {popupLists && <div className="w-2 h-2 rounded-full bg-primary" />}
                                         </button>
-
                                         <button
                                           onClick={() => setPopupContent(!popupContent)}
                                           className={cn(
@@ -3002,7 +3242,6 @@ export default function AdminPage() {
                                         </button>
                                       </div>
                                     </div>
-
                                     {/* Category selector for Popup */}
                                     {renderCategorySelector(
                                       popupCategoryMode,
@@ -3011,10 +3250,9 @@ export default function AdminPage() {
                                       setPopupCategories,
                                       'تحديد أقسام ظهور الإعلان المنبثق'
                                     )}
-
                                     <div className="space-y-2">
                                       <label className="text-xs font-black text-gray-500 block">شفرة الإعلان المنبثق (Script Code)</label>
-                                      <textarea 
+                                      <textarea
                                         value={popupScript}
                                         onChange={(e) => setPopupScript(e.target.value)}
                                         rows={4}
@@ -3026,7 +3264,6 @@ export default function AdminPage() {
                                   </div>
                                 )}
                               </div>
-
                               {/* 4. Inline/Native Ads Control */}
                               <div className="p-6 bg-gray-50/50 rounded-[2rem] border border-gray-100 space-y-4">
                                 <div className="flex items-center justify-between pb-4 border-b border-gray-100/60">
@@ -3034,7 +3271,7 @@ export default function AdminPage() {
                                     <p className="font-black text-base text-gray-800">4. الإعلانات المدمجة في المحتوى والقوائم (Inline Ads)</p>
                                     <p className="text-xs text-gray-400 mt-0.5">تظهر منسجمة بين العناصر في القوائم والأقسام</p>
                                   </div>
-                                  <button 
+                                  <button
                                     onClick={() => setInlineShow(!inlineShow)}
                                     className={cn(
                                       "w-12 h-7 rounded-full transition-all relative",
@@ -3047,7 +3284,6 @@ export default function AdminPage() {
                                     )} />
                                   </button>
                                 </div>
-
                                 {inlineShow && (
                                   <div className="space-y-4 animate-in fade-in duration-200">
                                     <div className="space-y-2">
@@ -3063,7 +3299,6 @@ export default function AdminPage() {
                                           <span>الصفحة الرئيسية</span>
                                           {inlineHome && <div className="w-2 h-2 rounded-full bg-primary" />}
                                         </button>
-
                                         <button
                                           onClick={() => setInlineLists(!inlineLists)}
                                           className={cn(
@@ -3074,7 +3309,6 @@ export default function AdminPage() {
                                           <span>صفحة القوائم</span>
                                           {inlineLists && <div className="w-2 h-2 rounded-full bg-primary" />}
                                         </button>
-
                                         <button
                                           onClick={() => setInlineContent(!inlineContent)}
                                           className={cn(
@@ -3087,7 +3321,6 @@ export default function AdminPage() {
                                         </button>
                                       </div>
                                     </div>
-
                                     {/* Category selector for Inline */}
                                     {renderCategorySelector(
                                       inlineCategoryMode,
@@ -3096,26 +3329,47 @@ export default function AdminPage() {
                                       setInlineCategories,
                                       'تحديد أقسام ظهور الإعلان المدمج'
                                     )}
-
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                      <div className="space-y-2">
-                                        <label className="text-xs font-black text-gray-500 block">تكرار الإعلانات المدمجة</label>
-                                        <select 
-                                          value={inlineFrequency}
-                                          onChange={(e) => setInlineFrequency(parseInt(e.target.value))}
-                                          className="w-full bg-white border border-gray-200 rounded-2xl px-5 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-primary/10 transition-all appearance-none"
-                                        >
-                                          <option value={4}>كل 4 عناصر</option>
-                                          <option value={6}>كل 6 عناصر</option>
-                                          <option value={8}>كل 8 عناصر</option>
-                                          <option value={10}>كل 10 عناصر</option>
-                                          <option value={12}>كل 12 عنصراً</option>
-                                        </select>
-                                      </div>
+                                      <div className="space-y-3 bg-white p-4 rounded-2xl border border-gray-100">
+                                        <div>
+                                          <label className="text-xs font-black text-gray-800 block">تكرار الإعلانات المدمجة (تظهر بعد كم منشور):</label>
+                                          <p className="text-[11px] text-gray-400 mt-0.5">حدد العدد الدقيق للمنشورات والقوائم التي يظهر الإعلان المدمج بعدها مباشرة</p>
+                                        </div>
 
+                                        <div className="flex items-center gap-3">
+                                          <span className="text-xs font-bold text-gray-500">يظهر إعلان بعد كل:</span>
+                                          <input
+                                            type="number"
+                                            min={1}
+                                            max={50}
+                                            value={inlineFrequency || 4}
+                                            onChange={(e) => setInlineFrequency(Math.max(1, parseInt(e.target.value) || 1))}
+                                            className="w-24 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-center text-sm font-black text-primary outline-none focus:bg-white focus:border-primary"
+                                          />
+                                          <span className="text-xs font-bold text-gray-500">منشورات</span>
+                                        </div>
+
+                                        <div className="flex flex-wrap gap-1.5 pt-1">
+                                          {[1, 2, 3, 4, 5, 6, 8, 10, 12, 15].map((num) => (
+                                            <button
+                                              key={num}
+                                              type="button"
+                                              onClick={() => setInlineFrequency(num)}
+                                              className={cn(
+                                                "px-3 py-1.5 rounded-xl text-xs font-bold border transition-all",
+                                                inlineFrequency === num
+                                                  ? "bg-primary text-white border-primary shadow-sm"
+                                                  : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100"
+                                              )}
+                                            >
+                                              كل {num} {num === 1 ? 'منشور' : num === 2 ? 'منشورين' : 'منشورات'}
+                                            </button>
+                                          ))}
+                                        </div>
+                                      </div>
                                       <div className="space-y-2">
                                         <label className="text-xs font-black text-gray-500 block">شفرة الإعلان المدمج (Script Code)</label>
-                                        <textarea 
+                                        <textarea
                                           value={inlineScript}
                                           onChange={(e) => setInlineScript(e.target.value)}
                                           rows={2}
@@ -3131,27 +3385,29 @@ export default function AdminPage() {
                             </>
                           );
                         })()}
-
-                        {/* Save Button */}
-                        <button 
-                          onClick={handleUpdateAds}
-                          disabled={isSaving}
-                          className="w-full text-white h-14 rounded-2xl font-black text-sm hover:opacity-90 transition-all shadow-xl active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 mt-4"
-                          style={{ background: 'var(--primary-gradient)' }}
-                        >
-                          {isSaving ? (
-                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                          ) : <ShieldCheck size={20} />}
-                          {isSaving ? 'جاري الحفظ...' : 'حفظ إعدادات الإعلانات المتقدمة'}
-                        </button>
                       </div>
                     ) : (
-                      <div className="flex flex-col items-center justify-center py-12 px-6 text-center border-2 border-dashed border-gray-100 rounded-[2rem] bg-gray-50/50">
-                        <Award size={48} className="text-gray-300 mb-3" />
-                        <p className="font-bold text-gray-500">الإعلانات معطلة على الموقع</p>
-                        <p className="text-xs text-gray-400 mt-1 max-w-sm">تفعيل الخيار بالأعلى سيسمح لك بضبط إعلانات البانر، البينية، والمدمجة في أي مكان وتحديد صفحات ظهورها.</p>
+                      <div className="flex flex-col items-center justify-center py-12 px-6 text-center border-2 border-dashed border-red-100 rounded-[2rem] bg-red-50/30 space-y-2">
+                        <Award size={48} className="text-red-300 mb-1" />
+                        <p className="font-bold text-gray-800 text-base">الإعلانات معطلة حالياً على كافة صفحات التطبيق</p>
+                        <p className="text-xs text-gray-500 max-w-md">
+                          عند تعطيل هذا الخيار وحفظ الإعدادات، لن تظهر أي إعلانات (بانر، بينية، مدمجة أو مخصصة) للمستخدمين. اضغط على زر الحفظ بالأسفل لتأكيد القفل.
+                        </p>
                       </div>
                     )}
+
+                    {/* Always visible Save Button */}
+                    <button
+                      onClick={handleUpdateAds}
+                      disabled={isSaving}
+                      className="w-full text-white h-14 rounded-2xl font-black text-sm hover:opacity-90 transition-all shadow-xl active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 mt-6"
+                      style={{ background: 'var(--primary-gradient)' }}
+                    >
+                      {isSaving ? (
+                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      ) : <ShieldCheck size={20} />}
+                      {isSaving ? 'جاري الحفظ...' : showAds ? 'حفظ إعدادات الإعلانات المتقدمة' : 'حفظ وتأكيد قفل الإعلانات بالكامل'}
+                    </button>
                   </section>
                 </motion.div>
               ) : activeTab === 'security' ? (
@@ -3169,14 +3425,13 @@ export default function AdminPage() {
                       </div>
                       <h2 className="text-xl font-bold">حماية المحتوى والأمان</h2>
                     </div>
-
                     <div className="space-y-6">
                       <div className="flex items-center justify-between p-6 bg-gray-50 rounded-2xl border border-gray-100">
                         <div>
                           <p className="font-bold">منع نسخ النصوص والسرقة (Prevent Copy)</p>
                           <p className="text-xs text-gray-400 mt-1">منع الزوار من نسخ النصوص أو تحديد المحتوى البرمجي لحماية أفكارك ومجهودك الفكري.</p>
                         </div>
-                        <button 
+                        <button
                           onClick={() => setPreventCopy(!preventCopy)}
                           className={cn(
                             "w-14 h-8 rounded-full transition-all relative",
@@ -3189,13 +3444,12 @@ export default function AdminPage() {
                           )} />
                         </button>
                       </div>
-
                       <div className="flex items-center justify-between p-6 bg-gray-50 rounded-2xl border border-gray-100">
                         <div>
                           <p className="font-bold">تعطيل زر الفأرة الأيمن (Disable Right Click)</p>
                           <p className="text-xs text-gray-400 mt-1">تعطيل الضغط بزر الفأرة الأيمن ومنع إظهار القائمة المنبثقة لحماية صورك وعناصر الواجهة.</p>
                         </div>
-                        <button 
+                        <button
                           onClick={() => setPreventContextMenu(!preventContextMenu)}
                           className={cn(
                             "w-14 h-8 rounded-full transition-all relative",
@@ -3209,7 +3463,7 @@ export default function AdminPage() {
                         </button>
                       </div>
 
-                      <button 
+                      <button
                         onClick={handleSaveSecurity}
                         disabled={isSaving}
                         className="w-full text-white h-14 rounded-2xl font-black text-sm hover:opacity-90 transition-all shadow-xl active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 mt-4"
@@ -3241,18 +3495,16 @@ export default function AdminPage() {
                         <p className="text-xs font-bold text-gray-400 mt-0.5">إضافة وتعديل روابط التواصل الاجتماعي التي تظهر كدوائر أفقية أسفل القائمة الجانبية</p>
                       </div>
                     </div>
-
                     {/* Add New Link Card */}
                     <div className="bg-gradient-to-br from-gray-50 to-primary/5 p-6 rounded-3xl border border-gray-200/80 mb-8 space-y-5">
                       <h3 className="text-sm font-black text-gray-800 flex items-center gap-2">
                         <Plus size={18} className="text-primary" />
                         إضافة منصة جديدة
                       </h3>
-
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <label className="text-xs font-black text-gray-500 block">اسم المنصة أو الحساب (اختياري)</label>
-                          <input 
+                          <input
                             type="text"
                             value={newSocialName}
                             onChange={(e) => setNewSocialName(e.target.value)}
@@ -3260,10 +3512,9 @@ export default function AdminPage() {
                             className="w-full bg-white border border-gray-200 rounded-2xl px-5 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-primary/10 transition-all"
                           />
                         </div>
-
                         <div className="space-y-2">
                           <label className="text-xs font-black text-gray-500 block">رابط المنصة (URL) *</label>
-                          <input 
+                          <input
                             type="url"
                             value={newSocialUrl}
                             onChange={(e) => setNewSocialUrl(e.target.value)}
@@ -3273,7 +3524,6 @@ export default function AdminPage() {
                           />
                         </div>
                       </div>
-
                       {/* Live Icon Preview */}
                       {newSocialUrl.trim() && (() => {
                         const info = getSocialPlatformInfo(newSocialUrl, newSocialName);
@@ -3289,8 +3539,7 @@ export default function AdminPage() {
                           </div>
                         );
                       })()}
-
-                      <button 
+                      <button
                         onClick={handleAddSocialLink}
                         className="w-full sm:w-auto px-8 py-3.5 bg-primary text-white rounded-2xl font-black text-xs hover:bg-primary/90 transition-all shadow-md active:scale-95 flex items-center justify-center gap-2"
                       >
@@ -3298,13 +3547,11 @@ export default function AdminPage() {
                         إضافة المنصة للقائمة
                       </button>
                     </div>
-
                     {/* Social Links List */}
                     <div className="space-y-4 mb-8">
                       <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mr-2">
                         الروابط المضافة حالياً ({socialLinksList.length})
                       </h3>
-
                       {socialLinksList.length === 0 ? (
                         <div className="text-center py-12 px-4 bg-gray-50 rounded-3xl border border-dashed border-gray-200">
                           <Share2 size={40} className="mx-auto text-gray-300 mb-3" />
@@ -3316,7 +3563,7 @@ export default function AdminPage() {
                           {socialLinksList.map((item) => {
                             const info = getSocialPlatformInfo(item.url, item.name);
                             return (
-                              <div 
+                              <div
                                 key={item.id}
                                 className={cn(
                                   "p-5 rounded-3xl border transition-all flex items-center justify-between gap-4 bg-white",
@@ -3332,7 +3579,6 @@ export default function AdminPage() {
                                     <p className="text-[11px] font-mono text-gray-400 truncate dir-ltr text-left" dir="ltr">{item.url}</p>
                                   </div>
                                 </div>
-
                                 <div className="flex items-center gap-2 shrink-0">
                                   {/* Toggle Button */}
                                   <button
@@ -3345,7 +3591,6 @@ export default function AdminPage() {
                                   >
                                     {item.enabled !== false ? 'مفعل' : 'معطل'}
                                   </button>
-
                                   {/* Delete Button */}
                                   <button
                                     onClick={() => handleRemoveSocialLink(item.id)}
@@ -3361,7 +3606,6 @@ export default function AdminPage() {
                         </div>
                       )}
                     </div>
-
                     {/* Preview in Sidebar Simulation */}
                     {socialLinksList.length > 0 && (
                       <div className="p-6 bg-gray-50 rounded-3xl border border-gray-200/80 mb-8 space-y-3">
@@ -3371,9 +3615,8 @@ export default function AdminPage() {
                         </div>
                       </div>
                     )}
-
                     {/* Save Button */}
-                    <button 
+                    <button
                       onClick={handleSaveSocialLinks}
                       disabled={isSaving}
                       className="w-full text-white h-14 rounded-2xl font-black text-sm hover:opacity-90 transition-all shadow-xl active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
@@ -3405,7 +3648,6 @@ export default function AdminPage() {
                           <p className="text-xs font-bold text-gray-400 mt-0.5">تفعيل إغلاق الموقع المؤقت للزوار مع عرض صفحة صيانة حديثة ومصممة بألوان الموقع</p>
                         </div>
                       </div>
-
                       <span className={cn(
                         "px-4 py-2 rounded-full text-xs font-black uppercase tracking-wider hidden sm:inline-flex items-center gap-1.5",
                         maintenanceEnabled ? "bg-amber-500 text-white" : "bg-emerald-500 text-white"
@@ -3414,12 +3656,11 @@ export default function AdminPage() {
                         <span>{maintenanceEnabled ? "الصيانة نشطة الان" : "الموقع متاح للجميع"}</span>
                       </span>
                     </div>
-
                     {/* Main Enable Switch Banner */}
                     <div className={cn(
                       "p-6 sm:p-8 rounded-3xl border transition-all mb-8 flex flex-col sm:flex-row items-center justify-between gap-6",
-                      maintenanceEnabled 
-                        ? "bg-amber-50 border-amber-200" 
+                      maintenanceEnabled
+                        ? "bg-amber-50 border-amber-200"
                         : "bg-gray-50 border-gray-200"
                     )}>
                       <div className="space-y-1 text-center sm:text-right">
@@ -3431,8 +3672,7 @@ export default function AdminPage() {
                           عند التفعيل، سيتم إعادة توجيه جميع الزوار لصفحة الصيانة التفاعلية العصريّة، بينما يمكنك أنت والمشرفين تصفح الموقع والعمل عليه بحرية.
                         </p>
                       </div>
-
-                      <button 
+                      <button
                         type="button"
                         onClick={() => setMaintenanceEnabled(!maintenanceEnabled)}
                         className={cn(
@@ -3448,25 +3688,23 @@ export default function AdminPage() {
                         </span>
                       </button>
                     </div>
-
                     {/* Form inputs */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                       {/* Title Input */}
                       <div className="space-y-2 md:col-span-2">
                         <label className="text-xs font-black text-gray-700 block">عنوان صفحة الصيانة الرئيسية *</label>
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           value={maintenanceTitle}
                           onChange={(e) => setMaintenanceTitle(e.target.value)}
                           placeholder="مثال: الموقع قيد الصيانة والتحديث"
                           className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all"
                         />
                       </div>
-
                       {/* Detailed Message */}
                       <div className="space-y-2 md:col-span-2">
                         <label className="text-xs font-black text-gray-700 block">رسالة الصيانة والشرح للزوار *</label>
-                        <textarea 
+                        <textarea
                           rows={3}
                           value={maintenanceMessage}
                           onChange={(e) => setMaintenanceMessage(e.target.value)}
@@ -3474,24 +3712,22 @@ export default function AdminPage() {
                           className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all resize-none"
                         />
                       </div>
-
                       {/* Estimated Time */}
                       <div className="space-y-2">
                         <label className="text-xs font-black text-gray-700 block">الوقت المتوقع للانتهاء</label>
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           value={maintenanceEstimatedTime}
                           onChange={(e) => setMaintenanceEstimatedTime(e.target.value)}
                           placeholder="مثال: ساعتين، قريباً جداً، 30 دقيقة"
                           className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all"
                         />
                       </div>
-
                       {/* WhatsApp support number */}
                       <div className="space-y-2">
                         <label className="text-xs font-black text-gray-700 block">رقم الواتساب للتواصل والدعم</label>
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           value={maintenanceWhatsapp}
                           onChange={(e) => setMaintenanceWhatsapp(e.target.value)}
                           placeholder="مثال: 01029892573"
@@ -3499,12 +3735,11 @@ export default function AdminPage() {
                           dir="ltr"
                         />
                       </div>
-
                       {/* Telegram link */}
                       <div className="space-y-2">
                         <label className="text-xs font-black text-gray-700 block">حساب أو قناة التلجرام للتحديثات</label>
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           value={maintenanceTelegram}
                           onChange={(e) => setMaintenanceTelegram(e.target.value)}
                           placeholder="مثال: https://t.me/rayanapp أو @rayanapp"
@@ -3512,14 +3747,13 @@ export default function AdminPage() {
                           dir="ltr"
                         />
                       </div>
-
                       {/* Show Social Links Toggle */}
                       <div className="flex items-center justify-between p-5 bg-gray-50 rounded-2xl border border-gray-200 self-end">
                         <div>
                           <p className="font-bold text-xs text-gray-800">إظهار أزرار التواصل والدعم</p>
                           <p className="text-[11px] text-gray-400">إظهار رابط التلجرام والواتساب في صفحة الصيانة</p>
                         </div>
-                        <button 
+                        <button
                           type="button"
                           onClick={() => setMaintenanceShowSocial(!maintenanceShowSocial)}
                           className={cn(
@@ -3534,16 +3768,14 @@ export default function AdminPage() {
                         </button>
                       </div>
                     </div>
-
                     {/* Live Preview Box */}
                     <div className="mb-8 space-y-3">
                       <div className="flex items-center gap-2 text-xs font-black text-gray-700">
                         <Eye size={16} className="text-primary" />
                         <span>معاينة حيّة ومباشرة لصفحة الصيانة (تتأثر بلون الهوية):</span>
                       </div>
-
                       <div className="p-4 sm:p-6 bg-slate-950 text-white rounded-3xl border border-gray-800 shadow-2xl relative overflow-hidden">
-                        <MaintenanceView 
+                        <MaintenanceView
                           isFullPage={false}
                           title={maintenanceTitle}
                           message={maintenanceMessage}
@@ -3552,9 +3784,8 @@ export default function AdminPage() {
                         />
                       </div>
                     </div>
-
                     {/* Save Button */}
-                    <button 
+                    <button
                       onClick={handleSaveMaintenance}
                       disabled={isSaving}
                       className="w-full text-white h-14 rounded-2xl font-black text-sm hover:opacity-90 transition-all shadow-xl active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
@@ -3567,6 +3798,320 @@ export default function AdminPage() {
                     </button>
                   </section>
                 </motion.div>
+              ) : activeTab === 'api' ? (
+                <motion.div
+                  key="api"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="space-y-6 text-slate-900 dark:text-slate-100"
+                >
+                  {/* Explanatory Banner in Clear, Friendly Arabic */}
+                  <section className="bg-blue-50/90 dark:bg-slate-800 border-2 border-blue-200 dark:border-slate-700 rounded-3xl p-6 shadow-sm space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-blue-600 text-white rounded-xl flex items-center justify-center shrink-0 shadow-sm">
+                        <Info size={22} />
+                      </div>
+                      <h2 className="text-lg font-bold text-slate-900 dark:text-white">ما هو الـ API وما فائدته لموقعك؟</h2>
+                    </div>
+                    <p className="text-sm text-slate-800 dark:text-slate-200 leading-relaxed font-semibold">
+                      الـ <span className="font-extrabold text-blue-700 dark:text-blue-400 dir-ltr inline-block">API (Application Programming Interface)</span> هو جسر ربط برمجي مخصص لربط موقعك بالتطبيقات الخارجية أو تطبيقات الجوال. يتيح لك استخراج الأقسام والمنشورات وتوليد الصور تلقائياً باستخدام مفاتيح أمان سرية خاضعة لتحكمك الكامل.
+                    </p>
+                  </section>
+
+                  {/* Master API Switch Card */}
+                  <section className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 shadow-sm border-2 border-slate-200 dark:border-slate-800">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b-2 border-slate-100 dark:border-slate-800">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 rounded-2xl flex items-center justify-center shrink-0">
+                          <Code2 size={24} />
+                        </div>
+                        <div>
+                          <h3 className="text-xl font-extrabold text-slate-900 dark:text-white">حالة خدمة الـ API والربط</h3>
+                          <p className="text-xs text-slate-600 dark:text-slate-300 font-bold mt-1">
+                            يمكنك تشغيل أو إيقاف استجابة الموقع للطلبات البرمجية الخارجية
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 bg-slate-100 dark:bg-slate-800 p-2.5 rounded-2xl border border-slate-300 dark:border-slate-700">
+                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200 px-2">حالة الخدمة:</span>
+                        <button
+                          onClick={() => handleSaveApiGlobalConfig(!apiEnabled)}
+                          className={cn(
+                            "px-4 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 shadow-sm",
+                            apiEnabled
+                              ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                              : "bg-red-600 text-white hover:bg-red-700"
+                          )}
+                        >
+                          <Power size={14} />
+                          <span>{apiEnabled ? "مفعل ومتاح للربط" : "معطل حالياً"}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {!apiEnabled && (
+                      <div className="mt-4 p-4 bg-amber-100 dark:bg-amber-950 border-2 border-amber-300 dark:border-amber-700 rounded-2xl flex items-center gap-3 text-amber-950 dark:text-amber-100 text-xs font-extrabold">
+                        <AlertTriangle size={20} className="shrink-0 text-amber-600 dark:text-amber-400" />
+                        <span>خدمة الـ API معطلة حالياً. جميع الطلبات الخارجية مرفوضة حتى تقوم بتفعيلها مجدداً.</span>
+                      </div>
+                    )}
+                  </section>
+
+                  {/* Create API Key Section */}
+                  <section className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 shadow-sm border-2 border-slate-200 dark:border-slate-800 space-y-6">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200 rounded-xl flex items-center justify-center shrink-0">
+                        <KeyRound size={20} />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-extrabold text-slate-900 dark:text-white">إنشاء مفتاح API جديد</h3>
+                        <p className="text-xs text-slate-600 dark:text-slate-300 font-bold">سمّ المفتاح لتنظيمه (مثال: تطبيق الآيفون، تطبيق الأندرويد)</p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <input
+                        type="text"
+                        value={newKeyName}
+                        onChange={(e) => setNewKeyName(e.target.value)}
+                        placeholder="أدخل اسماً توضيحياً للمفتاح..."
+                        className="flex-1 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white border-2 border-slate-300 dark:border-slate-600 rounded-2xl px-5 py-3.5 text-sm font-bold outline-none focus:border-blue-500 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                      />
+                      <button
+                        onClick={handleCreateApiKey}
+                        disabled={isSaving}
+                        className="px-6 py-3.5 text-white bg-blue-600 hover:bg-blue-700 active:scale-95 rounded-2xl font-black text-sm transition-all shadow-md flex items-center justify-center gap-2 shrink-0"
+                      >
+                        <Plus size={18} />
+                        <span>إنشاء وتوليد المفتاح</span>
+                      </button>
+                    </div>
+
+                    {/* Display freshly generated key */}
+                    {generatedKey && (
+                      <div className="p-5 bg-emerald-50 dark:bg-emerald-950/80 border-2 border-emerald-400 dark:border-emerald-700 rounded-2xl space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-black text-emerald-950 dark:text-emerald-100 flex items-center gap-1.5">
+                            <CheckCircle size={18} className="text-emerald-600 dark:text-emerald-400" /> تم إنتاج المفتاح بنجاح! احفظه لديك:
+                          </span>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(generatedKey);
+                              toast({ title: "تم النسخ!", description: "تم نسخ مفتاح الـ API إلى الحافظة" });
+                            }}
+                            className="px-4 py-2 bg-emerald-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 hover:bg-emerald-800 transition-all shadow-sm"
+                          >
+                            <Copy size={14} />
+                            <span>نسخ المفتاح</span>
+                          </button>
+                        </div>
+                        <div className="bg-white dark:bg-slate-900 p-3.5 rounded-xl border-2 border-emerald-300 dark:border-emerald-800 font-mono text-xs text-emerald-950 dark:text-emerald-300 font-extrabold break-all dir-ltr text-left">
+                          {generatedKey}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* List Existing API Keys */}
+                    <div className="space-y-4 pt-4 border-t-2 border-slate-100 dark:border-slate-800">
+                      <h4 className="text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">المفاتيح الحالية ({apiKeysList?.length || 0})</h4>
+
+                      {!apiKeysList || apiKeysList.length === 0 ? (
+                        <p className="text-xs text-slate-500 dark:text-slate-400 font-bold text-center py-6">لا يوجد مفاتيح حالية. أنشئ مفتاحك الأول أعلاه.</p>
+                      ) : (
+                        <div className="space-y-3">
+                          {apiKeysList.map((keyDoc: any) => {
+                            const isVisible = visibleKeyId === keyDoc.id;
+                            const maskedKey = keyDoc.key
+                              ? `${keyDoc.key.substring(0, 10)}...${keyDoc.key.substring(keyDoc.key.length - 4)}`
+                              : '••••••••••••••••';
+
+                            return (
+                              <div
+                                key={keyDoc.id}
+                                className="p-4 bg-slate-50 dark:bg-slate-800/90 border-2 border-slate-200 dark:border-slate-700 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                              >
+                                <div className="space-y-1.5 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-extrabold text-sm text-slate-900 dark:text-white">{keyDoc.name}</p>
+                                    <span className={cn(
+                                      "px-2.5 py-0.5 rounded-full text-[11px] font-black",
+                                      keyDoc.active ? "bg-emerald-100 text-emerald-900 dark:bg-emerald-900/80 dark:text-emerald-200" : "bg-red-100 text-red-900 dark:bg-red-900/80 dark:text-red-200"
+                                    )}>
+                                      {keyDoc.active ? 'مفعل' : 'معطل'}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2 font-mono text-xs text-slate-800 dark:text-slate-200 dir-ltr text-left">
+                                    <span className="font-bold">{isVisible ? keyDoc.key : maskedKey}</span>
+                                    <button
+                                      onClick={() => setVisibleKeyId(isVisible ? null : keyDoc.id)}
+                                      className="text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition-colors p-1"
+                                      title={isVisible ? "إخفاء" : "إظهار"}
+                                    >
+                                      {isVisible ? <EyeOff size={15} /> : <Eye size={15} />}
+                                    </button>
+                                  </div>
+                                  <p className="text-[11px] text-slate-600 dark:text-slate-400 font-bold">
+                                    تاريخ الإنشاء: {keyDoc.createdAt ? new Date(keyDoc.createdAt).toLocaleDateString('ar-EG') : 'غير محدد'} | عدد الاستخدامات: {keyDoc.usageCount || 0}
+                                  </p>
+                                </div>
+
+                                <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                                  <button
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(keyDoc.key);
+                                      toast({ title: "تم النسخ!", description: "تم نسخ مفتاح API" });
+                                    }}
+                                    className="p-2.5 bg-white dark:bg-slate-700 border-2 border-slate-200 dark:border-slate-600 rounded-xl text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-600 transition-all text-xs font-black flex items-center gap-1.5 shadow-sm"
+                                  >
+                                    <Copy size={14} />
+                                    <span>نسخ</span>
+                                  </button>
+                                  <button
+                                    onClick={() => handleToggleApiKey(keyDoc.id, keyDoc.active)}
+                                    className={cn(
+                                      "p-2.5 rounded-xl border-2 text-xs font-black transition-all shadow-sm",
+                                      keyDoc.active
+                                        ? "bg-amber-100 text-amber-950 border-amber-300 dark:bg-amber-900/60 dark:border-amber-700 dark:text-amber-200"
+                                        : "bg-emerald-100 text-emerald-950 border-emerald-300 dark:bg-emerald-900/60 dark:border-emerald-700 dark:text-emerald-200"
+                                    )}
+                                  >
+                                    {keyDoc.active ? "تعطيل" : "تفعيل"}
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteApiKey(keyDoc.id)}
+                                    className="p-2.5 bg-red-100 text-red-800 border-2 border-red-300 dark:bg-red-900/60 dark:border-red-700 dark:text-red-200 rounded-xl hover:bg-red-200 transition-all shadow-sm"
+                                    title="حذف المفتاح"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </section>
+
+                  {/* API Endpoints Documentation */}
+                  <section className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 shadow-sm border-2 border-slate-200 dark:border-slate-800 space-y-6">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-200 rounded-xl flex items-center justify-center shrink-0">
+                        <Terminal size={20} />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-extrabold text-slate-900 dark:text-white">روابط الخدمة المتاحة (Endpoints)</h3>
+                        <p className="text-xs text-slate-600 dark:text-slate-300 font-bold">الروابط التي يمكنك طلب البيانات منها</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      {/* Endpoint 1 */}
+                      <div className="border-2 border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden bg-slate-50 dark:bg-slate-800/80">
+                        <div className="bg-slate-100 dark:bg-slate-800 p-4 border-b-2 border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-3">
+                          <div className="flex items-center gap-2 font-mono text-xs">
+                            <span className="px-2.5 py-1 bg-blue-600 text-white font-black rounded-lg">GET</span>
+                            <span className="font-bold text-slate-900 dark:text-slate-100 dir-ltr text-left">/api/v1/content</span>
+                          </div>
+                          <span className="text-xs text-slate-800 dark:text-slate-200 font-extrabold">جلب كافة الأقسام والمنشورات والمحتوى</span>
+                        </div>
+                        <div className="p-4 text-xs space-y-2 text-slate-800 dark:text-slate-200 font-bold">
+                          <p>• الهيدر المطلوب: <code className="bg-white dark:bg-slate-900 px-2 py-1 rounded border border-slate-300 dark:border-slate-600 font-mono text-blue-700 dark:text-blue-400 font-bold dir-ltr inline-block">X-API-Key: YOUR_API_KEY</code></p>
+                          <p>• إمكانية الفلترة: إضافة <code className="bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-600 font-mono dir-ltr inline-block text-slate-900 dark:text-white">?type=categories</code> أو <code className="bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-600 font-mono dir-ltr inline-block text-slate-900 dark:text-white">?type=items</code></p>
+                        </div>
+                      </div>
+
+                      {/* Endpoint 2 */}
+                      <div className="border-2 border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden bg-slate-50 dark:bg-slate-800/80">
+                        <div className="bg-slate-100 dark:bg-slate-800 p-4 border-b-2 border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-3">
+                          <div className="flex items-center gap-2 font-mono text-xs">
+                            <span className="px-2.5 py-1 bg-emerald-600 text-white font-black rounded-lg">POST</span>
+                            <span className="font-bold text-slate-900 dark:text-slate-100 dir-ltr text-left">/api/v1/generate-image</span>
+                          </div>
+                          <span className="text-xs text-slate-800 dark:text-slate-200 font-extrabold">توليد الصور بالذكاء الاصطناعي برمجياً</span>
+                        </div>
+                        <div className="p-4 text-xs space-y-2 text-slate-800 dark:text-slate-200 font-bold">
+                          <p>• محتوى الطلب (JSON): <code className="bg-white dark:bg-slate-900 px-2 py-1 rounded border border-slate-300 dark:border-slate-600 font-mono text-emerald-700 dark:text-emerald-400 font-bold dir-ltr inline-block">{`{"prompt": "وصف الصورة المطلوب"}`}</code></p>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+
+                  {/* Interactive API Tester */}
+                  <section className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 shadow-sm border-2 border-slate-200 dark:border-slate-800 space-y-6">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200 rounded-xl flex items-center justify-center shrink-0">
+                        <Zap size={20} />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-extrabold text-slate-900 dark:text-white">مُختبر الـ API التجريبي المباشر</h3>
+                        <p className="text-xs text-slate-600 dark:text-slate-300 font-bold">اختبر استجابة الـ API مباشرة وقراءة البيانات بسهولة</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-xs font-black text-slate-800 dark:text-slate-200 mb-1.5 block">الرابط المراد تجريبه (Endpoint):</label>
+                          <select
+                            value={testEndpoint}
+                            onChange={(e) => setTestEndpoint(e.target.value)}
+                            className="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-white border-2 border-slate-300 dark:border-slate-600 rounded-2xl px-4 py-3 text-xs font-extrabold outline-none focus:border-blue-500"
+                          >
+                            <option value="/api/v1/content">GET /api/v1/content (المحتوى والأقسام)</option>
+                            <option value="/api/v1/tools">GET /api/v1/tools (حالة الأدوات)</option>
+                            <option value="/api/v1/keys/validate">POST /api/v1/keys/validate (فحص المفتاح)</option>
+                            <option value="/api/v1/generate-image">POST /api/v1/generate-image (توليد صورة)</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-xs font-black text-slate-800 dark:text-slate-200 mb-1.5 block">مفتاح الـ API للطلب (X-API-Key):</label>
+                          <input
+                            type="text"
+                            value={testApiKey}
+                            onChange={(e) => setTestApiKey(e.target.value)}
+                            placeholder="ضع المفتاح الذي أنشأته للتجربة..."
+                            className="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-white border-2 border-slate-300 dark:border-slate-600 rounded-2xl px-4 py-3 text-xs font-bold outline-none dir-ltr text-left placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-blue-500"
+                          />
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={handleRunApiTest}
+                        disabled={isTestingApi}
+                        className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-xs transition-all shadow-md flex items-center justify-center gap-2 active:scale-98"
+                      >
+                        {isTestingApi ? (
+                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        ) : (
+                          <Send size={16} />
+                        )}
+                        <span>{isTestingApi ? 'جاري الفحص وإرسال الطلب...' : 'إرسال الطلب وعرض النتيجة'}</span>
+                      </button>
+
+                      {/* Display Test Result */}
+                      {testResult && (
+                        <div className="p-4 bg-slate-950 rounded-2xl text-white space-y-2 font-mono text-xs dir-ltr text-left border-2 border-slate-800">
+                          <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                            <span className="text-slate-300 text-[11px] font-bold">STATUS CODE:</span>
+                            <span className={cn(
+                              "px-2.5 py-1 rounded font-black text-[11px]",
+                              testResult.ok ? "bg-emerald-500/30 text-emerald-300 border border-emerald-500/50" : "bg-red-500/30 text-red-300 border border-red-500/50"
+                            )}>
+                              {testResult.status} {testResult.ok ? 'OK' : 'ERROR'}
+                            </span>
+                          </div>
+                          <pre className="text-emerald-300 text-[11px] overflow-x-auto p-3 bg-black rounded-xl max-h-80 overflow-y-auto font-bold">
+                            {JSON.stringify(testResult.data, null, 2)}
+                          </pre>
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                </motion.div>
+
               ) : activeTab === 'content' ? (
                 <motion.div
                   key="content"
@@ -3582,10 +4127,9 @@ export default function AdminPage() {
                         <h2 className="text-2xl sm:text-3xl font-black mb-1">إدارة المحتوى</h2>
                         <p className="text-gray-400 text-xs sm:text-sm font-bold uppercase tracking-widest">تعديل أقسام الموقع والمنشورات</p>
                       </div>
-
                       <div className="flex flex-wrap items-center justify-center gap-4">
                         <div className="relative group">
-                          <input 
+                          <input
                             type="text"
                             placeholder="بحث في الأقسام..."
                             value={searchQuery}
@@ -3594,8 +4138,7 @@ export default function AdminPage() {
                           />
                           <Database size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-primary transition-colors" />
                         </div>
-
-                        <button 
+                        <button
                           onClick={() => setEditingCategory({ name: '', type: 'XML', displayStyle: 'style1' })}
                           className="flex items-center gap-2 px-8 py-3 bg-primary text-white rounded-2xl font-bold text-sm shadow-lg shadow-primary/20 hover:opacity-90 transition-all active:scale-95"
                         >
@@ -3605,7 +4148,6 @@ export default function AdminPage() {
                       </div>
                     </div>
                   )}
-
                   {viewLevel === 'categories' ? (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8">
                       {categories
@@ -3624,14 +4166,14 @@ export default function AdminPage() {
                           <div className="p-4 sm:p-8 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
                             <div className="flex justify-between sm:justify-start gap-2">
                               <div className="flex gap-1">
-                                <button 
+                                <button
                                   onClick={() => handleMoveCategory(cat.id, 'up')}
                                   disabled={categories.indexOf(cat) === 0}
                                   className="p-2 sm:p-2.5 bg-gray-50 text-gray-400 rounded-lg hover:bg-primary/10 hover:text-primary disabled:opacity-30 transition-all"
                                 >
                                   <ArrowUp size={16} />
                                 </button>
-                                <button 
+                                <button
                                   onClick={() => handleMoveCategory(cat.id, 'down')}
                                   disabled={categories.indexOf(cat) === categories.length - 1}
                                   className="p-2 sm:p-2.5 bg-gray-50 text-gray-400 rounded-lg hover:bg-primary/10 hover:text-primary disabled:opacity-30 transition-all"
@@ -3640,14 +4182,14 @@ export default function AdminPage() {
                                 </button>
                               </div>
                               <div className="flex gap-2">
-                                <button 
+                                <button
                                   onClick={() => initiateDelete(`categories/${cat.id}`, 'category', cat.name)}
                                   className="p-3 sm:p-4 bg-red-50 text-red-500 rounded-xl sm:rounded-2xl hover:bg-red-100 transition-colors"
                                 >
                                   <Trash2 size={18} className="sm:hidden" />
                                   <Trash2 size={20} className="hidden sm:block" />
                                 </button>
-                                <button 
+                                <button
                                   onClick={() => setEditingCategory(cat)}
                                   className="p-3 sm:p-4 bg-gray-50 text-gray-400 rounded-xl sm:rounded-2xl hover:bg-gray-100 transition-colors border border-gray-100"
                                 >
@@ -3656,7 +4198,7 @@ export default function AdminPage() {
                                 </button>
                               </div>
                             </div>
-                            <button 
+                            <button
                               onClick={() => {
                                 handleSetSelectedManager({type: 'category', id: cat.id});
                                 handleSetViewLevel('subcategories');
@@ -3681,15 +4223,13 @@ export default function AdminPage() {
                               {categories.find(c => c.id === selectedManagerId?.id)?.name}
                             </span>
                           </div>
-
                           <h2 className="text-2xl sm:text-3xl font-black text-gray-900 leading-tight">
                             {categories.find(c => c.id === selectedManagerId?.id)?.name}
                           </h2>
                           <p className="text-gray-400 text-[10px] sm:text-xs font-bold uppercase tracking-widest">إدارة المنشورات والأقسام الفرعية</p>
                         </div>
-                        
                         <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 mx-auto mt-6 sm:mt-8">
-                          <button 
+                          <button
                             onClick={() => setEditingSubCategory({ name: '', categoryId: selectedManagerId?.id, description: '', displayStyle: 'style1', fileTypes: '' })}
                             className="flex items-center gap-2 px-6 sm:px-10 py-3 sm:py-4 bg-white border-2 border-gray-100 text-gray-900 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm hover:bg-gray-50 transition-all active:scale-95"
                           >
@@ -3697,9 +4237,8 @@ export default function AdminPage() {
                             <FolderPlus size={20} className="hidden sm:block" />
                             <span>إضافة قسم فرعي</span>
                           </button>
-
                           {!hasSubCategories && (
-                            <button 
+                            <button
                               onClick={() => setEditingItem({ title: '', subCategoryId: selectedManagerId?.id, description: '', downloadUrl: '' })}
                               className="flex items-center gap-2 px-6 sm:px-10 py-3 sm:py-4 bg-primary text-white rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm shadow-xl shadow-primary/20 hover:opacity-90 transition-all active:scale-95"
                             >
@@ -3710,7 +4249,6 @@ export default function AdminPage() {
                           )}
                         </div>
                       </div>
-
                       <div className="space-y-3 sm:space-y-4">
                         <h3 className="text-primary font-bold text-xs sm:text-sm mr-2 sm:mr-4 uppercase tracking-wider">
                           {hasSubCategories ? 'الأقسام الفرعية' : 'المحتوى المباشر'}
@@ -3733,14 +4271,14 @@ export default function AdminPage() {
                                 </div>
                                 <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3">
                                   <div className="flex items-center gap-1 sm:gap-1.5 ml-0 sm:ml-2">
-                                    <button 
+                                    <button
                                       onClick={() => handleMoveSubCategory(sub.id, 'up')}
                                       disabled={idx === 0}
                                       className="p-2 bg-gray-50 text-gray-400 rounded-lg hover:bg-primary/10 hover:text-primary disabled:opacity-30 transition-all border border-transparent"
                                     >
                                       <ArrowUp size={14} />
                                     </button>
-                                    <button 
+                                    <button
                                       onClick={() => handleMoveSubCategory(sub.id, 'down')}
                                       disabled={idx === relevantSubs.length - 1}
                                       className="p-2 bg-gray-50 text-gray-400 rounded-lg hover:bg-primary/10 hover:text-primary disabled:opacity-30 transition-all border border-transparent"
@@ -3749,21 +4287,21 @@ export default function AdminPage() {
                                     </button>
                                   </div>
                                   <div className="flex items-center gap-2">
-                                    <button 
+                                    <button
                                       onClick={() => initiateDelete(`categories/${sub.id}`, 'subcategory', sub.name)}
                                       className="p-2 sm:p-3 text-red-500 hover:bg-red-50 rounded-xl transition-colors"
                                     >
                                       <Trash2 size={18} className="sm:hidden" />
                                       <Trash2 size={20} className="hidden sm:block" />
                                     </button>
-                                    <button 
+                                    <button
                                       onClick={() => setEditingSubCategory({...sub, categoryId: sub.parentId})}
                                       className="p-2 sm:p-3 text-blue-500 hover:bg-blue-50 rounded-xl transition-colors"
                                     >
                                       <Edit3 size={18} className="sm:hidden" />
                                       <Edit3 size={20} className="hidden sm:block" />
                                     </button>
-                                    <button 
+                                    <button
                                       onClick={() => {
                                         setSelectedManagerId({type: 'subcategory', id: sub.id});
                                         setViewLevel('items');
@@ -3781,8 +4319,8 @@ export default function AdminPage() {
                           ) : (
                             items.length > 0 ? (
                               items
-                                .filter(item => 
-                                  item.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                .filter(item =>
+                                  item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                                   item.description.toLowerCase().includes(searchQuery.toLowerCase())
                                 )
                                 .map((item, idx) => (
@@ -3804,14 +4342,14 @@ export default function AdminPage() {
                                     </div>
                                   </div>
                                   <div className="flex items-center gap-1 sm:gap-3 flex-shrink-0">
-                                    <button 
+                                    <button
                                       onClick={() => setEditingItem({ ...item, subCategoryId: item.subCategoryId || selectedManagerId?.id })}
                                       className="p-2 sm:p-3 text-blue-500 hover:bg-blue-50 rounded-xl transition-colors"
                                     >
                                       <Edit3 size={18} className="sm:hidden" />
                                       <Edit3 size={20} className="hidden sm:block" />
                                     </button>
-                                    <button 
+                                    <button
                                       onClick={() => initiateDelete(`categories/${selectedManagerId?.id}/items/${item.id}`, 'item', item.title)}
                                       className="p-2 sm:p-3 text-red-500 hover:bg-red-50 rounded-xl transition-colors"
                                     >
@@ -3838,14 +4376,14 @@ export default function AdminPage() {
                           <div className="flex items-center gap-2 text-[10px] sm:text-xs font-bold text-gray-400 bg-gray-50 px-4 py-2 rounded-full mb-2 overflow-x-auto max-w-full">
                             <button onClick={() => handleSetViewLevel('categories')} className="hover:text-primary transition-colors whitespace-nowrap">المحتوى</button>
                             <ChevronRight size={12} className="shrink-0" />
-                            <button 
+                            <button
                               onClick={() => {
                                 const sub = subCategories.find(s => s.id === selectedManagerId?.id);
                                 if (sub) {
                                   handleSetSelectedManager({type: 'category', id: sub.parentId});
                                   handleSetViewLevel('subcategories');
                                 }
-                              }} 
+                              }}
                               className="hover:text-primary transition-colors truncate max-w-[100px]"
                             >
                               {categories.find(c => c.id === subCategories.find(s => s.id === selectedManagerId?.id)?.parentId)?.name}
@@ -3855,16 +4393,14 @@ export default function AdminPage() {
                               {subCategories.find(s => s.id === selectedManagerId?.id)?.name}
                             </span>
                           </div>
-
                           <h2 className="text-2xl sm:text-3xl font-black text-gray-900 leading-tight">
                             {subCategories.find(s => s.id === selectedManagerId?.id)?.name}
                           </h2>
                           <p className="text-gray-400 text-[10px] sm:text-xs font-bold uppercase tracking-widest">إدارة المحتوى المضاف</p>
                         </div>
-                        
                         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-6 sm:mt-8">
                           <div className="relative group w-full sm:w-64">
-                            <input 
+                            <input
                               type="text"
                               placeholder="بحث في المحتوى..."
                               value={searchQuery}
@@ -3873,8 +4409,7 @@ export default function AdminPage() {
                             />
                             <Database size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-primary transition-colors" />
                           </div>
-
-                          <button 
+                          <button
                             onClick={() => setEditingItem({ title: '', subCategoryId: selectedManagerId?.id, description: '', downloadUrl: '' })}
                             className="flex items-center gap-2 px-6 sm:px-10 py-3 sm:py-4 bg-primary text-white rounded-xl sm:rounded-2xl font-bold text-sm shadow-xl shadow-primary/20 hover:opacity-90 transition-all active:scale-95 w-full sm:w-auto"
                           >
@@ -3884,11 +4419,10 @@ export default function AdminPage() {
                           </button>
                         </div>
                       </div>
-
                       <div className="grid grid-cols-1 gap-3 sm:gap-4">
                         {items
-                          .filter(item => 
-                            item.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          .filter(item =>
+                            item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                             item.description.toLowerCase().includes(searchQuery.toLowerCase())
                           )
                           .map((item, idx) => (
@@ -3910,14 +4444,14 @@ export default function AdminPage() {
                               </div>
                             </div>
                             <div className="flex items-center gap-1 sm:gap-3 flex-shrink-0">
-                              <button 
+                              <button
                                 onClick={() => setEditingItem({ ...item, subCategoryId: item.subCategoryId || selectedManagerId?.id })}
                                 className="p-2 sm:p-3 text-blue-500 hover:bg-blue-50 rounded-xl transition-colors"
                               >
                                 <Edit3 size={18} className="sm:hidden" />
                                 <Edit3 size={20} className="hidden sm:block" />
                               </button>
-                              <button 
+                              <button
                                 onClick={() => initiateDelete(`categories/${selectedManagerId?.id}/items/${item.id}`, 'item', item.title)}
                                 className="p-2 sm:p-3 text-red-500 hover:bg-red-50 rounded-xl transition-colors"
                               >
@@ -3930,36 +4464,33 @@ export default function AdminPage() {
                       </div>
                     </div>
                   )}
-
                   {/* Modals for Editing */}
                   <AnimatePresence>
                     {editingCategory && (
-                      <div 
+                      <div
                         key="edit-category-modal"
                         className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm"
                       >
-                        <motion.div 
+                        <motion.div
                           initial={{ scale: 0.9, opacity: 0 }}
                           animate={{ scale: 1, opacity: 1 }}
                           exit={{ scale: 0.9, opacity: 0 }}
                           className="bg-white rounded-[28px] sm:rounded-[40px] p-6 sm:p-10 w-full max-w-lg shadow-2xl relative max-h-[90vh] overflow-y-auto"
                         >
-                          <button 
+                          <button
                             onClick={() => setEditingCategory(null)}
                             className="absolute right-4 sm:right-8 top-4 sm:top-8 text-gray-400 hover:text-gray-600 transition-colors"
                           >
                             <X size={20} className="sm:hidden" />
                             <X size={24} className="hidden sm:block" />
                           </button>
-                          
                           <h2 className="text-xl sm:text-2xl font-black mb-6 sm:mb-10 text-center">إعدادات القسم</h2>
-                          
                           <form onSubmit={editingCategory.id ? handleUpdateCategory : handleAddCategory} className="space-y-6 sm:space-y-8">
                             <div className="space-y-2 sm:space-y-3">
                               <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">اسم القسم</label>
                               <div className="relative">
-                                <input 
-                                  type="text" 
+                                <input
+                                  type="text"
                                   value={editingCategory.name}
                                   onChange={(e) => setEditingCategory({...editingCategory, name: e.target.value})}
                                   className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all"
@@ -3970,11 +4501,10 @@ export default function AdminPage() {
                                 </div>
                               </div>
                             </div>
-
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                               <div className="space-y-2 sm:space-y-3">
                                 <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">نمط العرض</label>
-                                <select 
+                                <select
                                   value={editingCategory.displayStyle || 'style1'}
                                   onChange={(e) => setEditingCategory({...editingCategory, displayStyle: e.target.value})}
                                   className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all appearance-none"
@@ -3991,7 +4521,7 @@ export default function AdminPage() {
                               </div>
                               <div className="space-y-2 sm:space-y-3">
                                 <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">ترتيب الأقسام الفرعية</label>
-                                <select 
+                                <select
                                   value={editingCategory.subCategoryLayout || 'vertical'}
                                   onChange={(e) => setEditingCategory({...editingCategory, subCategoryLayout: e.target.value as any})}
                                   className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all appearance-none"
@@ -4001,21 +4531,19 @@ export default function AdminPage() {
                                 </select>
                               </div>
                             </div>
-
                             <div className="space-y-2 sm:space-y-3">
                               <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">صيغ الملفات (مثلاً: PSD, AI)</label>
-                              <input 
-                                type="text" 
+                              <input
+                                type="text"
                                 value={editingCategory.fileTypes || ''}
                                 onChange={(e) => setEditingCategory({...editingCategory, fileTypes: e.target.value})}
                                 className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all"
                                 placeholder="XML, PLP, APK..."
                               />
                             </div>
-
                             <div className="flex items-center justify-between p-4 sm:p-6 bg-gray-50 rounded-2xl sm:rounded-[28px] border-2 border-gray-100">
                               <span className="text-xs sm:text-sm font-bold text-gray-900">لون مخصص لهذا القسم</span>
-                              <button 
+                              <button
                                 type="button"
                                 onClick={() => setEditingCategory({...editingCategory, useCustomAccent: !editingCategory.useCustomAccent})}
                                 className={cn(
@@ -4029,31 +4557,29 @@ export default function AdminPage() {
                                 )} />
                               </button>
                             </div>
-
                             {editingCategory.useCustomAccent && (
                               <div className="space-y-2 sm:space-y-3">
                                 <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">لون البراند المخصص (Hex)</label>
                                 <div className="flex items-center gap-3 sm:gap-4">
-                                  <input 
-                                    type="color" 
-                                    value={editingCategory.accentColor || '#3B82F6'} 
-                                    onChange={(e) => setEditingCategory({...editingCategory, accentColor: e.target.value})} 
-                                    className="w-10 h-10 sm:w-12 sm:h-12 cursor-pointer rounded-lg sm:rounded-xl border-2 border-gray-100 shadow-sm" 
+                                  <input
+                                    type="color"
+                                    value={editingCategory.accentColor || '#3B82F6'}
+                                    onChange={(e) => setEditingCategory({...editingCategory, accentColor: e.target.value})}
+                                    className="w-10 h-10 sm:w-12 sm:h-12 cursor-pointer rounded-lg sm:rounded-xl border-2 border-gray-100 shadow-sm"
                                   />
-                                  <input 
-                                    type="text" 
-                                    value={editingCategory.accentColor || ''} 
-                                    onChange={(e) => setEditingCategory({...editingCategory, accentColor: e.target.value})} 
+                                  <input
+                                    type="text"
+                                    value={editingCategory.accentColor || ''}
+                                    onChange={(e) => setEditingCategory({...editingCategory, accentColor: e.target.value})}
                                     className="flex-1 bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all uppercase"
                                     placeholder="#000000"
                                   />
                                 </div>
                               </div>
                             )}
-
                             <div className="flex items-center justify-between p-4 sm:p-6 bg-gray-50 rounded-2xl sm:rounded-[28px] border-2 border-gray-100">
                               <span className="text-xs sm:text-sm font-bold text-gray-900">زر مشاركة المحتوى (إظهار/إخفاء)</span>
-                              <button 
+                              <button
                                 type="button"
                                 onClick={() => setEditingCategory({...editingCategory, showShareButton: editingCategory.showShareButton === false ? true : false})}
                                 className={cn(
@@ -4067,10 +4593,9 @@ export default function AdminPage() {
                                 )} />
                               </button>
                             </div>
-
                             <div className="flex items-center justify-between p-4 sm:p-6 bg-gray-50 rounded-2xl sm:rounded-[28px] border-2 border-gray-100">
                               <span className="text-xs sm:text-sm font-bold text-gray-900">وضع الصيانة</span>
-                              <button 
+                              <button
                                 type="button"
                                 onClick={() => setEditingCategory({...editingCategory, isUnderMaintenance: !editingCategory.isUnderMaintenance})}
                                 className={cn(
@@ -4084,9 +4609,8 @@ export default function AdminPage() {
                                 )} />
                               </button>
                             </div>
-
-                            <button 
-                              type="submit" 
+                            <button
+                              type="submit"
                               disabled={isSaving}
                               className="w-full bg-primary text-white py-4 sm:py-5 rounded-2xl sm:rounded-[28px] font-black text-base sm:text-lg shadow-xl shadow-primary/20 hover:opacity-90 transition-all active:scale-95"
                             >
@@ -4096,36 +4620,33 @@ export default function AdminPage() {
                         </motion.div>
                       </div>
                     )}
-
                     {editingSubCategory && (
-                      <div 
+                      <div
                         key="edit-subcategory-modal-wrapper"
                         className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm"
                       >
-                        <motion.div 
+                        <motion.div
                           key="edit-subcategory-modal"
                           initial={{ scale: 0.9, opacity: 0 }}
                           animate={{ scale: 1, opacity: 1 }}
                           exit={{ scale: 0.9, opacity: 0 }}
                           className="bg-white rounded-[28px] sm:rounded-[40px] p-6 sm:p-10 w-full max-w-lg shadow-2xl relative max-h-[90vh] overflow-y-auto"
                         >
-                          <button 
+                          <button
                             onClick={() => setEditingSubCategory(null)}
                             className="absolute right-4 sm:right-8 top-4 sm:top-8 text-gray-400 hover:text-gray-600 transition-colors"
                           >
                             <X size={20} className="sm:hidden" />
                             <X size={24} className="hidden sm:block" />
                           </button>
-
                           <h2 className="text-xl sm:text-2xl font-black mb-6 sm:mb-10 text-center leading-tight">
                             {editingSubCategory.id ? 'تعديل القسم الفرعي' : 'إضافة قسم فرعي جديد'}
                           </h2>
-
                           <form onSubmit={editingSubCategory.id ? handleUpdateSubCategory : handleAddSubCategory} className="space-y-6 sm:space-y-8">
                             <div className="space-y-2 sm:space-y-3">
                               <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">اسم القسم الفرعي</label>
-                              <input 
-                                type="text" 
+                              <input
+                                type="text"
                                 value={editingSubCategory.name}
                                 onChange={(e) => setEditingSubCategory({...editingSubCategory, name: e.target.value})}
                                 className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all"
@@ -4134,18 +4655,17 @@ export default function AdminPage() {
                             </div>
                             <div className="space-y-2 sm:space-y-3">
                               <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">الوصف</label>
-                              <textarea 
+                              <textarea
                                 value={editingSubCategory.description}
                                 onChange={(e) => setEditingSubCategory({...editingSubCategory, description: e.target.value})}
                                 className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-medium h-24 sm:h-32 resize-none outline-none focus:border-primary/30 focus:bg-white transition-all"
                                 placeholder="اكتب وصفاً مختصراً للقسم الفرعي..."
                               />
                             </div>
-
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                               <div className="space-y-2 sm:space-y-3">
                                 <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">نمط عرض المحتوى</label>
-                                <select 
+                                <select
                                   value={editingSubCategory.displayStyle || 'style1'}
                                   onChange={(e) => setEditingSubCategory({...editingSubCategory, displayStyle: e.target.value})}
                                   className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all appearance-none"
@@ -4162,8 +4682,8 @@ export default function AdminPage() {
                               </div>
                               <div className="space-y-2 sm:space-y-3">
                                 <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">صيغة الملفات (مثلاً: XML)</label>
-                                <input 
-                                  type="text" 
+                                <input
+                                  type="text"
                                   value={editingSubCategory.fileTypes || ''}
                                   onChange={(e) => setEditingSubCategory({...editingSubCategory, fileTypes: e.target.value})}
                                   className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all"
@@ -4171,10 +4691,9 @@ export default function AdminPage() {
                                 />
                               </div>
                             </div>
-
                             <div className="flex items-center justify-between p-4 sm:p-6 bg-gray-50 rounded-2xl sm:rounded-[28px] border-2 border-gray-100">
                               <span className="text-xs sm:text-sm font-bold text-gray-900">لون مخصص لهذه الصفحة</span>
-                              <button 
+                              <button
                                 type="button"
                                 onClick={() => setEditingSubCategory({...editingSubCategory, useCustomAccent: !editingSubCategory.useCustomAccent})}
                                 className={cn(
@@ -4188,31 +4707,29 @@ export default function AdminPage() {
                                 )} />
                               </button>
                             </div>
-
                             {editingSubCategory.useCustomAccent && (
                               <div className="space-y-2 sm:space-y-3">
                                 <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">لون البراند المخصص (Hex)</label>
                                 <div className="flex items-center gap-3 sm:gap-4">
-                                  <input 
-                                    type="color" 
-                                    value={editingSubCategory.accentColor || '#3B82F6'} 
-                                    onChange={(e) => setEditingSubCategory({...editingSubCategory, accentColor: e.target.value})} 
-                                    className="w-10 h-10 sm:w-12 sm:h-12 cursor-pointer rounded-lg sm:rounded-xl border-2 border-gray-100 shadow-sm" 
+                                  <input
+                                    type="color"
+                                    value={editingSubCategory.accentColor || '#3B82F6'}
+                                    onChange={(e) => setEditingSubCategory({...editingSubCategory, accentColor: e.target.value})}
+                                    className="w-10 h-10 sm:w-12 sm:h-12 cursor-pointer rounded-lg sm:rounded-xl border-2 border-gray-100 shadow-sm"
                                   />
-                                  <input 
-                                    type="text" 
-                                    value={editingSubCategory.accentColor || ''} 
-                                    onChange={(e) => setEditingSubCategory({...editingSubCategory, accentColor: e.target.value})} 
+                                  <input
+                                    type="text"
+                                    value={editingSubCategory.accentColor || ''}
+                                    onChange={(e) => setEditingSubCategory({...editingSubCategory, accentColor: e.target.value})}
                                     className="flex-1 bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all uppercase"
                                     placeholder="#000000"
                                   />
                                 </div>
                               </div>
                             )}
-
                             <div className="flex items-center justify-between p-4 sm:p-6 bg-gray-50 rounded-2xl sm:rounded-[28px] border-2 border-gray-100">
                               <span className="text-xs sm:text-sm font-bold text-gray-900">زر مشاركة المحتوى (إظهار/إخفاء)</span>
-                              <button 
+                              <button
                                 type="button"
                                 onClick={() => setEditingSubCategory({...editingSubCategory, showShareButton: editingSubCategory.showShareButton === false ? true : false})}
                                 className={cn(
@@ -4226,10 +4743,9 @@ export default function AdminPage() {
                                 )} />
                               </button>
                             </div>
-
                             <div className="flex items-center justify-between p-4 sm:p-6 bg-gray-50 rounded-2xl sm:rounded-[28px] border-2 border-gray-100">
                               <span className="text-xs sm:text-sm font-bold text-gray-900">وضع الصيانة</span>
-                              <button 
+                              <button
                                 type="button"
                                 onClick={() => setEditingSubCategory({...editingSubCategory, isUnderMaintenance: !editingSubCategory.isUnderMaintenance})}
                                 className={cn(
@@ -4243,8 +4759,8 @@ export default function AdminPage() {
                                 )} />
                               </button>
                             </div>
-                            <button 
-                              type="submit" 
+                            <button
+                              type="submit"
                               disabled={isSaving}
                               className="w-full bg-primary text-white py-4 sm:py-5 rounded-2xl sm:rounded-[28px] font-black text-base sm:text-lg shadow-xl shadow-primary/20 hover:opacity-90 transition-all active:scale-95"
                             >
@@ -4254,20 +4770,19 @@ export default function AdminPage() {
                         </motion.div>
                       </div>
                     )}
-
                     {editingItem && (
-                      <div 
+                      <div
                         key="edit-item-modal-wrapper"
                         className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm"
                       >
-                        <motion.div 
+                        <motion.div
                           key="edit-item-modal"
                           initial={{ scale: 0.9, opacity: 0 }}
                           animate={{ scale: 1, opacity: 1 }}
                           exit={{ scale: 0.9, opacity: 0 }}
                           className="bg-white rounded-[28px] sm:rounded-[40px] p-6 sm:p-10 w-full max-w-lg shadow-2xl relative max-h-[90vh] overflow-y-auto custom-scrollbar"
                         >
-                          <button 
+                          <button
                             onClick={() => setEditingItem(null)}
                             className="absolute right-4 sm:right-8 top-4 sm:top-8 text-gray-400 hover:text-gray-600 transition-colors"
                           >
@@ -4277,19 +4792,17 @@ export default function AdminPage() {
                           <h2 className="text-xl sm:text-2xl font-black mb-6 sm:mb-10 text-center">
                             {editingItem.id ? 'تعديل المحتوى' : 'إضافة محتوى جديد'}
                           </h2>
-
                           <form onSubmit={editingItem.id ? handleUpdateItem : handleAddItem} className="space-y-6 sm:space-y-8">
                             <div className="space-y-2 sm:space-y-3">
                               <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">عنوان المحتوى</label>
-                              <input 
-                                type="text" 
+                              <input
+                                type="text"
                                 value={editingItem.title}
                                 onChange={(e) => setEditingItem({...editingItem, title: e.target.value})}
                                 className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all"
                                 required
                               />
                             </div>
-
                             {/* Conditional Rendering Based on Style */}
                             <div className="space-y-6">
                               {/* Common Description - For most styles except prompt maybe? or let it be */}
@@ -4298,27 +4811,25 @@ export default function AdminPage() {
                                   <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">
                                     {currentParentStyle === 'style4' || currentParentStyle === 'style6' ? 'اسم الفنان / الوصف' : 'الوصف'}
                                   </label>
-                                  <textarea 
+                                  <textarea
                                     value={editingItem.description}
                                     onChange={(e) => setEditingItem({...editingItem, description: e.target.value})}
                                     className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-medium h-24 resize-none outline-none focus:border-primary/30 focus:bg-white transition-all"
                                   />
                                 </div>
                               )}
-
                               {/* Image URL - For most except some? */}
                               {currentParentStyle !== 'style4' && currentParentStyle !== 'style6' && (
                                 <div className="space-y-2 sm:space-y-3">
                                   <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">رابط الصورة {currentParentStyle === 'style3' ? '(أيقونة التطبيق)' : ''}</label>
-                                  <input 
-                                    type="url" 
+                                  <input
+                                    type="url"
                                     value={editingItem.imageUrl || ''}
                                     onChange={(e) => setEditingItem({...editingItem, imageUrl: e.target.value})}
                                     className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all"
                                   />
                                 </div>
                               )}
-
                               {/* Download / Audio URL */}
                               {(currentParentStyle === 'style1' || currentParentStyle === 'style2' || currentParentStyle === 'style3' || currentParentStyle === 'style4' || currentParentStyle === 'style5' || currentParentStyle === 'style6') && (
                                 <div className="space-y-4">
@@ -4326,21 +4837,20 @@ export default function AdminPage() {
                                     <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">
                                       {currentParentStyle === 'style4' || currentParentStyle === 'style6' ? 'رابط الملف الصوتي' : currentParentStyle === 'style5' ? 'رابط الملف / التحميل (اختياري - يظهر زر التحميل عند إضافته)' : 'رابط التحميل المباشر (اللوجو 1)'}
                                     </label>
-                                    <input 
-                                      type="url" 
+                                    <input
+                                      type="url"
                                       value={editingItem.downloadUrl || ''}
                                       onChange={(e) => setEditingItem({...editingItem, downloadUrl: e.target.value})}
                                       className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all"
                                       placeholder="https://..."
                                     />
                                   </div>
-
                                   <div className="space-y-2 sm:space-y-3">
                                     <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">
                                       رابط التحميل الثاني (اللوجو 2 / الملحق 2) - اختياري
                                     </label>
-                                    <input 
-                                      type="url" 
+                                    <input
+                                      type="url"
                                       value={editingItem.downloadUrl2 || ''}
                                       onChange={(e) => setEditingItem({...editingItem, downloadUrl2: e.target.value})}
                                       className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all"
@@ -4349,13 +4859,12 @@ export default function AdminPage() {
                                   </div>
                                 </div>
                               )}
-
                               {/* Source URL for AI Tools */}
                               {currentParentStyle === 'style9' && (
                                 <div className="space-y-2 sm:space-y-3">
                                   <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">رابط موقع الأداة</label>
-                                  <input 
-                                    type="url" 
+                                  <input
+                                    type="url"
                                     value={editingItem.sourceUrl || ''}
                                     onChange={(e) => setEditingItem({...editingItem, sourceUrl: e.target.value})}
                                     className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all"
@@ -4363,13 +4872,12 @@ export default function AdminPage() {
                                   />
                                 </div>
                               )}
-
                               {/* Video URL for Style 8 */}
                               {currentParentStyle === 'style8' && (
                                 <div className="space-y-2 sm:space-y-3">
                                   <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">رابط فيديو اليوتيوب</label>
-                                  <input 
-                                    type="url" 
+                                  <input
+                                    type="url"
                                     value={editingItem.videoUrl || ''}
                                     onChange={(e) => setEditingItem({...editingItem, videoUrl: e.target.value})}
                                     className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all"
@@ -4377,12 +4885,11 @@ export default function AdminPage() {
                                   />
                                 </div>
                               )}
-
                               {/* Prompt for Style 5 */}
                               {currentParentStyle === 'style5' && (
                                 <div className="space-y-2 sm:space-y-3">
                                   <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">نص البرومبت (Prompt)</label>
-                                  <textarea 
+                                  <textarea
                                     value={editingItem.prompt || ''}
                                     onChange={(e) => setEditingItem({...editingItem, prompt: e.target.value})}
                                     className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-mono h-32 resize-none outline-none focus:border-primary/30 focus:bg-white transition-all"
@@ -4391,7 +4898,6 @@ export default function AdminPage() {
                                   />
                                 </div>
                               )}
-
                               {/* App Store Style Fields (Style 3) */}
                               {currentParentStyle === 'style3' && (
                                 <div className="bg-gray-50/50 p-6 rounded-3xl border-2 border-gray-100 space-y-6">
@@ -4399,11 +4905,10 @@ export default function AdminPage() {
                                     <Rocket size={16} />
                                     تفاصيل المتجر (App Store)
                                   </h3>
-                                  
                                   <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-1">
                                       <label className="text-[10px] font-bold text-gray-400 mr-2">التقييم (مثلاً: 4.8)</label>
-                                      <input 
+                                      <input
                                         type="text"
                                         value={editingItem.rating || ''}
                                         onChange={(e) => setEditingItem({...editingItem, rating: e.target.value})}
@@ -4413,7 +4918,7 @@ export default function AdminPage() {
                                     </div>
                                     <div className="space-y-1">
                                       <label className="text-[10px] font-bold text-gray-400 mr-2">عدد المراجعات</label>
-                                      <input 
+                                      <input
                                         type="text"
                                         value={editingItem.reviewCount || ''}
                                         onChange={(e) => setEditingItem({...editingItem, reviewCount: e.target.value})}
@@ -4422,11 +4927,10 @@ export default function AdminPage() {
                                       />
                                     </div>
                                   </div>
-
                                   <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-1">
                                       <label className="text-[10px] font-bold text-gray-400 mr-2">التصنيف العمري</label>
-                                      <input 
+                                      <input
                                         type="text"
                                         value={editingItem.ageRating || ''}
                                         onChange={(e) => setEditingItem({...editingItem, ageRating: e.target.value})}
@@ -4436,7 +4940,7 @@ export default function AdminPage() {
                                     </div>
                                     <div className="space-y-1">
                                       <label className="text-[10px] font-bold text-gray-400 mr-2">حجم الملف</label>
-                                      <input 
+                                      <input
                                         type="text"
                                         value={editingItem.size || ''}
                                         onChange={(e) => setEditingItem({...editingItem, size: e.target.value})}
@@ -4445,10 +4949,9 @@ export default function AdminPage() {
                                       />
                                     </div>
                                   </div>
-
                                   <div className="space-y-2">
                                     <label className="text-[10px] font-bold text-gray-400 mr-2">لقطات الشاشة (رابط في كل سطر)</label>
-                                    <textarea 
+                                    <textarea
                                       value={(editingItem.screenshots || []).join('\n')}
                                       onChange={(e) => setEditingItem({...editingItem, screenshots: e.target.value.split('\n').filter(s => s.trim() !== '')})}
                                       className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2 text-xs font-medium h-24 resize-none outline-none"
@@ -4458,12 +4961,11 @@ export default function AdminPage() {
                                 </div>
                               )}
                             </div>
-
                             <div className="grid grid-cols-2 gap-3 sm:gap-4">
                               {(currentParentStyle === 'style5') && (
                                 <div className="flex items-center justify-between p-3 sm:p-4 bg-gray-50 rounded-xl sm:rounded-2xl border border-gray-100">
                                   <span className="text-[10px] sm:text-xs font-bold">زر النسخ</span>
-                                  <button 
+                                  <button
                                     type="button"
                                     onClick={() => setEditingItem({...editingItem, showCopyButton: editingItem.showCopyButton === false ? true : false})}
                                     className={cn(
@@ -4481,7 +4983,7 @@ export default function AdminPage() {
                               {(currentParentStyle === 'style1' || currentParentStyle === 'style2' || currentParentStyle === 'style3' || currentParentStyle === 'style4' || currentParentStyle === 'style5' || currentParentStyle === 'style6') && (
                                 <div className="flex items-center justify-between p-3 sm:p-4 bg-gray-50 rounded-xl sm:rounded-2xl border border-gray-100 group">
                                   <span className="text-[10px] sm:text-xs font-bold">زر التحميل</span>
-                                  <button 
+                                  <button
                                     type="button"
                                     onClick={() => setEditingItem({...editingItem, showDownloadButton: editingItem.showDownloadButton === false ? true : false})}
                                     className={cn(
@@ -4496,26 +4998,10 @@ export default function AdminPage() {
                                   </button>
                                 </div>
                               )}
-                              <div className="flex items-center justify-between p-3 sm:p-4 bg-gray-50 rounded-xl sm:rounded-2xl border border-gray-100 group">
-                                <span className="text-[10px] sm:text-xs font-bold">زر المشاركة</span>
-                                <button 
-                                  type="button"
-                                  onClick={() => setEditingItem({...editingItem, showShareButton: editingItem.showShareButton === false ? true : false})}
-                                  className={cn(
-                                    "w-8 h-5 sm:w-10 sm:h-6 rounded-full transition-all relative",
-                                    editingItem.showShareButton !== false ? "bg-primary" : "bg-gray-300"
-                                  )}
-                                >
-                                  <div className={cn(
-                                    "absolute top-0.5 sm:top-1 w-4 h-4 bg-white rounded-full transition-all",
-                                    editingItem.showShareButton !== false ? "right-0.5 sm:right-1" : "right-3.5 sm:right-5"
-                                  )} />
-                                </button>
-                              </div>
-                            </div>
 
-                            <button 
-                              type="submit" 
+                            </div>
+                            <button
+                              type="submit"
                               disabled={isSaving}
                               className="w-full bg-primary text-white py-4 sm:py-5 rounded-2xl sm:rounded-[28px] font-black text-base sm:text-lg shadow-xl shadow-primary/20 hover:opacity-90 transition-all active:scale-95"
                             >
@@ -4532,15 +5018,14 @@ export default function AdminPage() {
           </>
         )}
       </main>
-
       {/* Delete Confirmation Dialog */}
       <AnimatePresence>
         {deleteConfirm && (
-          <div 
+          <div
             key="delete-confirm-modal"
             className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm"
           >
-            <motion.div 
+            <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
@@ -4550,16 +5035,14 @@ export default function AdminPage() {
                 <AlertTriangle size={32} className="sm:hidden" />
                 <AlertTriangle size={40} className="hidden sm:block" />
               </div>
-              
               <h2 className="text-xl sm:text-2xl font-black mb-2">تأكيد الحذف</h2>
               <p className="text-gray-500 text-xs sm:text-sm mb-6 sm:mb-8 leading-relaxed">
                 هل أنت متأكد من رغبتك في حذف <span className="font-bold text-red-500">&quot;{deleteConfirm.label}&quot;</span>؟
                 <br />
                 هذا الإجراء لا يمكن التراجع عنه.
               </p>
-
               <div className="flex flex-col gap-3">
-                <button 
+                <button
                   disabled={!canDelete || isSaving}
                   onClick={() => {
                     if (deleteConfirm.type === 'user') {
@@ -4570,8 +5053,8 @@ export default function AdminPage() {
                   }}
                   className={cn(
                     "w-full py-4 sm:py-5 rounded-xl sm:rounded-2xl font-black text-base sm:text-lg transition-all active:scale-95 flex items-center justify-center gap-3",
-                    canDelete 
-                      ? "bg-red-500 text-white shadow-xl shadow-red-500/20 hover:opacity-90" 
+                    canDelete
+                      ? "bg-red-500 text-white shadow-xl shadow-red-500/20 hover:opacity-90"
                       : "bg-gray-100 text-gray-400 cursor-not-allowed"
                   )}
                 >
@@ -4585,8 +5068,7 @@ export default function AdminPage() {
                     </>
                   )}
                 </button>
-                
-                <button 
+                <button
                   onClick={() => setDeleteConfirm(null)}
                   className="w-full py-4 sm:py-5 rounded-xl sm:rounded-2xl font-bold text-gray-400 hover:bg-gray-50 transition-all text-sm sm:text-base"
                 >
