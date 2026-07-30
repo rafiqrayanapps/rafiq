@@ -63,8 +63,10 @@ export function getItemShareLinks(item: any): ShareLinkOption[] {
   return links;
 }
 
+import { triggerAppShare } from '@/components/AppShareModal';
+
 interface QuickShareButtonProps {
-  item: any;
+  item?: any;
   category?: any;
   subCategory?: any;
   className?: string;
@@ -84,6 +86,56 @@ export default function QuickShareButton({
   showLabel = false,
   label = 'مشاركة',
 }: QuickShareButtonProps) {
-  // Feature disabled - returning null
-  return null;
+  const { toast } = useToast();
+
+  const handleShare = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    if (!item) {
+      triggerAppShare();
+      return;
+    }
+
+    const shareTitle = item.title || item.name || 'رفيق المصمم';
+    const shareText = item.description || `شاهد هذا العنصر في تطبيق رفيق المصمم: ${shareTitle}`;
+    const links = getItemShareLinks(item);
+    const itemUrl = links.length > 0 ? links[0].url : (typeof window !== 'undefined' ? window.location.href : '');
+
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({
+          title: shareTitle,
+          text: shareText,
+          url: itemUrl,
+        });
+        return;
+      } catch (err: any) {
+        if (err.name === 'AbortError') return;
+      }
+    }
+
+    // Fallback if navigator.share fails or is missing: copy link
+    if (typeof navigator !== 'undefined' && navigator.clipboard && itemUrl) {
+      navigator.clipboard.writeText(itemUrl);
+      toast({
+        title: 'تم نسخ الرابط!',
+        description: 'تم نسخ رابط العنصر للحافظة بنجاح.',
+      });
+    } else {
+      triggerAppShare();
+    }
+  };
+
+  return (
+    <Button
+      variant={variant}
+      size={size}
+      className={cn('gap-2 font-bold', className)}
+      onClick={handleShare}
+      title={label}
+    >
+      <Share2 size={16} />
+      {showLabel && <span>{label}</span>}
+    </Button>
+  );
 }

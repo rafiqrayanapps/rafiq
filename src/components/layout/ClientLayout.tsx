@@ -8,6 +8,7 @@ import { PWAProvider } from "@/components/providers/PWAProvider";
 import PWAInstallModal from "@/components/PWAInstallModal";
 import { Toaster } from "@/components/ui/toaster";
 import ThemeApplier from "@/components/ThemeApplier";
+import FontApplier from "@/components/FontApplier";
 import GlobalDialog from "@/components/GlobalDialog";
 import FloatingButton from "@/components/FloatingButton";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
@@ -16,6 +17,7 @@ import InterstitialAd from "@/components/InterstitialAd";
 import PopupAd from "@/components/PopupAd";
 import SiteMaintenanceGuard from "@/components/SiteMaintenanceGuard";
 import ChunkErrorListener from "@/components/ChunkErrorListener";
+import AppShareModal from "@/components/AppShareModal";
 import { useDoc } from '@/hooks/useFirebase';
 
 function SecurityApplier() {
@@ -98,6 +100,8 @@ export default function ClientLayout({
               </Suspense>
               <ServiceWorkerRegister />
               <ThemeApplier />
+              <FontApplier />
+              <AppShareModal />
               <SiteMaintenanceGuard>
                 <GlobalDialog />
                 <PWAInstallModal />

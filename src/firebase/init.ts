@@ -3,19 +3,20 @@
 import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
-import { initializeFirestore, Firestore, doc, getDocFromServer, CACHE_SIZE_UNLIMITED } from 'firebase/firestore';
+import { initializeFirestore, Firestore, doc, getDocFromServer, setLogLevel } from 'firebase/firestore';
+
+// Set Firestore log level to error to suppress benign idle gRPC stream cancellation warnings
+try {
+  setLogLevel('error');
+} catch {
+  // Ignore if already set or unsupported environment
+}
 
 async function testConnection(db: Firestore) {
   try {
-    // Attempt to fetch a non-existent doc from server to verify connectivity
     await getDocFromServer(doc(db, 'test_connection', 'ping'));
-    console.log("Firestore connection verified.");
-  } catch (error: any) {
-    if (error?.message?.includes('offline') || error?.code === 'unavailable') {
-      console.error("Firestore connection failed or unavailable. Check configuration/network.", error.message);
-    } else {
-      console.warn("Firestore connection test completed (may be empty or restricted, but reachable):", error.message);
-    }
+  } catch (_error: any) {
+    // Ignore background ping check silently
   }
 }
 

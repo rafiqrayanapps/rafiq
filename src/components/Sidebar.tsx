@@ -5,12 +5,13 @@ import { X, ShieldCheck, LogIn, ChevronLeft, Home, Palette, Info, Crown, Setting
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks/useFirebase';
+import { useAuth, useDoc } from '@/hooks/useFirebase';
 import { useState, useEffect, Fragment } from 'react';
 import { cn } from '@/lib/utils';
 import { useCategories } from '@/components/providers/CategoryProvider';
 import LoginModal from './LoginModal';
 import AboutModal from './AboutModal';
+import AppShareModal, { triggerAppShare } from './AppShareModal';
 import SocialLinks from './SocialLinks';
 import { useTool } from './providers/ToolProvider';
 
@@ -28,6 +29,14 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const [logoClicks, setLogoClicks] = useState(0);
   const router = useRouter();
 
+  const { data: generalConfig } = useDoc('appConfig', 'general');
+  const { data: aboutConfig } = useDoc('appConfig', 'about');
+
+  const configuredAppName = generalConfig?.appName || aboutConfig?.appName || aboutConfig?.title || "رفيق المصمم";
+  const words = configuredAppName.trim().split(/\s+/);
+  const sideTopWord = words.length > 1 ? words[0] : '';
+  const sideBottomPill = words.length > 1 ? words.slice(1).join(' ') : words[0];
+
   const handleLogoClick = () => {
     const nextClicks = logoClicks + 1;
     if (nextClicks >= 7) {
@@ -44,6 +53,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   ];
 
   const infoNav = [
+    { label: 'مشاركة التطبيق', action: 'share', icon: Share2 },
     { label: 'حول التطبيق', href: '/about', icon: Info },
     { label: 'تواصل معنا', href: '/contact', icon: MessageSquare },
   ];
@@ -83,20 +93,22 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 onClick={handleLogoClick}
                 className="flex flex-col items-center text-center cursor-pointer select-none"
               >
-                <motion.div 
-                  initial={{ scale: 0.8, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  className="mb-2"
-                >
-                  <h2 className="text-5xl font-black text-white tracking-tighter drop-shadow-lg">رفيق</h2>
-                </motion.div>
+                {sideTopWord && (
+                  <motion.div 
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className="mb-2"
+                  >
+                    <h2 className="text-5xl font-black text-white tracking-tighter drop-shadow-lg">{sideTopWord}</h2>
+                  </motion.div>
+                )}
                 <motion.div 
                   initial={{ y: 10, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ delay: 0.2 }}
                   className="bg-white px-5 py-1.5 rounded-full shadow-xl transform -rotate-1"
                 >
-                  <span className="text-sm font-black tracking-widest uppercase" style={{ color: 'var(--primary)' }}>المصمم</span>
+                  <span className="text-sm font-black tracking-widest uppercase" style={{ color: 'var(--primary)' }}>{sideBottomPill}</span>
                 </motion.div>
               </div>
             </div>
@@ -136,14 +148,16 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 {/* Info & Contact */}
                 <section>
                   <ul className="space-y-2">
-                    {infoNav.map((item) => (
-                      <li key={item.href}>
+                    {infoNav.map((item, idx) => (
+                      <li key={item.href || item.action || idx}>
                         <button 
                           onClick={() => {
                             onClose();
-                            if (item.href === '/about') {
+                            if (item.action === 'share') {
+                              triggerAppShare();
+                            } else if (item.href === '/about') {
                               setIsAboutModalOpen(true);
-                            } else {
+                            } else if (item.href) {
                               router.push(item.href);
                             }
                           }}

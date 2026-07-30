@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, ArrowRight, Menu, Search, Rocket } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import AdBanner from '@/components/AdBanner';
+import { useDoc } from '@/hooks/useFirebase';
 
 interface HeaderProps {
   title?: string;
@@ -19,6 +20,19 @@ interface HeaderProps {
 export default function Header({ title = "رفيق المصمم", showBackButton, onBackClick, onMenuClick, extraContent, compact, showAd }: HeaderProps) {
   const router = useRouter();
   const [logoClicks, setLogoClicks] = useState(0);
+
+  const { data: generalConfig } = useDoc('appConfig', 'general');
+  const { data: aboutConfig } = useDoc('appConfig', 'about');
+
+  const configuredAppName = generalConfig?.appName || aboutConfig?.appName || aboutConfig?.title || "رفيق المصمم";
+
+  // Determine top header brand word and badge text
+  const isDefaultOrAppName = title === "رفيق المصمم" || title === configuredAppName;
+  const targetText = isDefaultOrAppName ? configuredAppName : title;
+
+  const words = configuredAppName.trim().split(/\s+/);
+  const brandTopWord = words.length > 1 ? words[0] : '';
+  const brandBottomPill = words.length > 1 ? words.slice(1).join(' ') : words[0];
 
   const handleLogoClick = () => {
     const nextClicks = logoClicks + 1;
@@ -82,9 +96,9 @@ export default function Header({ title = "رفيق المصمم", showBackButton
                 "font-bold flex flex-col items-center gap-1 leading-tight transition-all",
                 compact ? "text-2xl" : "text-4xl"
               )}>
-                {!compact && (
+                {!compact && isDefaultOrAppName && brandTopWord && (
                   <div className="flex items-center gap-2">
-                    <span className="text-white tracking-tighter text-4xl font-black uppercase drop-shadow-2xl">رفيق</span>
+                    <span className="text-white tracking-tighter text-4xl font-black uppercase drop-shadow-2xl">{brandTopWord}</span>
                   </div>
                 )}
                 <div className={cn(
@@ -95,7 +109,7 @@ export default function Header({ title = "رفيق المصمم", showBackButton
                     "font-black tracking-tight",
                     compact ? "text-base" : "text-xl"
                   )} style={{ color: 'var(--primary)' }}>
-                    {title === "رفيق المصمم" ? "المصمم" : title}
+                    {isDefaultOrAppName ? brandBottomPill : title}
                   </span>
                 </div>
               </div>

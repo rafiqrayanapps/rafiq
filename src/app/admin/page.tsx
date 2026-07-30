@@ -4,7 +4,7 @@ import { useAuth, useCollection, useDoc, handleFirestoreError, OperationType } f
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import { cn } from '@/lib/utils';
-import { Shield, Globe, Database, AlertTriangle, CheckCircle, Copy, LogIn, Plus, FolderPlus, FilePlus, List, ChevronDown, Trash2, Palette, BellRing, Send, Lock, Download, Edit3, ChevronRight, X, Settings, UserPlus, MessageSquare, MessageCircle, User, ShieldCheck, Bell, MousePointer2, Hammer, Ticket, Zap, Home, Users, ArrowUp, ArrowDown, Info, Heart, Star, Target, Rocket, Award, Instagram, Twitter, Github, MapPin, Clock, Phone, Mail, ExternalLink, Share2, Wrench, Power, Eye, KeyRound, Code2, Terminal, Check, EyeOff } from 'lucide-react';
+import { Shield, Globe, Database, AlertTriangle, CheckCircle, Copy, LogIn, Plus, FolderPlus, FilePlus, List, ChevronDown, Trash2, Palette, BellRing, Send, Lock, Download, Edit3, ChevronRight, X, Settings, UserPlus, MessageSquare, MessageCircle, User, ShieldCheck, Bell, MousePointer2, Hammer, Ticket, Zap, Home, Users, ArrowUp, ArrowDown, Info, Heart, Star, Target, Rocket, Award, Instagram, Twitter, Github, MapPin, Clock, Phone, Mail, ExternalLink, Share2, Wrench, Power, Eye, KeyRound, Code2, Terminal, Check, EyeOff, Type, Upload, Sparkles, RefreshCw } from 'lucide-react';
 import SocialLinks, { SocialPlatformIcon, getSocialPlatformInfo, SocialLinkItem } from '@/components/SocialLinks';
 import MaintenanceView from '@/components/MaintenanceView';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -36,13 +36,15 @@ const iconMap: Record<string, any> = {
   Rocket,
   Award
 };
+import { triggerAppShare } from '@/components/AppShareModal';
+
 export default function AdminPage() {
   const { toast } = useToast();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { user, isAdmin, isEditor, loading, loginWithGoogle, logout } = useAuth();
   const [currentDomain, setCurrentDomain] = useState('');
   const [copySuccess, setCopySuccess] = useState(false);
-  const [activeTab, setActiveTab] = useState<'menu' | 'users' | 'content' | 'colors' | 'notifications' | 'dialog' | 'floatingButton' | 'about' | 'contact' | 'tools' | 'ads' | 'social' | 'security' | 'maintenance' | 'api'>('menu');
+  const [activeTab, setActiveTab] = useState<'menu' | 'users' | 'content' | 'colors' | 'notifications' | 'dialog' | 'floatingButton' | 'about' | 'contact' | 'tools' | 'ads' | 'social' | 'security' | 'maintenance' | 'api' | 'share' | 'appName' | 'font'>('menu');
   const [viewLevel, setViewLevel] = useState<'categories' | 'subcategories' | 'items'>('categories');
   const router = useRouter();
   // API Management State
@@ -269,6 +271,7 @@ export default function AdminPage() {
   const [maintenanceShowSocial, setMaintenanceShowSocial] = useState(true);
   const [maintenanceWhatsapp, setMaintenanceWhatsapp] = useState('');
   const [maintenanceTelegram, setMaintenanceTelegram] = useState('');
+
   useEffect(() => {
     if (maintenanceConfig) {
       setMaintenanceEnabled(maintenanceConfig.isEnabled ?? false);
@@ -280,6 +283,204 @@ export default function AdminPage() {
       setMaintenanceTelegram(maintenanceConfig.telegramUsername || '');
     }
   }, [maintenanceConfig]);
+
+  // Share App Config State
+  const { data: shareConfig } = useDoc('appConfig', 'share');
+  const [shareTitle, setShareTitle] = useState('تطبيق رفيق المصمم');
+  const [shareText, setShareText] = useState('تطبيق رفيق المصمم - منصتك المتكاملة لأفضل الملحقات والتصاميم والخطوط. حمل التطبيق الآن واستفد من كافة المميزات!');
+  const [shareUrl, setShareUrl] = useState('');
+  const [shareEnabled, setShareEnabled] = useState(true);
+
+  useEffect(() => {
+    if (shareConfig) {
+      setShareTitle(shareConfig.title || 'تطبيق رفيق المصمم');
+      setShareText(shareConfig.text || 'تطبيق رفيق المصمم - منصتك المتكاملة لأفضل الملحقات والتصاميم والخطوط. حمل التطبيق الآن واستفد من كافة المميزات!');
+      setShareUrl(shareConfig.url || '');
+      setShareEnabled(shareConfig.enabled !== false);
+    }
+  }, [shareConfig]);
+
+  const handleSaveShareConfig = async () => {
+    setIsSaving(true);
+    try {
+      await setDoc(doc(db, 'appConfig', 'share'), {
+        title: shareTitle,
+        text: shareText,
+        url: shareUrl,
+        enabled: shareEnabled,
+        updatedAt: new Date().toISOString(),
+      });
+      toast({
+        title: 'تم التحديث بنجاح',
+        description: 'تم حفظ إعدادات مشاركة التطبيق بنجاح.',
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, 'appConfig/share');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // General App Identity (App Name & Logo) State
+  const { data: generalConfig } = useDoc('appConfig', 'general');
+  const [appNameInput, setAppNameInput] = useState('رفيق المصمم');
+  const [appSubtitleInput, setAppSubtitleInput] = useState('منصتك المتكاملة لأفضل الملحقات والتصاميم والخطوط');
+  const [appLogoInput, setAppLogoInput] = useState('');
+
+  useEffect(() => {
+    if (generalConfig?.appName) {
+      setAppNameInput(generalConfig.appName);
+    } else if (aboutConfig?.appName || aboutConfig?.title) {
+      setAppNameInput(aboutConfig.appName || aboutConfig.title);
+    }
+    if (generalConfig?.appSubtitle) {
+      setAppSubtitleInput(generalConfig.appSubtitle);
+    }
+    if (generalConfig?.appLogo) {
+      setAppLogoInput(generalConfig.appLogo);
+    } else if (aboutConfig?.appLogoImage || aboutConfig?.logoImage) {
+      setAppLogoInput(aboutConfig.appLogoImage || aboutConfig.logoImage);
+    }
+  }, [generalConfig, aboutConfig]);
+
+  const handleLogoImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast({
+        variant: 'destructive',
+        title: 'الصورة كبيرة جداً',
+        description: 'يرجى اختيار صورة بحجم أقل من 2 ميجابايت.',
+      });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      setAppLogoInput(dataUrl);
+      toast({
+        title: 'تم اختيار صورة الشعار',
+        description: 'اضغط حفظ لتطبيق الشعار الجديد على شاشة البداية وكافة واجهات التطبيق.',
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveAppName = async () => {
+    setIsSaving(true);
+    try {
+      await setDoc(doc(db, 'appConfig', 'general'), {
+        appName: appNameInput,
+        appSubtitle: appSubtitleInput,
+        appLogo: appLogoInput,
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
+
+      await setDoc(doc(db, 'appConfig', 'about'), {
+        appName: appNameInput,
+        title: appNameInput,
+        subtitle: appSubtitleInput,
+        appLogoImage: appLogoInput,
+        logoImage: appLogoInput,
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
+
+      toast({
+        title: 'تم التحديث بنجاح',
+        description: 'تم تحديث اسم وشعار التطبيق بنجاح في شاشة البداية والهيدر والقائمة الجانبية.',
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, 'appConfig/general');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Custom Font Config State
+  const { data: dbFontConfig } = useDoc('appConfig', 'font');
+  const [fontType, setFontType] = useState<'preset' | 'custom_file' | 'custom_url' | 'default'>('default');
+  const [presetFont, setPresetFont] = useState('Cairo');
+  const [customFontName, setCustomFontName] = useState('');
+  const [customFontDataUrl, setCustomFontDataUrl] = useState('');
+  const [customFontUrl, setCustomFontUrl] = useState('');
+  const [fontFormat, setFontFormat] = useState('truetype');
+  const [fontFileName, setFontFileName] = useState('');
+  const [fontFileSize, setFontFileSize] = useState('');
+
+  useEffect(() => {
+    if (dbFontConfig) {
+      setFontType(dbFontConfig.fontType || 'default');
+      setPresetFont(dbFontConfig.presetFont || 'Cairo');
+      setCustomFontName(dbFontConfig.customFontName || '');
+      setCustomFontDataUrl(dbFontConfig.customFontDataUrl || '');
+      setCustomFontUrl(dbFontConfig.customFontUrl || '');
+      setFontFormat(dbFontConfig.fontFormat || 'truetype');
+      setFontFileName(dbFontConfig.fontFileName || '');
+    }
+  }, [dbFontConfig]);
+
+  const handleFontFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast({
+        variant: 'destructive',
+        title: 'الملف كبير جداً',
+        description: 'يرجى اختيار ملف خط بحجم أقل من 2 ميجابايت.',
+      });
+      return;
+    }
+
+    const nameWithoutExt = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+    setFontFileName(file.name);
+    setFontFileSize(`${(file.size / 1024).toFixed(1)} KB`);
+    setCustomFontName(nameWithoutExt);
+
+    let format = 'truetype';
+    if (file.name.endsWith('.woff2')) format = 'woff2';
+    else if (file.name.endsWith('.woff')) format = 'woff';
+    else if (file.name.endsWith('.otf')) format = 'opentype';
+    setFontFormat(format);
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      setCustomFontDataUrl(dataUrl);
+      setFontType('custom_file');
+      toast({
+        title: 'تم قراءة ملف الخط بنجاح',
+        description: `تم تجهيز الخط "${file.name}". اضغط حفظ لتطبيقه على كافة أجزاء التطبيق.`,
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveFontConfig = async () => {
+    setIsSaving(true);
+    try {
+      await setDoc(doc(db, 'appConfig', 'font'), {
+        fontType,
+        presetFont,
+        customFontName,
+        customFontDataUrl,
+        customFontUrl,
+        fontFormat,
+        fontFileName,
+        updatedAt: new Date().toISOString(),
+      });
+      toast({
+        title: 'تم حفظ إعدادات الخط',
+        description: 'تم تحديث الخط وتطبيقه على كافة أجهزة مستخدمي التطبيق بنجاح.',
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, 'appConfig/font');
+    } finally {
+      setIsSaving(false);
+    }
+  };
   const handleSaveMaintenance = async () => {
     setIsSaving(true);
     try {
@@ -1420,6 +1621,8 @@ export default function AdminPage() {
                       {
                         title: 'المظهر والهوية',
                         items: [
+                          { id: 'appName', label: 'اسم الهوية والتطبيق', icon: Type, desc: 'تعديل اسم التطبيق الظاهر في الهيدر والصفحة الرئيسية والقائمة الجانبية' },
+                          { id: 'font', label: 'خط التطبيق (تحميل مخصص)', icon: Type, desc: 'تحميل ملف خط مخصص (TTF, OTF, WOFF) أو اختيار خط عربي متميز' },
                           { id: 'colors', label: 'ألوان الموقع', icon: Palette, desc: 'تخصيص ألوان الواجهة' },
                           { id: 'ads', label: 'إعلانات الموقع', icon: Award, desc: 'إدارة إعلانات Adsterra وشفراتها' },
                           { id: 'maintenance', label: 'صيانة الموقع', icon: Wrench, desc: 'تفعيل وتخصيص صفحة صيانة الموقع للتطبيقات' },
@@ -1428,6 +1631,7 @@ export default function AdminPage() {
                       {
                         title: 'التفاعل والتواصل',
                         items: [
+                          { id: 'share', label: 'مشاركة التطبيق', icon: Share2, desc: 'التحكم بنص وعنوان ورابط مشاركة التطبيق للمستخدمين' },
                           { id: 'notifications', label: 'الإشعارات', icon: BellRing, desc: 'إرسال تنبيهات للمستخدمين' },
                           { id: 'social', label: 'مواقع التواصل الاجتماعي', icon: Share2, desc: 'روابط وأيقونات التواصل الدائرية أسفل القائمة' },
                           { id: 'dialog', label: 'النافذة المنبثقة', icon: MessageSquare, desc: 'إعداد ديالوج الاشتراك' },
@@ -3473,6 +3677,533 @@ export default function AdminPage() {
                           <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                         ) : <ShieldCheck size={20} />}
                         {isSaving ? 'جاري الحفظ...' : 'حفظ إعدادات الأمان والحماية'}
+                      </button>
+                    </div>
+                  </section>
+                </motion.div>
+              ) : activeTab === 'share' ? (
+                <motion.div
+                  key="share"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="space-y-8"
+                >
+                  <section className="bg-white rounded-[28px] sm:rounded-[40px] p-6 sm:p-10 shadow-sm border border-gray-100">
+                    <div className="flex items-center justify-between mb-8 border-b border-gray-100 pb-6">
+                      <div className="flex items-center gap-4">
+                        <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center shrink-0 shadow-inner">
+                          <Share2 size={28} />
+                        </div>
+                        <div>
+                          <h2 className="text-xl sm:text-2xl font-black text-gray-900">إعدادات مشاركة التطبيق</h2>
+                          <p className="text-xs font-bold text-gray-400 mt-0.5">التحكم في العنوان والنص والرابط الظاهر عند مشاركة التطبيق من قبل المستخدمين</p>
+                        </div>
+                      </div>
+                      
+                      <button
+                        onClick={triggerAppShare}
+                        className="hidden sm:flex items-center gap-2 bg-slate-900 text-white hover:bg-black px-5 py-3 rounded-2xl font-black text-xs transition-all active:scale-95 shadow-md"
+                      >
+                        <Share2 size={16} />
+                        <span>تجربة فتح نافذة المشاركة</span>
+                      </button>
+                    </div>
+
+                    <div className="space-y-6">
+                      {/* Status Switch */}
+                      <div className="flex items-center justify-between p-5 rounded-2xl bg-gray-50 border border-gray-100">
+                        <div>
+                          <p className="font-black text-sm text-gray-800">تفعيل زر مشاركة التطبيق</p>
+                          <p className="text-xs font-bold text-gray-400">إظهار زر المشاركة في القائمة الجانبية وأعلى الصفحات</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setShareEnabled(!shareEnabled)}
+                          className={cn(
+                            "relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
+                            shareEnabled ? "bg-primary" : "bg-gray-300"
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out",
+                              shareEnabled ? "translate-x-0" : "-translate-x-5"
+                            )}
+                          />
+                        </button>
+                      </div>
+
+                      {/* Share Title */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-black text-gray-700 block">عنوان المشاركة (Title)</label>
+                        <input
+                          type="text"
+                          value={shareTitle}
+                          onChange={(e) => setShareTitle(e.target.value)}
+                          placeholder="عنوان التطبيق (مثال: تطبيق رفيق المصمم)"
+                          className="w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl text-sm font-bold focus:outline-none focus:border-primary focus:bg-white transition-all"
+                        />
+                      </div>
+
+                      {/* Share Text / Message */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="text-sm font-black text-gray-700 block">نص المشاركة (Text / Message)</label>
+                          <span className="text-xs font-bold text-gray-400">{shareText.length} حرف</span>
+                        </div>
+                        <textarea
+                          rows={4}
+                          value={shareText}
+                          onChange={(e) => setShareText(e.target.value)}
+                          placeholder="ادخل الرسالة أو النص الذي يظهر للمستخدم عند المشاركة..."
+                          className="w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl text-sm font-bold focus:outline-none focus:border-primary focus:bg-white transition-all leading-relaxed"
+                        />
+                      </div>
+
+                      {/* Share URL */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-black text-gray-700 block">رابط التطبيق (URL / Download Link)</label>
+                        <input
+                          type="url"
+                          value={shareUrl}
+                          onChange={(e) => setShareUrl(e.target.value)}
+                          placeholder="اتركه فارغاً لاستخدام رابط الموقع الحالي بشكل تلقائي"
+                          className="w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl text-sm font-bold focus:outline-none focus:border-primary focus:bg-white transition-all dir-ltr text-left"
+                        />
+                        <p className="text-[11px] font-bold text-gray-400 mr-1">
+                          إذا تُرك فارغاً سيتم مشاركة عنوان الرابط الحالي تلقائياً.
+                        </p>
+                      </div>
+
+                      {/* Live Preview Box */}
+                      <div className="bg-slate-900 text-white p-6 rounded-3xl space-y-3 shadow-xl">
+                        <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                          <span className="text-xs font-black text-blue-400 uppercase tracking-widest flex items-center gap-1.5">
+                            <Eye size={14} /> معاينة النص النهائي للمشاركة
+                          </span>
+                          <span className="text-[10px] font-bold bg-white/10 px-3 py-1 rounded-full text-white/80">
+                            مظهر النص للمستلم
+                          </span>
+                        </div>
+                        <div className="bg-white/5 p-4 rounded-2xl border border-white/10 space-y-2">
+                          <p className="text-sm font-bold text-white/90 leading-relaxed whitespace-pre-wrap">
+                            {shareText || 'لم يتم إدخال نص المشاركة بعد.'}
+                          </p>
+                          <p className="text-xs font-mono text-blue-400 dir-ltr text-left break-all">
+                            {shareUrl || (typeof window !== 'undefined' ? window.location.origin : 'https://example.com')}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Save Button */}
+                      <div className="pt-4 flex flex-col sm:flex-row items-center gap-3">
+                        <button
+                          onClick={handleSaveShareConfig}
+                          disabled={isSaving}
+                          className="w-full sm:w-auto flex-1 py-4 px-8 rounded-2xl text-white font-black text-base flex items-center justify-center gap-3 transition-all shadow-xl shadow-primary/20 active:scale-95 disabled:opacity-50"
+                          style={{ background: 'var(--primary-gradient)' }}
+                        >
+                          {isSaving ? (
+                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          ) : <CheckCircle size={20} />}
+                          {isSaving ? 'جاري الحفظ...' : 'حفظ إعدادات المشاركة'}
+                        </button>
+
+                        <button
+                          onClick={triggerAppShare}
+                          type="button"
+                          className="w-full sm:w-auto py-4 px-6 rounded-2xl bg-gray-100 hover:bg-gray-200 text-gray-900 font-black text-sm flex items-center justify-center gap-2 transition-all"
+                        >
+                          <Share2 size={18} />
+                          <span>تجربة المشاركة الحية</span>
+                        </button>
+                      </div>
+                    </div>
+                  </section>
+                </motion.div>
+              ) : activeTab === 'appName' ? (
+                <motion.div
+                  key="appName"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="space-y-8"
+                >
+                  <section className="bg-white rounded-[28px] sm:rounded-[40px] p-6 sm:p-10 shadow-sm border border-gray-100">
+                    <div className="flex items-center gap-4 mb-8 border-b border-gray-100 pb-6">
+                      <div className="w-14 h-14 bg-primary/10 text-primary rounded-2xl flex items-center justify-center shrink-0 shadow-inner">
+                        <Type size={28} />
+                      </div>
+                      <div>
+                        <h2 className="text-xl sm:text-2xl font-black text-gray-900">تعديل اسم التطبيق والهوية</h2>
+                        <p className="text-xs font-bold text-gray-400 mt-0.5">تغيير اسم التطبيق الظاهر في الصفحة الرئيسية الهيدر العلوي، والقائمة الجانبية، والنوافذ المنبثقة</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-8">
+                      {/* Inputs */}
+                      <div className="space-y-6 bg-gray-50/60 p-6 rounded-3xl border border-gray-100">
+                        <div className="space-y-2">
+                          <label className="text-sm font-black text-gray-800 block">اسم التطبيق الكامل (App Name)</label>
+                          <input
+                            type="text"
+                            value={appNameInput}
+                            onChange={(e) => setAppNameInput(e.target.value)}
+                            placeholder="مثال: رفيق المصمم أو مصمم بلس"
+                            className="w-full px-5 py-4 bg-white border border-gray-200 rounded-2xl text-base font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all shadow-sm"
+                          />
+                          <p className="text-xs font-semibold text-gray-400 mr-1">
+                            إذا كان الاسم يتكون من كلمتين (مثل: &quot;رفيق المصمم&quot;) سيتم عرض الكلمة الأولى في الأعلى والكلمة الثانية في الشارة الملونة.
+                          </p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-sm font-black text-gray-800 block">وصف قصير للتطبيق (App Subtitle)</label>
+                          <input
+                            type="text"
+                            value={appSubtitleInput}
+                            onChange={(e) => setAppSubtitleInput(e.target.value)}
+                            placeholder="منصتك المتكاملة لأفضل الملحقات والتصاميم"
+                            className="w-full px-5 py-3.5 bg-white border border-gray-200 rounded-2xl text-sm font-bold outline-none focus:border-primary transition-all"
+                          />
+                        </div>
+
+                        {/* App Logo Image Input & Upload */}
+                        <div className="space-y-3 pt-2 border-t border-gray-100">
+                          <label className="text-sm font-black text-gray-800 block flex items-center gap-2">
+                            <Upload size={18} className="text-primary" />
+                            شعار / لوجو التطبيق (App Logo)
+                          </label>
+                          <p className="text-xs font-bold text-gray-400">
+                            يُعرض اللوجو في شاشة بداية التطبيق (Splash Screen) والصفحة الرئيسية وحول التطبيق.
+                          </p>
+
+                          <div className="flex flex-col sm:flex-row items-center gap-3">
+                            <input
+                              type="text"
+                              value={appLogoInput}
+                              onChange={(e) => setAppLogoInput(e.target.value)}
+                              placeholder="ضع رابط صورة الشعار (URL) هنا أو قم ببرفع ملف صورة"
+                              className="w-full sm:flex-1 px-5 py-3.5 bg-white border border-gray-200 rounded-2xl text-sm font-bold outline-none focus:border-primary transition-all dir-ltr text-left"
+                            />
+                            
+                            <label className="w-full sm:w-auto shrink-0 px-5 py-3.5 bg-primary/10 hover:bg-primary/20 text-primary font-black text-xs rounded-2xl cursor-pointer transition-all flex items-center justify-center gap-2 border border-primary/20">
+                              <Upload size={16} />
+                              <span>رفع صورة</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={handleLogoImageUpload}
+                                className="hidden"
+                              />
+                            </label>
+                          </div>
+
+                          {appLogoInput && (
+                            <div className="mt-3 p-3 bg-white rounded-2xl border border-gray-200 flex items-center gap-4">
+                              <div className="w-12 h-12 rounded-xl bg-gray-100 p-1 border border-gray-200 flex items-center justify-center overflow-hidden shrink-0">
+                                <img src={appLogoInput} alt="شعار التطبيق" className="w-full h-full object-contain" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-bold text-gray-800 truncate">معاينة صورة الشعار المختارة</p>
+                                <button
+                                  type="button"
+                                  onClick={() => setAppLogoInput('')}
+                                  className="text-[11px] font-bold text-red-500 hover:underline mt-0.5"
+                                >
+                                  حذف الشعار واستخدام النص فقط
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Live Preview Box */}
+                      <div className="space-y-4">
+                        <h3 className="text-sm font-black text-gray-800 flex items-center gap-2">
+                          <Eye size={18} className="text-primary" />
+                          معاينة حية لشكل اسم التطبيق في الواجهات
+                        </h3>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {/* Header Preview */}
+                          <div className="p-6 rounded-3xl text-white space-y-3 shadow-lg relative overflow-hidden" style={{ background: 'var(--primary-gradient)' }}>
+                            <span className="text-[10px] font-black uppercase tracking-widest bg-white/20 px-3 py-1 rounded-full border border-white/10">
+                              معاينة هيدر الصفحة الرئيسية
+                            </span>
+                            <div className="flex flex-col items-center py-4">
+                              {(() => {
+                                const words = (appNameInput || 'رفيق المصمم').trim().split(/\s+/);
+                                const topW = words.length > 1 ? words[0] : '';
+                                const bottomW = words.length > 1 ? words.slice(1).join(' ') : words[0];
+                                return (
+                                  <div className="flex flex-col items-center gap-1">
+                                    {topW && <span className="text-white text-3xl font-black uppercase tracking-tighter drop-shadow">{topW}</span>}
+                                    <div className="bg-white px-5 py-1 rounded-2xl shadow-xl">
+                                      <span className="font-black text-lg" style={{ color: 'var(--primary)' }}>{bottomW}</span>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          </div>
+
+                          {/* Sidebar Preview */}
+                          <div className="p-6 rounded-3xl text-white space-y-3 shadow-lg relative overflow-hidden" style={{ background: 'var(--primary-gradient)' }}>
+                            <span className="text-[10px] font-black uppercase tracking-widest bg-white/20 px-3 py-1 rounded-full border border-white/10">
+                              معاينة القائمة الجانبية
+                            </span>
+                            <div className="flex flex-col items-center py-4">
+                              {(() => {
+                                const words = (appNameInput || 'رفيق المصمم').trim().split(/\s+/);
+                                const topW = words.length > 1 ? words[0] : '';
+                                const bottomW = words.length > 1 ? words.slice(1).join(' ') : words[0];
+                                return (
+                                  <div className="flex flex-col items-center gap-1">
+                                    {topW && <span className="text-white text-4xl font-black uppercase tracking-tighter drop-shadow-lg">{topW}</span>}
+                                    <div className="bg-white px-5 py-1.5 rounded-full shadow-xl transform -rotate-1">
+                                      <span className="text-xs font-black tracking-widest uppercase" style={{ color: 'var(--primary)' }}>{bottomW}</span>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Save Button */}
+                      <button
+                        onClick={handleSaveAppName}
+                        disabled={isSaving}
+                        className="w-full text-white h-14 rounded-2xl font-black text-sm hover:opacity-90 transition-all shadow-xl active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                        style={{ background: 'var(--primary-gradient)' }}
+                      >
+                        {isSaving ? (
+                          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        ) : <CheckCircle size={20} />}
+                        {isSaving ? 'جاري الحفظ...' : 'حفظ اسم التطبيق والهوية الجديد'}
+                      </button>
+                    </div>
+                  </section>
+                </motion.div>
+              ) : activeTab === 'font' ? (
+                <motion.div
+                  key="font"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="space-y-8"
+                >
+                  <section className="bg-white rounded-[28px] sm:rounded-[40px] p-6 sm:p-10 shadow-sm border border-gray-100">
+                    <div className="flex items-center gap-4 mb-8 border-b border-gray-100 pb-6">
+                      <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center shrink-0 shadow-inner">
+                        <Type size={28} />
+                      </div>
+                      <div>
+                        <h2 className="text-xl sm:text-2xl font-black text-gray-900">إعدادات خط التطبيق (تحميل خط مخصص)</h2>
+                        <p className="text-xs font-bold text-gray-400 mt-0.5">تغيير الخط العام لكافة صفحات التطبيق عبر تحميل ملف خط مخصص (TTF, OTF, WOFF) أو اختيار خط عربي متميز</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-8">
+                      {/* Font Source Selector */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setFontType('custom_file')}
+                          className={cn(
+                            "p-4 rounded-2xl border-2 flex flex-col items-center gap-2 text-center transition-all",
+                            fontType === 'custom_file'
+                              ? "border-primary bg-primary/5 text-primary font-black shadow-sm"
+                              : "border-gray-200 hover:border-gray-300 text-gray-600 font-bold"
+                          )}
+                        >
+                          <Upload size={22} />
+                          <span className="text-xs">تحميل ملف خط</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setFontType('preset')}
+                          className={cn(
+                            "p-4 rounded-2xl border-2 flex flex-col items-center gap-2 text-center transition-all",
+                            fontType === 'preset'
+                              ? "border-primary bg-primary/5 text-primary font-black shadow-sm"
+                              : "border-gray-200 hover:border-gray-300 text-gray-600 font-bold"
+                          )}
+                        >
+                          <Sparkles size={22} />
+                          <span className="text-xs">خطوط جاهزة</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setFontType('custom_url')}
+                          className={cn(
+                            "p-4 rounded-2xl border-2 flex flex-col items-center gap-2 text-center transition-all",
+                            fontType === 'custom_url'
+                              ? "border-primary bg-primary/5 text-primary font-black shadow-sm"
+                              : "border-gray-200 hover:border-gray-300 text-gray-600 font-bold"
+                          )}
+                        >
+                          <Code2 size={22} />
+                          <span className="text-xs">رابط خط خارجي</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setFontType('default')}
+                          className={cn(
+                            "p-4 rounded-2xl border-2 flex flex-col items-center gap-2 text-center transition-all",
+                            fontType === 'default'
+                              ? "border-primary bg-primary/5 text-primary font-black shadow-sm"
+                              : "border-gray-200 hover:border-gray-300 text-gray-600 font-bold"
+                          )}
+                        >
+                          <RefreshCw size={22} />
+                          <span className="text-xs">الخط الافتراضي</span>
+                        </button>
+                      </div>
+
+                      {/* Option 1: File Upload */}
+                      {fontType === 'custom_file' && (
+                        <div className="bg-slate-50 p-6 rounded-3xl border-2 border-dashed border-slate-200 space-y-4">
+                          <h3 className="text-sm font-black text-slate-800 flex items-center gap-2">
+                            <Upload size={18} className="text-primary" />
+                            تحميل ملف الخط من جهازك
+                          </h3>
+                          <p className="text-xs font-bold text-gray-500">
+                            صيغ الخطوط المدعومة: TTF, OTF, WOFF, WOFF2. يفضل استخدام ملف بحجم مناسب للحصول على تحميل سريع للمستخدمين.
+                          </p>
+
+                          <div className="flex flex-col items-center justify-center p-8 bg-white rounded-2xl border border-slate-200 shadow-sm cursor-pointer hover:border-primary transition-all relative">
+                            <input
+                              type="file"
+                              accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2"
+                              onChange={handleFontFileUpload}
+                              className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                              id="app-custom-font-file"
+                            />
+                            <div className="w-16 h-16 bg-primary/10 text-primary rounded-full flex items-center justify-center mb-3">
+                              <Upload size={28} />
+                            </div>
+                            <p className="font-black text-sm text-slate-800">اضغط هنا لاختيار ملف الخط من جهازك</p>
+                            <p className="text-xs font-bold text-gray-400 mt-1">أو اسحب ملف الخط وأسقطه هنا</p>
+
+                            {fontFileName && (
+                              <div className="mt-4 px-4 py-2 bg-emerald-50 text-emerald-700 rounded-xl border border-emerald-200 flex items-center gap-2 text-xs font-black">
+                                <CheckCircle size={16} />
+                                <span>الملف المحدد: {fontFileName} ({fontFileSize})</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Option 2: Preset Fonts */}
+                      {fontType === 'preset' && (
+                        <div className="space-y-4">
+                          <h3 className="text-sm font-black text-gray-800 flex items-center gap-2">
+                            <Sparkles size={18} className="text-primary" />
+                            اختر خطك العربي المفضل من المكتبة الجاهزة
+                          </h3>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            {[
+                              { name: 'Cairo', label: 'خط كايرو (Cairo)' },
+                              { name: 'Tajawal', label: 'خط تجوال (Tajawal)' },
+                              { name: 'Almarai', label: 'خط المراعي (Almarai)' },
+                              { name: 'Readex Pro', label: 'خط ريدكس برو (Readex Pro)' },
+                              { name: 'Alexandria', label: 'خط الإسكندرية (Alexandria)' },
+                              { name: 'IBM Plex Sans Arabic', label: 'خط أي بي إم بليكس (IBM Plex)' },
+                              { name: 'Changa', label: 'خط تشانغا (Changa)' },
+                              { name: 'Lalezar', label: 'خط لاليزار (Lalezar)' },
+                              { name: 'Amiri', label: 'خط أميري (Amiri)' },
+                              { name: 'Noto Sans Arabic', label: 'خط نوتو سانز (Noto Sans)' },
+                              { name: 'Vazirmatn', label: 'خط وزير متن (Vazirmatn)' },
+                              { name: 'El Messiri', label: 'خط المسيري (El Messiri)' },
+                            ].map((f) => (
+                              <button
+                                key={f.name}
+                                type="button"
+                                onClick={() => setPresetFont(f.name)}
+                                className={cn(
+                                  "p-4 rounded-2xl border-2 text-right transition-all flex flex-col gap-1",
+                                  presetFont === f.name
+                                    ? "border-primary bg-primary/5 shadow-md"
+                                    : "border-gray-100 hover:border-gray-200 bg-gray-50/50"
+                                )}
+                              >
+                                <span className="text-xs font-black text-gray-900">{f.label}</span>
+                                <span className="text-sm font-bold text-primary mt-1" style={{ fontFamily: f.name }}>
+                                  بسم الله الرحمن الرحيم
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Option 3: External URL */}
+                      {fontType === 'custom_url' && (
+                        <div className="space-y-4 bg-gray-50 p-6 rounded-3xl border border-gray-200">
+                          <h3 className="text-sm font-black text-gray-800">رابط ملف الخط الخارجي (URL)</h3>
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-gray-600 block">اسم الخط الخارجي</label>
+                            <input
+                              type="text"
+                              value={customFontName}
+                              onChange={(e) => setCustomFontName(e.target.value)}
+                              placeholder="مثال: MyCustomFont"
+                              className="w-full px-5 py-3 bg-white border border-gray-200 rounded-xl text-sm font-bold outline-none"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-gray-600 block">رابط الخط (Direct Font File or Google Fonts URL)</label>
+                            <input
+                              type="url"
+                              value={customFontUrl}
+                              onChange={(e) => setCustomFontUrl(e.target.value)}
+                              placeholder="https://fonts.googleapis.com/css2?family=..."
+                              className="w-full px-5 py-3 bg-white border border-gray-200 rounded-xl text-sm font-mono outline-none dir-ltr text-left"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Font Live Preview Workbench */}
+                      <div className="bg-slate-900 text-white p-6 rounded-3xl space-y-3 shadow-xl">
+                        <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                          <span className="text-xs font-black text-emerald-400 uppercase tracking-widest flex items-center gap-1.5">
+                            <Eye size={14} /> معاينة واختبار الخط المباشر
+                          </span>
+                          <span className="text-[10px] font-black bg-white/10 px-3 py-1 rounded-full text-white/80">
+                            {fontType === 'custom_file' ? (customFontName || 'خط مخصص محمل') : fontType === 'preset' ? presetFont : fontType === 'custom_url' ? (customFontName || 'رابط خارجي') : 'الخط الافتراضي'}
+                          </span>
+                        </div>
+                        <div className="p-4 bg-white/5 rounded-2xl border border-white/10 space-y-2">
+                          <p className="text-lg font-bold leading-relaxed text-emerald-100">
+                            أهلاً بك في تطبيق رفيق المصمم - منصتك المتكاملة لأفضل التصاميم، الملحقات، الأدوات، والخطوط العربية.
+                          </p>
+                          <p className="text-xs text-gray-300 font-medium">
+                            ABCDEFGHIJKLM NOPQRSTUVWXYZ 1234567890
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Save Button */}
+                      <button
+                        onClick={handleSaveFontConfig}
+                        disabled={isSaving}
+                        className="w-full text-white h-14 rounded-2xl font-black text-sm hover:opacity-90 transition-all shadow-xl active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                        style={{ background: 'var(--primary-gradient)' }}
+                      >
+                        {isSaving ? (
+                          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        ) : <CheckCircle size={20} />}
+                        {isSaving ? 'جاري الحفظ...' : 'حفظ وتطبيق الخط على لكافة المستخدمين'}
                       </button>
                     </div>
                   </section>
