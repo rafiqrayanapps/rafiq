@@ -31,6 +31,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   const { data: generalConfig } = useDoc('appConfig', 'general');
   const { data: aboutConfig } = useDoc('appConfig', 'about');
+  const { data: shareConfig } = useDoc('appConfig', 'share');
 
   const configuredAppName = generalConfig?.appName || aboutConfig?.appName || aboutConfig?.title || "رفيق المصمم";
   const words = configuredAppName.trim().split(/\s+/);
@@ -53,7 +54,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   ];
 
   const infoNav = [
-    { label: 'مشاركة التطبيق', action: 'share', icon: Share2 },
+    ...(shareConfig?.enabled !== false ? [{ label: 'مشاركة التطبيق', action: 'share', icon: Share2 }] : []),
     { label: 'حول التطبيق', href: '/about', icon: Info },
     { label: 'تواصل معنا', href: '/contact', icon: MessageSquare },
   ];

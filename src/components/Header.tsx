@@ -96,17 +96,28 @@ export default function Header({ title = "رفيق المصمم", showBackButton
                 "font-bold flex flex-col items-center gap-1 leading-tight transition-all",
                 compact ? "text-2xl" : "text-4xl"
               )}>
-                {!compact && isDefaultOrAppName && brandTopWord && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-white tracking-tighter text-4xl font-black uppercase drop-shadow-2xl">{brandTopWord}</span>
+                {isDefaultOrAppName ? (
+                  !compact && brandTopWord && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-white tracking-tighter text-4xl font-black uppercase drop-shadow-2xl">{brandTopWord}</span>
+                    </div>
+                  )
+                ) : (
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className={cn(
+                      "text-white font-black tracking-tight drop-shadow-lg opacity-95",
+                      compact ? "text-lg" : "text-2xl sm:text-3xl"
+                    )}>
+                      {configuredAppName}
+                    </span>
                   </div>
                 )}
                 <div className={cn(
-                  "bg-white rounded-2xl shadow-xl transform transition-all flex items-center justify-center",
+                  "bg-white rounded-2xl shadow-xl transform transition-all flex items-center justify-center max-w-[90vw]",
                   compact ? "px-4 py-1 -rotate-0" : "px-5 py-1 -rotate-1"
                 )}>
                   <span className={cn(
-                    "font-black tracking-tight",
+                    "font-black tracking-tight truncate",
                     compact ? "text-base" : "text-xl"
                   )} style={{ color: 'var(--primary)' }}>
                     {isDefaultOrAppName ? brandBottomPill : title}

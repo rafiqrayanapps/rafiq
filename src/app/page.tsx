@@ -16,7 +16,8 @@ export default function SplashPage() {
 
   const appName = generalConfig?.appName || aboutConfig?.appName || aboutConfig?.title || "رفيق المصمم";
   const appLogoUrl = generalConfig?.appLogo || aboutConfig?.appLogoImage || aboutConfig?.logoImage || "";
-  const appSubtitle = generalConfig?.appSubtitle || aboutConfig?.subtitle || "شريكك الإبداعي في كل خطوة";
+  const appSubtitle = generalConfig?.appSubtitle !== undefined ? generalConfig.appSubtitle : (aboutConfig?.subtitle || "شريكك الإبداعي في كل خطوة");
+  const splashWelcomeText = generalConfig?.splashWelcomeText !== undefined ? generalConfig.splashWelcomeText : "مرحباً بكم 👋";
 
   const words = appName.trim().split(/\s+/);
   const topWord = words.length > 1 ? words[0] : '';
@@ -87,13 +88,13 @@ export default function SplashPage() {
                     <div className="h-3 w-3 bg-white/80 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }}></div>
                     <div className="h-3 w-3 bg-white/80 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }}></div>
                   </div>
-                ) : (
+                ) : splashWelcomeText ? (
                   <div className="animate-fade-in-up">
                     <h2 className="text-2xl md:text-3xl font-black text-white/95 tracking-tight">
-                      مرحباً بكم 👋
+                      {splashWelcomeText}
                     </h2>
                   </div>
-                )}
+                ) : null}
             </div>
         </div>
     </div>

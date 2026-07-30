@@ -321,10 +321,11 @@ export default function AdminPage() {
     }
   };
 
-  // General App Identity (App Name & Logo) State
+  // General App Identity (App Name & Logo & Splash Text) State
   const { data: generalConfig } = useDoc('appConfig', 'general');
   const [appNameInput, setAppNameInput] = useState('رفيق المصمم');
-  const [appSubtitleInput, setAppSubtitleInput] = useState('منصتك المتكاملة لأفضل الملحقات والتصاميم والخطوط');
+  const [appSubtitleInput, setAppSubtitleInput] = useState('شريكك الإبداعي في كل خطوة');
+  const [splashWelcomeInput, setSplashWelcomeInput] = useState('مرحباً بكم 👋');
   const [appLogoInput, setAppLogoInput] = useState('');
 
   useEffect(() => {
@@ -333,8 +334,11 @@ export default function AdminPage() {
     } else if (aboutConfig?.appName || aboutConfig?.title) {
       setAppNameInput(aboutConfig.appName || aboutConfig.title);
     }
-    if (generalConfig?.appSubtitle) {
+    if (generalConfig?.appSubtitle !== undefined) {
       setAppSubtitleInput(generalConfig.appSubtitle);
+    }
+    if (generalConfig?.splashWelcomeText !== undefined) {
+      setSplashWelcomeInput(generalConfig.splashWelcomeText);
     }
     if (generalConfig?.appLogo) {
       setAppLogoInput(generalConfig.appLogo);
@@ -374,6 +378,7 @@ export default function AdminPage() {
       await setDoc(doc(db, 'appConfig', 'general'), {
         appName: appNameInput,
         appSubtitle: appSubtitleInput,
+        splashWelcomeText: splashWelcomeInput,
         appLogo: appLogoInput,
         updatedAt: new Date().toISOString(),
       }, { merge: true });
@@ -389,7 +394,7 @@ export default function AdminPage() {
 
       toast({
         title: 'تم التحديث بنجاح',
-        description: 'تم تحديث اسم وشعار التطبيق بنجاح في شاشة البداية والهيدر والقائمة الجانبية.',
+        description: 'تم تحديث نصوص وشعار شاشة البداية والتطبيق بنجاح.',
       });
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, 'appConfig/general');
@@ -3859,14 +3864,53 @@ export default function AdminPage() {
                         </div>
 
                         <div className="space-y-2">
-                          <label className="text-sm font-black text-gray-800 block">وصف قصير للتطبيق (App Subtitle)</label>
+                          <div className="flex items-center justify-between">
+                            <label className="text-sm font-black text-gray-800 block">وصف / شعار شاشة البداية للتطبيق (App Subtitle)</label>
+                            {appSubtitleInput && (
+                              <button
+                                type="button"
+                                onClick={() => setAppSubtitleInput('')}
+                                className="text-[11px] font-bold text-red-500 hover:underline"
+                              >
+                                حذف / إخفاء الوصف
+                              </button>
+                            )}
+                          </div>
                           <input
                             type="text"
                             value={appSubtitleInput}
                             onChange={(e) => setAppSubtitleInput(e.target.value)}
-                            placeholder="منصتك المتكاملة لأفضل الملحقات والتصاميم"
+                            placeholder="مثال: شريكك الإبداعي في كل خطوة (اتركه فارغاً لإخفائه)"
                             className="w-full px-5 py-3.5 bg-white border border-gray-200 rounded-2xl text-sm font-bold outline-none focus:border-primary transition-all"
                           />
+                          <p className="text-xs font-semibold text-gray-400 mr-1">
+                            النص الظاهر أسفل اسم التطبيق في شاشة البداية. اتركه فارغاً للحذف.
+                          </p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <label className="text-sm font-black text-gray-800 block">رسالة الترحيب في شاشة البداية (Splash Welcome)</label>
+                            {splashWelcomeInput && (
+                              <button
+                                type="button"
+                                onClick={() => setSplashWelcomeInput('')}
+                                className="text-[11px] font-bold text-red-500 hover:underline"
+                              >
+                                حذف / إخفاء رسالة الترحيب
+                              </button>
+                            )}
+                          </div>
+                          <input
+                            type="text"
+                            value={splashWelcomeInput}
+                            onChange={(e) => setSplashWelcomeInput(e.target.value)}
+                            placeholder="مثال: مرحباً بكم 👋 (اتركه فارغاً لإخفائه)"
+                            className="w-full px-5 py-3.5 bg-white border border-gray-200 rounded-2xl text-sm font-bold outline-none focus:border-primary transition-all"
+                          />
+                          <p className="text-xs font-semibold text-gray-400 mr-1">
+                            النص الظاهر أسفل الشعار عند تحميل شاشة البداية. اتركه فارغاً لإلغائه تماماً.
+                          </p>
                         </div>
 
                         {/* App Logo Image Input & Upload */}
@@ -3927,9 +3971,9 @@ export default function AdminPage() {
                           معاينة حية لشكل اسم التطبيق في الواجهات
                         </h3>
                         
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                           {/* Header Preview */}
-                          <div className="p-6 rounded-3xl text-white space-y-3 shadow-lg relative overflow-hidden" style={{ background: 'var(--primary-gradient)' }}>
+                          <div className="p-6 rounded-3xl text-white space-y-3 shadow-lg relative overflow-hidden flex flex-col items-center justify-between" style={{ background: 'var(--primary-gradient)' }}>
                             <span className="text-[10px] font-black uppercase tracking-widest bg-white/20 px-3 py-1 rounded-full border border-white/10">
                               معاينة هيدر الصفحة الرئيسية
                             </span>
@@ -3950,8 +3994,45 @@ export default function AdminPage() {
                             </div>
                           </div>
 
+                          {/* Splash Screen Preview */}
+                          <div className="p-6 rounded-3xl text-white space-y-3 shadow-lg relative overflow-hidden flex flex-col items-center justify-between text-center" style={{ background: 'var(--primary-gradient)' }}>
+                            <span className="text-[10px] font-black uppercase tracking-widest bg-white/20 px-3 py-1 rounded-full border border-white/10">
+                              معاينة شاشة البداية (Splash)
+                            </span>
+                            <div className="flex flex-col items-center py-4 gap-2">
+                              {appLogoInput && (
+                                <div className="w-12 h-12 bg-white/20 rounded-2xl p-1 mb-1">
+                                  <img src={appLogoInput} alt="لوجو" className="w-full h-full object-contain" />
+                                </div>
+                              )}
+                              {(() => {
+                                const words = (appNameInput || 'رفيق المصمم').trim().split(/\s+/);
+                                const topW = words.length > 1 ? words[0] : '';
+                                const bottomW = words.length > 1 ? words.slice(1).join(' ') : words[0];
+                                return (
+                                  <div className="flex flex-col items-center gap-1">
+                                    {topW && <span className="text-white text-2xl font-black uppercase tracking-tighter drop-shadow">{topW}</span>}
+                                    <div className="bg-white px-4 py-1 rounded-2xl shadow-xl">
+                                      <span className="font-black text-sm" style={{ color: 'var(--primary)' }}>{bottomW}</span>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+                              {appSubtitle && (
+                                <p className="text-xs font-bold text-white/80 mt-1 max-w-[180px]">
+                                  {appSubtitleInput}
+                                </p>
+                              )}
+                              {splashWelcomeInput && (
+                                <span className="text-xs font-black text-white/95 mt-2 bg-white/10 px-3 py-1 rounded-full border border-white/20">
+                                  {splashWelcomeInput}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
                           {/* Sidebar Preview */}
-                          <div className="p-6 rounded-3xl text-white space-y-3 shadow-lg relative overflow-hidden" style={{ background: 'var(--primary-gradient)' }}>
+                          <div className="p-6 rounded-3xl text-white space-y-3 shadow-lg relative overflow-hidden flex flex-col items-center justify-between" style={{ background: 'var(--primary-gradient)' }}>
                             <span className="text-[10px] font-black uppercase tracking-widest bg-white/20 px-3 py-1 rounded-full border border-white/10">
                               معاينة القائمة الجانبية
                             </span>
@@ -3962,7 +4043,7 @@ export default function AdminPage() {
                                 const bottomW = words.length > 1 ? words.slice(1).join(' ') : words[0];
                                 return (
                                   <div className="flex flex-col items-center gap-1">
-                                    {topW && <span className="text-white text-4xl font-black uppercase tracking-tighter drop-shadow-lg">{topW}</span>}
+                                    {topW && <span className="text-white text-3xl font-black uppercase tracking-tighter drop-shadow-lg">{topW}</span>}
                                     <div className="bg-white px-5 py-1.5 rounded-full shadow-xl transform -rotate-1">
                                       <span className="text-xs font-black tracking-widest uppercase" style={{ color: 'var(--primary)' }}>{bottomW}</span>
                                     </div>
