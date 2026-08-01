@@ -4018,7 +4018,7 @@ export default function AdminPage() {
                                   </div>
                                 );
                               })()}
-                              {appSubtitle && (
+                              {appSubtitleInput && (
                                 <p className="text-xs font-bold text-white/80 mt-1 max-w-[180px]">
                                   {appSubtitleInput}
                                 </p>
