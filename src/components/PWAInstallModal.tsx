@@ -28,12 +28,17 @@ export default function PWAInstallModal() {
     isStandalone 
   } = usePWA();
 
-  const [activeTab, setActiveTab] = useState<'android' | 'ios'>(isIOS ? 'ios' : 'android');
+  const [activeTab, setActiveTab] = useState<'pwa' | 'apk' | 'ios'>(isIOS ? 'ios' : 'pwa');
 
   if (!isInstallModalOpen) return null;
 
   const handleOpenNewWindow = () => {
     window.open(window.location.origin + '?utm_source=pwa_install', '_blank');
+  };
+
+  const handlePWABuilder = () => {
+    const appUrl = window.location.origin;
+    window.open(`https://www.pwabuilder.com/?url=${encodeURIComponent(appUrl)}`, '_blank');
   };
 
   return (
@@ -117,16 +122,26 @@ export default function PWAInstallModal() {
             )}
 
             {/* Platform Selector Tabs */}
-            <div className="flex bg-gray-100 dark:bg-zinc-800 p-1 rounded-2xl text-xs font-bold">
+            <div className="flex bg-gray-100 dark:bg-zinc-800 p-1 rounded-2xl text-xs font-bold gap-1">
               <button
-                onClick={() => setActiveTab('android')}
+                onClick={() => setActiveTab('pwa')}
                 className={`flex-1 py-2.5 rounded-xl transition-all ${
-                  activeTab === 'android' 
+                  activeTab === 'pwa' 
                     ? 'bg-white dark:bg-zinc-900 text-primary shadow-md font-black' 
                     : 'text-gray-500 hover:text-gray-900 dark:text-gray-400'
                 }`}
               >
-                أندرويد / متصفح كروم
+                تثبيت مباشر (PWA)
+              </button>
+              <button
+                onClick={() => setActiveTab('apk')}
+                className={`flex-1 py-2.5 rounded-xl transition-all ${
+                  activeTab === 'apk' 
+                    ? 'bg-white dark:bg-zinc-900 text-emerald-600 dark:text-emerald-400 shadow-md font-black' 
+                    : 'text-gray-500 hover:text-gray-900 dark:text-gray-400'
+                }`}
+              >
+                تنزيل APK مجاني
               </button>
               <button
                 onClick={() => setActiveTab('ios')}
@@ -136,16 +151,16 @@ export default function PWAInstallModal() {
                     : 'text-gray-500 hover:text-gray-900 dark:text-gray-400'
                 }`}
               >
-                آيفون / متصفح سفاري (iOS)
+                آيفون (iOS)
               </button>
             </div>
 
             {/* Tab Instructions */}
-            {activeTab === 'android' ? (
+            {activeTab === 'pwa' && (
               <div className="space-y-4 text-gray-700 dark:text-gray-300 text-sm">
                 <h5 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
                   <CheckCircle2 size={18} className="text-emerald-500" />
-                  خطوات التثبيت على أندرويد وكمبيوتر:
+                  تثبيت فوري بدون تحميل ملفات:
                 </h5>
                 
                 <div className="space-y-3">
@@ -154,7 +169,7 @@ export default function PWAInstallModal() {
                       1
                     </span>
                     <div className="text-xs leading-relaxed">
-                      اضغط على قائمة المتصفح أعلى الشاشة <MoreVertical size={16} className="inline mx-1 text-gray-500" /> (النقاط الثلاث).
+                      افتح التطبيق في متصفح كروم على هاتفك مباشرة.
                     </div>
                   </div>
 
@@ -163,7 +178,7 @@ export default function PWAInstallModal() {
                       2
                     </span>
                     <div className="text-xs leading-relaxed">
-                      اختر <span className="font-bold text-gray-900 dark:text-white">&quot;تثبيت التطبيق&quot;</span> (Install App) أو <span className="font-bold text-gray-900 dark:text-white">&quot;إضافة إلى الشاشة الرئيسية&quot;</span>.
+                      اضغط على قائمة المتصفح <MoreVertical size={16} className="inline mx-1 text-gray-500" /> ثم اختر <span className="font-bold text-gray-900 dark:text-white">&quot;تثبيت التطبيق&quot;</span> أو <span className="font-bold text-gray-900 dark:text-white">&quot;إضافة إلى الشاشة الرئيسية&quot;</span>.
                     </div>
                   </div>
 
@@ -172,12 +187,46 @@ export default function PWAInstallModal() {
                       3
                     </span>
                     <div className="text-xs leading-relaxed">
-                      تأكيد التثبيت وسيم التثبيت كأيقونة تطبيق مستقلة على هاتفك.
+                      سيتثبت التطبيق فوراً كـ Web APK كليًا على هاتفك مع أيقونة مستقلة!
                     </div>
                   </div>
                 </div>
               </div>
-            ) : (
+            )}
+
+            {activeTab === 'apk' && (
+              <div className="space-y-4 text-gray-700 dark:text-gray-300 text-sm">
+                <h5 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <Sparkles size={18} className="text-emerald-500" />
+                  تحويل التطبيق إلى ملف APK حقيقي للهاتف:
+                </h5>
+
+                <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+                  التطبيق مجهز ومفهرس بالكامل كـ Progressive Web App جاهز للتحويل لملف <span className="font-bold text-emerald-600 dark:text-emerald-400">.APK</span> قابل للتثبيت على جميع أجهزة أندرويد.
+                </p>
+
+                <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/50 rounded-2xl space-y-3">
+                  <div className="flex items-start gap-2 text-xs text-emerald-900 dark:text-emerald-200">
+                    <span className="font-black text-emerald-600">●</span>
+                    <span>اضغط على الزر أدناه للانتقال إلى منصة PWABuilder الرسمية (من Microsoft)</span>
+                  </div>
+                  <div className="flex items-start gap-2 text-xs text-emerald-900 dark:text-emerald-200">
+                    <span className="font-black text-emerald-600">●</span>
+                    <span>اضغط على <b>&quot;Package for Store / APK&quot;</b> ثم حمّل ملف <b>.apk</b> فوراً!</span>
+                  </div>
+
+                  <button
+                    onClick={handlePWABuilder}
+                    className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl flex items-center justify-center gap-2 shadow-md transition-all active:scale-95"
+                  >
+                    <Download size={16} />
+                    توليد وتحميل ملف APK عبر PWABuilder
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'ios' && (
               <div className="space-y-4 text-gray-700 dark:text-gray-300 text-sm">
                 <h5 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
                   <CheckCircle2 size={18} className="text-emerald-500" />
