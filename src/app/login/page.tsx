@@ -32,7 +32,16 @@ export default function LoginPage() {
       await loginWithEmail(email, password);
       router.push('/admin');
     } catch (error: any) {
-      setError("يا بطل، هذا المكان للأباطرة (الأدمن) فقط! تأكد من بياناتك أو اطلب الإذن من الزعيم 😉");
+      console.error("Login attempt error:", error);
+      if (error?.code === 'auth/network-request-failed') {
+        setError("تعذر الاتصال بخدمة التحقق. يرجى التأكد من اتصال الإنترنت والمحاولة مجدداً.");
+      } else if (error?.code === 'auth/invalid-credential' || error?.code === 'auth/user-not-found' || error?.code === 'auth/wrong-password') {
+        setError("البريد الإلكتروني أو كلمة المرور غير صحيحة. يرجى التأكد من البيانات والمحاولة مجدداً.");
+      } else if (error?.code === 'auth/too-many-requests') {
+        setError("تم حظر المحاولات مؤقتاً لكثرة المحاولات غير الناجحة. يرجى الانتظار قليلاً ثم المحاولة.");
+      } else {
+        setError("يا بطل، هذا المكان للأباطرة (الأدمن) فقط! تأكد من بياناتك أو اطلب الإذن من الزعيم 😉");
+      }
     } finally {
       setLoading(false);
     }

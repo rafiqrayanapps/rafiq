@@ -37,8 +37,6 @@ import Image from 'next/image';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
-const defaultAi = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY || "" });
-
 const dialects = [
   { label: 'العربية الفصحى', value: 'Modern Standard Arabic' },
   { label: 'اللهجة المصرية', value: 'Egyptian Arabic Dialect' },
@@ -111,10 +109,9 @@ export default function AIStoryGenerator() {
   const getAi = () => {
     const apiKey = customApiKey || config.storyGenId || config.globalApiKey || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
     if (apiKey && apiKey.trim() !== '') {
-      return new GoogleGenAI({ apiKey });
+      return new GoogleGenAI({ apiKey: apiKey.trim() });
     }
-    // Fallback to default if user hasn't provided one yet
-    return defaultAi;
+    return null;
   };
 
   const generateStory = async () => {
@@ -137,6 +134,11 @@ export default function AIStoryGenerator() {
 
     try {
       const ai = getAi();
+      if (!ai) {
+        toast({ title: "مفتاح API غير متوفر", description: "يرجى إدخال مفتاح Gemini API للمتابعة.", variant: "destructive" });
+        setIsGenerating(false);
+        return;
+      }
       const styleInstruction = selectedStyle;
       const systemInstruction = `
         You are an expert storyteller and visual storyboard artist.

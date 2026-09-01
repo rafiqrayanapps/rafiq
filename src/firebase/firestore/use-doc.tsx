@@ -2,11 +2,11 @@
    
 import { useState, useEffect } from 'react';
 import {
- DocumentReference,
- onSnapshot,
- DocumentData,
- FirestoreError,
- DocumentSnapshot,
+  DocumentReference,
+  onSnapshot,
+  DocumentData,
+  FirestoreError,
+  DocumentSnapshot,
 } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -15,86 +15,76 @@ import { FirestorePermissionError } from '@/firebase/errors';
 type WithId<T> = T & { id: string };
 
 /**
-* Interface for the return value of the useDoc hook.
-* @template T Type of the document data.
-*/
+ * Interface for the return value of the useDoc hook.
+ * @template T Type of the document data.
+ */
 export interface UseDocResult<T> {
- data: WithId<T> | null; // Document data with ID, or null.
- isLoading: boolean;       // True if loading.
- error: FirestoreError | Error | null; // Error object, or null.
+  data: WithId<T> | null;
+  isLoading: boolean;
+  error: FirestoreError | Error | null;
 }
 
 /**
-* React hook to subscribe to a single Firestore document in real-time.
-* Handles nullable references.
-* 
-* IMPORTANT! YOU MUST MEMOIZE the inputted memoizedDocRef or BAD THINGS WILL HAPPEN
-* use useMemo to memoize it per React guidence.  Also make sure that it's dependencies are stable
-* references
-*
-*
-* @template T Optional type for document data. Defaults to any.
-* @param {DocumentReference<DocumentData> | null | undefined} docRef -
-* The Firestore DocumentReference. Waits if null/undefined.
-* @returns {UseDocResult<T>} Object with data, isLoading, error.
-*/
+ * React hook to subscribe to a single Firestore document in real-time.
+ */
 export function useDoc<T = any>(
- memoizedDocRef: (DocumentReference<DocumentData> & {__memo?: boolean}) | null | undefined
+  memoizedDocRef: (DocumentReference<DocumentData> & {__memo?: boolean}) | null | undefined
 ): UseDocResult<T> {
- type StateDataType = WithId<T> | null;
+  type StateDataType = WithId<T> | null;
 
- const [data, setData] = useState<StateDataType>(null);
- const [isLoading, setIsLoading] = useState<boolean>(true);
- const [error, setError] = useState<FirestoreError | Error | null>(null);
+  const [data, setData] = useState<StateDataType>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<FirestoreError | Error | null>(null);
 
- if (memoizedDocRef && !(memoizedDocRef as any).__memo) {
-   throw new Error('The document reference passed to useDoc must be memoized with useMemoFirebase.');
- }
+  if (memoizedDocRef && !(memoizedDocRef as any).__memo) {
+    throw new Error('The document reference passed to useDoc must be memoized with useMemoFirebase.');
+  }
 
- useEffect(() => {
-   if (!memoizedDocRef) {
-     setData(null);
-     setError(null);
-     setIsLoading(false);
-     return () => {};
-   }
+  useEffect(() => {
+    if (!memoizedDocRef) {
+      setData(null);
+      setError(null);
+      setIsLoading(false);
+      return () => {};
+    }
 
-   setIsLoading(true);
-   setError(null);
+    setIsLoading(true);
+    setError(null);
 
-   const unsubscribe = onSnapshot(
-     memoizedDocRef,
-     (snapshot: DocumentSnapshot<DocumentData>) => {
-       if (snapshot.exists()) {
-         setData({ ...(snapshot.data() as T), id: snapshot.id });
-       } else {
-         setData(null);
-       }
-       setError(null);
-       setIsLoading(false);
-     },
-     (snapshotError: FirestoreError) => {
-       console.error(`useDoc error on path: ${memoizedDocRef.path}`, snapshotError);
-       
-       if (snapshotError.code === 'permission-denied') {
-         const contextualError = new FirestorePermissionError({
-           operation: 'get',
-           path: memoizedDocRef.path,
-         });
-         setError(contextualError);
-         // Emit the error for the global listener to handle.
-         errorEmitter.emit('permission-error', contextualError);
-       } else {
-         setError(snapshotError);
-       }
-       
-       setData(null);
-       setIsLoading(false);
-     }
-   );
+    const unsubscribe = onSnapshot(
+      memoizedDocRef,
+      (snapshot: DocumentSnapshot<DocumentData>) => {
+        if (snapshot.exists()) {
+          setData({ ...(snapshot.data() as T), id: snapshot.id });
+        } else {
+          setData(null);
+        }
+        setError(null);
+        setIsLoading(false);
+      },
+      (snapshotError: FirestoreError) => {
+        if (snapshotError.code === 'permission-denied') {
+          console.error(`useDoc error on path: ${memoizedDocRef.path}`, snapshotError);
+          const contextualError = new FirestorePermissionError({
+            operation: 'get',
+            path: memoizedDocRef.path,
+          });
+          setError(contextualError);
+          errorEmitter.emit('permission-error', contextualError);
+        } else if (snapshotError.code === 'unavailable') {
+          setError(snapshotError);
+        } else {
+          console.error(`useDoc error on path: ${memoizedDocRef.path}`, snapshotError);
+          setError(snapshotError);
+        }
+        
+        setData(null);
+        setIsLoading(false);
+      }
+    );
 
-   return () => unsubscribe();
- }, [memoizedDocRef]);
+    return () => unsubscribe();
+  }, [memoizedDocRef]);
 
- return { data, isLoading, error };
+  return { data, isLoading, error };
 }

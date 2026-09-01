@@ -46,14 +46,16 @@ const AudioPlayerRow = ({
     onToggleFavorite, 
     onAction,
     activeId,
-    onPlay
+    onPlay,
+    category
 }: { 
     item: WithId<ContentItem>, 
     isFavorite: boolean, 
     onToggleFavorite: () => void,
     onAction: (action: () => void) => void,
     activeId: string | null,
-    onPlay: (id: string | null) => void
+    onPlay: (id: string | null) => void,
+    category?: any
 }) => {
     const [isPlaying, setIsPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
@@ -182,8 +184,14 @@ export default function CategoryPage() {
   const { isAdmin, isEditor, isLoading: isUserLoading } = useUserProfile();
   const { adFrequency } = useAffiliateAds();
   const [activeAudioId, setActiveAudioId] = useState<string | null>(null);
+  const [selectedSubCategoryId, setSelectedSubCategoryId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setSelectedSubCategoryId(null);
+    setActiveAudioId(null);
+  }, [id]);
 
   const categoryRef = useMemoFirebase(() => id ? doc(firestore!, 'categories', id) : null, [firestore, id]);
   const { data: category, isLoading: isCategoryLoading } = useDoc<CategoryType>(categoryRef);
@@ -198,23 +206,36 @@ export default function CategoryPage() {
       return subCategories.get(id) || [];
   }, [subCategories, id, category]);
 
+  const isHorizontalSubCats = category?.subCategoryLayout === 'horizontal' && currentSubCategories.length > 0;
+  const targetCategoryId = isHorizontalSubCats ? (selectedSubCategoryId || currentSubCategories[0]?.id || id) : id;
+
+  const activeSubCategory = useMemo(() => {
+    if (!isHorizontalSubCats) return null;
+    return currentSubCategories.find(s => s.id === targetCategoryId) || currentSubCategories[0] || null;
+  }, [isHorizontalSubCats, currentSubCategories, targetCategoryId]);
+
   const latestSubCatId = useMemo(() => {
     return getLatestCategoryWithNewContent(currentSubCategories, undefined, viewedData);
   }, [currentSubCategories, viewedData]);
 
-  const itemsQuery = useMemoFirebase(() => id ? collection(firestore!, 'categories', id, 'items') : null, [firestore, id]);
+  const itemsQuery = useMemoFirebase(() => targetCategoryId ? collection(firestore!, 'categories', targetCategoryId, 'items') : null, [firestore, targetCategoryId]);
   const { data: rawItems, isLoading: areItemsLoading } = useCollection<any>(itemsQuery);
 
   useEffect(() => {
-    if (id) {
-      markCategoryAsViewed(id, rawItems);
+    if (targetCategoryId) {
+      markCategoryAsViewed(targetCategoryId, rawItems || undefined);
     }
-  }, [id, rawItems]);
+    if (id && id !== targetCategoryId) {
+      markCategoryAsViewed(id);
+    }
+  }, [id, targetCategoryId, rawItems]);
+
+  const effectiveDisplayStyle = activeSubCategory?.displayStyle || category?.displayStyle || 'style1';
 
   const toggleFavorite = (item: WithId<any>) => {
     const isFavorite = favorites.some(f => f.id === item.id);
     if (isFavorite) setFavorites(prev => prev.filter(f => f.id !== item.id));
-    else setFavorites(prev => [...prev, { ...item, displayStyle: category?.displayStyle || 'style1' }]);
+    else setFavorites(prev => [...prev, { ...item, displayStyle: effectiveDisplayStyle }]);
     toast({ title: isFavorite ? "تمت الإزالة" : "تمت الإضافة للمفضلة" });
   };
 
@@ -247,12 +268,12 @@ export default function CategoryPage() {
     });
   }, [rawItems, searchTerm, isAdmin, isEditor]);
 
-  const isMaintenanceOn = category?.isUnderMaintenance && !isAdmin && !isEditor;
+  const isMaintenanceOn = (activeSubCategory?.isUnderMaintenance || category?.isUnderMaintenance) && !isAdmin && !isEditor;
 
   const renderItem = (item: any, idx: number) => {
-    const style = category?.displayStyle || 'style1';
+    const style = effectiveDisplayStyle;
     const isFav = favorites.some(f => f.id === item.id);
-    const isItemNew = checkItemIsNew(item, viewedData.viewedItemIds, viewedData.timestamps[id]);
+    const isItemNew = checkItemIsNew(item, viewedData.viewedItemIds, viewedData.timestamps[targetCategoryId]);
 
     switch(style) {
         case 'style1': // Logos - 2 Column Grid
@@ -463,6 +484,7 @@ export default function CategoryPage() {
                     onAction={(action) => handleAction(item, action)}
                     activeId={activeAudioId}
                     onPlay={setActiveAudioId}
+                    category={category}
                 />
             );
         case 'style5': { // Prompt Style
@@ -585,6 +607,7 @@ export default function CategoryPage() {
                     onAction={(action) => handleAction(item, action)}
                     activeId={activeAudioId}
                     onPlay={setActiveAudioId}
+                    category={category}
                 />
             );
         case 'style8': // Video Style
@@ -742,29 +765,41 @@ export default function CategoryPage() {
                          {category?.subCategoryLayout === 'horizontal' ? (
                              <ScrollArea className="w-full whitespace-nowrap rounded-xl" dir="rtl">
                                  <div className="flex w-max gap-3 p-1">
-                                     {currentSubCategories.map((subCat, idx) => (
-                                         <button 
-                                             key={`${subCat.id}-${idx}`} 
-                                             onClick={() => router.push(`/categories/${subCat.id}`)}
-                                             className="animate-in fade-in zoom-in-95 duration-500 fill-mode-both group relative"
-                                             style={{ animationDelay: `${idx * 50}ms` }}
-                                         >
-                                             {subCat.id === latestSubCatId && (
-                                                 <RedDotBadge size="sm" showLabel={false} className="absolute -top-1 -right-1" />
-                                             )}
-                                             <div className={cn(
-                                                 "flex items-center gap-2 px-5 py-2.5 rounded-full transition-all border-2 shadow-sm active:scale-95 bg-card border-primary/10 text-primary hover:bg-primary hover:text-primary-foreground hover:border-primary",
-                                             )}>
-                                                 <Package className="h-3.5 w-3.5" />
-                                                 <span className="font-bold text-xs">{subCat.name}</span>
-                                                 {subCat.fileTypes && (
-                                                     <span className="text-[8px] bg-black/10 px-1.5 py-0.5 rounded-md opacity-60">
-                                                         {subCat.fileTypes}
-                                                     </span>
+                                     {currentSubCategories.map((subCat, idx) => {
+                                         const isSelected = subCat.id === targetCategoryId;
+                                         return (
+                                             <button 
+                                                 key={`${subCat.id}-${idx}`} 
+                                                 onClick={() => {
+                                                     setSelectedSubCategoryId(subCat.id);
+                                                     markCategoryAsViewed(subCat.id);
+                                                 }}
+                                                 className="animate-in fade-in zoom-in-95 duration-500 fill-mode-both group relative"
+                                                 style={{ animationDelay: `${idx * 50}ms` }}
+                                             >
+                                                 {subCat.id === latestSubCatId && (
+                                                     <RedDotBadge size="sm" showLabel={false} className="absolute -top-1 -right-1" />
                                                  )}
-                                             </div>
-                                         </button>
-                                     ))}
+                                                 <div className={cn(
+                                                     "flex items-center gap-2 px-5 py-2.5 rounded-full transition-all border-2 shadow-sm active:scale-95",
+                                                     isSelected 
+                                                         ? "bg-primary text-primary-foreground border-primary shadow-md ring-2 ring-primary/20 scale-[1.02] font-black" 
+                                                         : "bg-card border-primary/10 text-primary hover:bg-primary/10 hover:border-primary/30 font-bold"
+                                                 )}>
+                                                     <Package className="h-3.5 w-3.5" />
+                                                     <span className="text-xs">{subCat.name}</span>
+                                                     {subCat.fileTypes && (
+                                                         <span className={cn(
+                                                             "text-[8px] px-1.5 py-0.5 rounded-md",
+                                                             isSelected ? "bg-white/20 text-white" : "bg-black/10 text-foreground/70"
+                                                         )}>
+                                                             {subCat.fileTypes}
+                                                         </span>
+                                                     )}
+                                                 </div>
+                                             </button>
+                                         );
+                                     })}
                                  </div>
                                  <ScrollBar orientation="horizontal" className="hidden" />
                              </ScrollArea>
@@ -808,13 +843,14 @@ export default function CategoryPage() {
                         <p className="text-muted-foreground text-xs font-medium px-1">المحتوى ({filteredItems.length})</p>
                         <div className={cn(
                             "grid gap-6",
-                            category?.displayStyle === 'style1' ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4" : 
-                            category?.displayStyle === 'style2' ? "grid-cols-1" :
-                            category?.displayStyle === 'style3' ? "grid-cols-1 md:grid-cols-2" :
-                            category?.displayStyle === 'style4' ? "grid-cols-1" :
-                            category?.displayStyle === 'style5' ? "grid-cols-1" :
-                            category?.displayStyle === 'style8' ? "grid-cols-1 md:grid-cols-2" :
-                            category?.displayStyle === 'style9' ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4" :
+                            effectiveDisplayStyle === 'style1' ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4" : 
+                            effectiveDisplayStyle === 'style2' ? "grid-cols-1" :
+                            effectiveDisplayStyle === 'style3' ? "grid-cols-1 md:grid-cols-2" :
+                            effectiveDisplayStyle === 'style4' ? "grid-cols-1" :
+                            effectiveDisplayStyle === 'style5' ? "grid-cols-1" :
+                            effectiveDisplayStyle === 'style6' ? "grid-cols-1" :
+                            effectiveDisplayStyle === 'style8' ? "grid-cols-1 md:grid-cols-2" :
+                            effectiveDisplayStyle === 'style9' ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4" :
                             "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
                         )}>
                             {(() => {
@@ -850,7 +886,7 @@ export default function CategoryPage() {
                         </div>
                     </div>
                 ) : (
-                    !areItemsLoading && !currentSubCategories.length && (
+                    !areItemsLoading && (!currentSubCategories.length || isHorizontalSubCats) && (
                         <div className="flex flex-col items-center justify-center py-20 px-8 text-center animate-in fade-in zoom-in-95 duration-700">
                              <motion.div
                                 animate={{ 
@@ -863,7 +899,7 @@ export default function CategoryPage() {
                                     ease: "easeInOut" 
                                 }}
                                 className="relative mb-8"
-                             >
+                            >
                                 <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full" />
                                 <Package className="h-24 w-24 relative text-primary/40 stroke-[1.5px]" />
                                 <motion.div 
@@ -895,7 +931,7 @@ export default function CategoryPage() {
                     )
                 )}
 
-               <AffiliateAdSlot placement="inline" categoryId={id} />
+               <AffiliateAdSlot placement="inline" categoryId={targetCategoryId} />
             </Fragment>
         )}
       </main>

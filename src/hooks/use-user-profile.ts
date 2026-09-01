@@ -16,11 +16,17 @@ export function useUserProfile() {
 
    // Auto sign-in anonymously if no user session exists
    useEffect(() => {
+       let isMounted = true;
        if (!isAuthLoading && !user && !isLoggingOut && auth) {
            signInAnonymously(auth).catch(err => {
-               console.warn("Anonymous auth restricted.", err);
+               if (isMounted) {
+                   console.warn("Anonymous auth unavailable or restricted:", err?.message || err);
+               }
            });
        }
+       return () => {
+           isMounted = false;
+       };
    }, [user, isAuthLoading, auth, isLoggingOut]);
 
    const userProfileRef = useMemoFirebase(

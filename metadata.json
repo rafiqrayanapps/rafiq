@@ -1,5 +1,6 @@
 {
   "name": "رفيق",
   "description": "تطبيق شامل للمصممين يتضمن أدوات الذكاء الاصطناعي لتوليد الصور والنصوص، إزالة الخلفية، تحسين جودة الصور، وتنسيق الألوان.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -324,26 +324,38 @@ export default function AdminPage() {
   // General App Identity (App Name & Logo & Splash Text) State
   const { data: generalConfig } = useDoc('appConfig', 'general');
   const [appNameInput, setAppNameInput] = useState('رفيق المصمم');
-  const [appSubtitleInput, setAppSubtitleInput] = useState('شريكك الإبداعي في كل خطوة');
-  const [splashWelcomeInput, setSplashWelcomeInput] = useState('مرحباً بكم 👋');
+  const [appSubtitleInput, setAppSubtitleInput] = useState('');
+  const [splashWelcomeInput, setSplashWelcomeInput] = useState('');
   const [appLogoInput, setAppLogoInput] = useState('');
 
   useEffect(() => {
-    if (generalConfig?.appName) {
-      setAppNameInput(generalConfig.appName);
-    } else if (aboutConfig?.appName || aboutConfig?.title) {
-      setAppNameInput(aboutConfig.appName || aboutConfig.title);
-    }
-    if (generalConfig?.appSubtitle !== undefined) {
-      setAppSubtitleInput(generalConfig.appSubtitle);
-    }
-    if (generalConfig?.splashWelcomeText !== undefined) {
-      setSplashWelcomeInput(generalConfig.splashWelcomeText);
-    }
-    if (generalConfig?.appLogo) {
-      setAppLogoInput(generalConfig.appLogo);
-    } else if (aboutConfig?.appLogoImage || aboutConfig?.logoImage) {
-      setAppLogoInput(aboutConfig.appLogoImage || aboutConfig.logoImage);
+    if (generalConfig) {
+      if (generalConfig.appName !== undefined) {
+        setAppNameInput(generalConfig.appName);
+      } else if (aboutConfig?.appName || aboutConfig?.title) {
+        setAppNameInput(aboutConfig.appName || aboutConfig.title);
+      }
+      if (generalConfig.appSubtitle !== undefined) {
+        setAppSubtitleInput(generalConfig.appSubtitle);
+      }
+      if (generalConfig.splashWelcomeText !== undefined) {
+        setSplashWelcomeInput(generalConfig.splashWelcomeText);
+      }
+      if (generalConfig.appLogo !== undefined) {
+        setAppLogoInput(generalConfig.appLogo);
+      } else if (aboutConfig?.appLogoImage || aboutConfig?.logoImage) {
+        setAppLogoInput(aboutConfig.appLogoImage || aboutConfig.logoImage);
+      }
+    } else if (aboutConfig) {
+      if (aboutConfig.appName || aboutConfig.title) {
+        setAppNameInput(aboutConfig.appName || aboutConfig.title);
+      }
+      if (aboutConfig.subtitle !== undefined) {
+        setAppSubtitleInput(aboutConfig.subtitle);
+      }
+      if (aboutConfig.appLogoImage || aboutConfig.logoImage) {
+        setAppLogoInput(aboutConfig.appLogoImage || aboutConfig.logoImage);
+      }
     }
   }, [generalConfig, aboutConfig]);
 

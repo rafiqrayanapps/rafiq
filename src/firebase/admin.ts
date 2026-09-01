@@ -1,19 +1,44 @@
 import admin from 'firebase-admin';
 import { firebaseConfig } from './config';
 
+let sharedApp: admin.app.App | null = null;
+
 const getSharedAdminApp = () => {
+  if (sharedApp) return sharedApp;
   if (admin.apps.length > 0) {
-    return admin.apps[0]!;
+    sharedApp = admin.apps[0]!;
+    return sharedApp;
   }
 
-  // Use credentials from firebase-applet-config.json if available
-  // In this environment, we usually don't have a service account key file, 
-  // but we can use the default credential or just initialize with project ID
-  return admin.initializeApp({
-    projectId: firebaseConfig.projectId || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'rafiq-87f88',
-    storageBucket: firebaseConfig.storageBucket,
-  });
+  try {
+    sharedApp = admin.initializeApp({
+      projectId: firebaseConfig.projectId || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'rafiq-87f88',
+      storageBucket: firebaseConfig.storageBucket,
+    });
+    return sharedApp;
+  } catch (e) {
+    console.warn("Failed to initialize Firebase Admin SDK:", e);
+    return null;
+  }
 };
 
-export const adminDb = getSharedAdminApp().firestore();
-export const adminAuth = getSharedAdminApp().auth();
+export const getAdminDb = () => {
+  const app = getSharedAdminApp();
+  return app ? app.firestore() : null;
+};
+
+export const getAdminAuth = () => {
+  const app = getSharedAdminApp();
+  return app ? app.auth() : null;
+};
+
+// Backwards compatibility proxy/lazy getters
+export const adminDb = {
+  collection: (...args: any[]) => (getAdminDb() as any)?.collection(...args),
+  doc: (...args: any[]) => (getAdminDb() as any)?.doc(...args),
+};
+export const adminAuth = {
+  getUser: (...args: any[]) => (getAdminAuth() as any)?.getUser(...args),
+  verifyIdToken: (...args: any[]) => (getAdminAuth() as any)?.verifyIdToken(...args),
+};
+

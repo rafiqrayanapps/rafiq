@@ -192,7 +192,7 @@ function AdBannerContent({ height = '60px', className = '', type = 'banner', cat
         width="100%"
         height={adDisplay.slotHeight || height}
         style={{ border: 'none', overflow: 'hidden', background: 'transparent' }}
-        allowtransparency="true"
+        allowTransparency={true}
         sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
         className="w-full max-w-full transition-all duration-300 bg-transparent"
       />
