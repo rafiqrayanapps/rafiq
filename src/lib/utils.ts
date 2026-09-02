@@ -98,16 +98,11 @@ export function isMediaFireDirectUrl(url?: string): boolean {
   return /https?:\/\/download\d*\.mediafire\.com\//i.test(url.trim());
 }
 
-export async function resolveMediaFireUrl(url?: string): Promise<{ directUrl: string; filename?: string }> {
+export async function resolveMediaFireUrl(url?: string): Promise<{ directUrl: string; permanentUrl?: string; filename?: string }> {
   if (!url || typeof url !== 'string') return { directUrl: '' };
   const trimmed = url.trim();
   if (!isMediaFireUrl(trimmed)) {
     return { directUrl: getDirectLink(trimmed) };
-  }
-
-  // If already a direct download CDN link
-  if (isMediaFireDirectUrl(trimmed)) {
-    return { directUrl: trimmed };
   }
 
   try {
@@ -119,7 +114,7 @@ export async function resolveMediaFireUrl(url?: string): Promise<{ directUrl: st
     if (res.ok) {
       const data = await res.json();
       if (data.success && data.directUrl) {
-        return { directUrl: data.directUrl, filename: data.filename };
+        return { directUrl: data.directUrl, permanentUrl: data.permanentUrl, filename: data.filename };
       }
     }
   } catch (err) {
@@ -223,8 +218,8 @@ export async function triggerFileDownload(url?: string, filename?: string): Prom
   
   let targetUrl = url.trim();
 
-  // If it's a MediaFire URL that hasn't been converted to a CDN direct download yet, resolve it on-the-fly
-  if (isMediaFireUrl(targetUrl) && !isMediaFireDirectUrl(targetUrl)) {
+  // If it's a MediaFire URL, ALWAYS resolve a brand new download key on demand
+  if (isMediaFireUrl(targetUrl)) {
     try {
       const resolved = await resolveMediaFireUrl(targetUrl);
       if (resolved.directUrl) {
@@ -232,6 +227,25 @@ export async function triggerFileDownload(url?: string, filename?: string): Prom
         if (!filename && resolved.filename) {
           filename = resolved.filename;
         }
+
+        // For MediaFire CDN direct links, trigger direct navigation/anchor
+        // to ensure the single-use/session token is consumed natively by the browser
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = targetUrl;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        if (filename) {
+          a.download = filename;
+        }
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          if (document.body.contains(a)) {
+            document.body.removeChild(a);
+          }
+        }, 800);
+        return;
       }
     } catch (e) {
       console.warn('Could not pre-resolve MediaFire URL before download:', e);

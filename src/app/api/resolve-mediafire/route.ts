@@ -60,6 +60,38 @@ export function isMediaFireDirectUrl(url?: string): boolean {
   return /https?:\/\/download\d*\.mediafire\.com\//i.test(url.trim());
 }
 
+/**
+ * Converts any MediaFire URL (including expired CDN links) into the permanent web page link
+ */
+export function toPermanentMediaFireUrl(url: string): string {
+  if (!url || typeof url !== 'string') return '';
+  const trimmed = url.trim();
+  
+  // Match standard /file/KEY or /download/KEY or /view/KEY
+  const fileMatch = trimmed.match(/mediafire\.com\/(?:file|download|view)\/([a-zA-Z0-9]+)/i);
+  if (fileMatch && fileMatch[1]) {
+    return `https://www.mediafire.com/file/${fileMatch[1]}/file`;
+  }
+
+  // Match /?KEY
+  const queryMatch = trimmed.match(/mediafire\.com\/\?([a-zA-Z0-9]+)/i);
+  if (queryMatch && queryMatch[1]) {
+    return `https://www.mediafire.com/file/${queryMatch[1]}/file`;
+  }
+
+  // Match CDN links: downloadXXX.mediafire.com/token/KEY/filename or downloadXXX.mediafire.com/KEY/filename
+  const cdnMatch = trimmed.match(/download\d*\.mediafire\.com\/(?:[^\/]+\/)?([a-zA-Z0-9]{8,32})/i);
+  if (cdnMatch && cdnMatch[1]) {
+    return `https://www.mediafire.com/file/${cdnMatch[1]}/file`;
+  }
+
+  let target = trimmed;
+  if (!target.startsWith('http://') && !target.startsWith('https://')) {
+    target = `https://${target}`;
+  }
+  return target;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -80,20 +112,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 1. If it's already a direct download CDN link from MediaFire
-    if (isMediaFireDirectUrl(rawUrl)) {
-      return NextResponse.json({
-        success: true,
-        directUrl: rawUrl,
-        originalUrl: rawUrl,
-        filename: extractFilenameFromUrl(rawUrl),
-      });
-    }
-
-    let targetUrl = rawUrl;
-    if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
-      targetUrl = `https://${targetUrl}`;
-    }
+    // Always convert to permanent web page to resolve fresh download key
+    const targetUrl = toPermanentMediaFireUrl(rawUrl);
 
     // Fetch the MediaFire page with realistic browser headers
     const fetchController = new AbortController();
@@ -172,7 +192,7 @@ export async function POST(req: NextRequest) {
         {
           success: false,
           error: 'Could not extract direct download URL from MediaFire page',
-          directUrl: rawUrl,
+          directUrl: targetUrl,
           filename,
         },
         { status: 422 }
@@ -182,6 +202,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       directUrl: directDownloadUrl,
+      permanentUrl: targetUrl,
       originalUrl: rawUrl,
       filename,
       resolvedFrom: finalUrl,
@@ -197,7 +218,6 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);

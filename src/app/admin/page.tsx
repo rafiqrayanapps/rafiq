@@ -1303,17 +1303,19 @@ export default function AdminPage() {
       }
       
       let finalDownloadUrl = getDirectLink(editingItem.downloadUrl || '');
-      if (isMediaFireUrl(finalDownloadUrl) && !isMediaFireDirectUrl(finalDownloadUrl)) {
+      if (isMediaFireUrl(finalDownloadUrl)) {
         const mf = await resolveMediaFireUrl(finalDownloadUrl);
-        if (mf.directUrl) finalDownloadUrl = mf.directUrl;
+        if (mf.permanentUrl) finalDownloadUrl = mf.permanentUrl;
+        else if (mf.directUrl) finalDownloadUrl = mf.directUrl;
       } else if (isPinterestUrl(finalDownloadUrl) && !finalDownloadUrl.includes('i.pinimg.com')) {
         finalDownloadUrl = await resolvePinterestUrl(finalDownloadUrl);
       }
       
       let finalDownloadUrl2 = getDirectLink(editingItem.downloadUrl2 || '');
-      if (isMediaFireUrl(finalDownloadUrl2) && !isMediaFireDirectUrl(finalDownloadUrl2)) {
+      if (isMediaFireUrl(finalDownloadUrl2)) {
         const mf = await resolveMediaFireUrl(finalDownloadUrl2);
-        if (mf.directUrl) finalDownloadUrl2 = mf.directUrl;
+        if (mf.permanentUrl) finalDownloadUrl2 = mf.permanentUrl;
+        else if (mf.directUrl) finalDownloadUrl2 = mf.directUrl;
       } else if (isPinterestUrl(finalDownloadUrl2) && !finalDownloadUrl2.includes('i.pinimg.com')) {
         finalDownloadUrl2 = await resolvePinterestUrl(finalDownloadUrl2);
       }
@@ -1453,17 +1455,19 @@ export default function AdminPage() {
       }
       
       let finalDownloadUrl = getDirectLink(editingItem.downloadUrl || '');
-      if (isMediaFireUrl(finalDownloadUrl) && !isMediaFireDirectUrl(finalDownloadUrl)) {
+      if (isMediaFireUrl(finalDownloadUrl)) {
         const mf = await resolveMediaFireUrl(finalDownloadUrl);
-        if (mf.directUrl) finalDownloadUrl = mf.directUrl;
+        if (mf.permanentUrl) finalDownloadUrl = mf.permanentUrl;
+        else if (mf.directUrl) finalDownloadUrl = mf.directUrl;
       } else if (isPinterestUrl(finalDownloadUrl) && !finalDownloadUrl.includes('i.pinimg.com')) {
         finalDownloadUrl = await resolvePinterestUrl(finalDownloadUrl);
       }
       
       let finalDownloadUrl2 = getDirectLink(editingItem.downloadUrl2 || '');
-      if (isMediaFireUrl(finalDownloadUrl2) && !isMediaFireDirectUrl(finalDownloadUrl2)) {
+      if (isMediaFireUrl(finalDownloadUrl2)) {
         const mf = await resolveMediaFireUrl(finalDownloadUrl2);
-        if (mf.directUrl) finalDownloadUrl2 = mf.directUrl;
+        if (mf.permanentUrl) finalDownloadUrl2 = mf.permanentUrl;
+        else if (mf.directUrl) finalDownloadUrl2 = mf.directUrl;
       } else if (isPinterestUrl(finalDownloadUrl2) && !finalDownloadUrl2.includes('i.pinimg.com')) {
         finalDownloadUrl2 = await resolvePinterestUrl(finalDownloadUrl2);
       }
