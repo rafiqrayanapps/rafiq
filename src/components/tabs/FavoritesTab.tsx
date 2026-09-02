@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Slider } from '@/components/ui/slider';
 import useLocalStorage from '@/hooks/use-local-storage';
-import { cn, getDirectLink } from '@/lib/utils';
+import { cn, getDirectLink, triggerFileDownload } from '@/lib/utils';
 import { useUserProfile } from '@/hooks/use-user-profile';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import ScrollReveal from '@/components/ScrollReveal';
@@ -130,7 +130,7 @@ const AudioPlayerRow = ({
                     <button onClick={onToggleFavorite} className="h-8 w-8 rounded-full bg-white shadow-sm flex items-center justify-center border transition-colors">
                         <Heart className={cn("h-4 w-4 transition-colors", isFavorite ? "text-primary fill-primary" : "text-gray-400")} />
                     </button>
-                    {item.downloadUrl && <button onClick={() => onAction(() => window.open(item.downloadUrl, '_blank'))} className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground"><Download className="h-3.5 w-3.5" /></button>}
+                    {item.downloadUrl && <button onClick={() => onAction(() => triggerFileDownload(item.downloadUrl, item.title))} className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground"><Download className="h-3.5 w-3.5" /></button>}
                     <QuickShareButton item={item} variant="outline" size="icon" className="h-8 w-8 rounded-full border shadow-sm bg-white" />
                 </div>
                 <Slider dir="ltr" value={[isNaN(currentTime) ? 0 : currentTime]} max={isNaN(duration) || !isFinite(duration) || duration === 0 ? 100 : duration} step={0.1} onValueChange={(v) => { if(audioRef.current) audioRef.current.currentTime = v[0]; }} className="flex-1" />
@@ -189,7 +189,7 @@ export default function FavoritesTab() {
                                 "flex-1 rounded-2xl h-10 font-bold text-xs gap-2 shadow-sm active:scale-95 transition-transform",
                                 item.showDownloadButton === false && "hidden"
                             )}
-                            onClick={() => handleAction(item, () => item.downloadUrl && window.open(item.downloadUrl, '_blank'))}
+                            onClick={() => handleAction(item, () => item.downloadUrl && triggerFileDownload(item.downloadUrl, item.title))}
                         >
                             <Download className="h-3.5 w-3.5" />
                             تحميل
@@ -227,7 +227,7 @@ export default function FavoritesTab() {
                                 "flex-1 rounded-[1.5rem] h-12 font-bold gap-2 shadow-lg active:scale-95 transition-transform",
                                 item.showDownloadButton === false && "hidden"
                             )}
-                            onClick={() => handleAction(item, () => item.downloadUrl && window.open(item.downloadUrl, '_blank'))}
+                            onClick={() => handleAction(item, () => item.downloadUrl && triggerFileDownload(item.downloadUrl, item.title))}
                         >
                             <Download className="h-4 w-4" />
                             تحميل
@@ -271,7 +271,7 @@ export default function FavoritesTab() {
                                 "flex-1 rounded-2xl h-14 font-black text-lg gap-3 shadow-xl shadow-primary/20 active:scale-95 transition-transform",
                                 item.showDownloadButton === false && "hidden"
                             )}
-                            onClick={() => handleAction(item, () => item.downloadUrl && window.open(item.downloadUrl, '_blank'))}
+                            onClick={() => handleAction(item, () => item.downloadUrl && triggerFileDownload(item.downloadUrl, item.title))}
                         >
                             <Download className="h-6 w-6" />
                             تحميل الآن
@@ -324,7 +324,7 @@ export default function FavoritesTab() {
                                         size="icon" 
                                         onClick={() => {
                                             if (item.downloadUrl) {
-                                                window.open(getDirectLink(item.downloadUrl), '_blank');
+                                                triggerFileDownload(item.downloadUrl, item.title);
                                             }
                                         }}
                                         title="تحميل الملف"
@@ -364,7 +364,7 @@ export default function FavoritesTab() {
                                     <button 
                                         onClick={() => {
                                             if (item.downloadUrl) {
-                                                window.open(getDirectLink(item.downloadUrl), '_blank');
+                                                triggerFileDownload(item.downloadUrl, item.title);
                                             }
                                         }}
                                         className="h-10 px-4 bg-primary text-primary-foreground rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg active:scale-95 transition-transform"

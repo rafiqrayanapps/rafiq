@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useAuth, useCollection, useDoc, handleFirestoreError, OperationType } from '@/hooks/useFirebase';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
-import { cn } from '@/lib/utils';
+import { cn, isPinterestUrl, resolvePinterestUrl, getDirectLink, isFirebaseUrl, convertFirebaseToDirectUrl, isMediaFireUrl, resolveMediaFireUrl, isMediaFireDirectUrl } from '@/lib/utils';
 import { Shield, Globe, Database, AlertTriangle, CheckCircle, Copy, LogIn, Plus, FolderPlus, FilePlus, List, ChevronDown, Trash2, Palette, BellRing, Send, Lock, Download, Edit3, ChevronRight, X, Settings, UserPlus, MessageSquare, MessageCircle, User, ShieldCheck, Bell, MousePointer2, Hammer, Ticket, Zap, Home, Users, ArrowUp, ArrowDown, Info, Heart, Star, Target, Rocket, Award, Instagram, Twitter, Github, MapPin, Clock, Phone, Mail, ExternalLink, Share2, Wrench, Power, Eye, KeyRound, Code2, Terminal, Check, EyeOff, Type, Upload, Sparkles, RefreshCw } from 'lucide-react';
 import SocialLinks, { SocialPlatformIcon, getSocialPlatformInfo, SocialLinkItem } from '@/components/SocialLinks';
 import MaintenanceView from '@/components/MaintenanceView';
@@ -114,6 +114,89 @@ export default function AdminPage() {
   const [notifBody, setNotifBody] = useState('');
   const [notifLink, setNotifLink] = useState('');
   const [editingItem, setEditingItem] = useState<any>(null);
+  const [resolvingPinterestField, setResolvingPinterestField] = useState<string | null>(null);
+
+  const handleUrlAutoConvert = async (
+    rawUrl: string,
+    fieldKey: string,
+    onSuccess: (directUrl: string) => void
+  ) => {
+    if (!rawUrl || typeof rawUrl !== 'string') return;
+    const trimmed = rawUrl.trim();
+
+    // 1. MediaFire URL Auto Conversion (mediafire.com/file/... -> direct CDN download link)
+    if (isMediaFireUrl(trimmed)) {
+      if (isMediaFireDirectUrl(trimmed)) {
+        return;
+      }
+      setResolvingPinterestField(fieldKey);
+      try {
+        const result = await resolveMediaFireUrl(trimmed);
+        if (result.directUrl && result.directUrl !== trimmed) {
+          onSuccess(result.directUrl);
+          toast({
+            title: "⚡ تم تحويل رابط ميديا فاير تلقائياً",
+            description: "تم استخراج رابط التحميل المباشر من MediaFire بنجاح لبدء التنزيل الفوري!",
+          });
+        }
+      } catch (e) {
+        console.error("MediaFire auto convert error:", e);
+      } finally {
+        setResolvingPinterestField(null);
+      }
+      return;
+    }
+
+    // 2. Firebase URL Auto Conversion (gs://, console urls, alt=media, storage.googleapis.com)
+    if (isFirebaseUrl(trimmed)) {
+      const directFirebase = convertFirebaseToDirectUrl(trimmed);
+      if (directFirebase && directFirebase !== trimmed) {
+        onSuccess(directFirebase);
+        toast({
+          title: "⚡ تم تحويل رابط فايربيس تلقائياً",
+          description: "تم تحويل رابط Firebase Storage إلى رابط تحميل مباشر (alt=media) بنجاح!",
+        });
+        return;
+      }
+    }
+
+    // 3. Google Drive / GitHub / Dropbox conversion
+    const directOther = getDirectLink(trimmed);
+    if (directOther && directOther !== trimmed && !isPinterestUrl(trimmed) && !isMediaFireUrl(trimmed)) {
+      onSuccess(directOther);
+      toast({
+        title: "⚡ تم تحويل الرابط تلقائياً",
+        description: "تم تحويل الرابط إلى رابط مباشر بنجاح!",
+      });
+      return;
+    }
+
+    // 4. Pinterest URL Auto Conversion
+    if (isPinterestUrl(trimmed)) {
+      if (trimmed.includes('i.pinimg.com') && (trimmed.includes('/originals/') || trimmed.includes('/736x/'))) {
+        return;
+      }
+
+      setResolvingPinterestField(fieldKey);
+      try {
+        const direct = await resolvePinterestUrl(trimmed);
+        if (direct && direct !== trimmed) {
+          onSuccess(direct);
+          toast({
+            title: "⚡ تم تحويل رابط بينترست تلقائياً",
+            description: "تم استخراج وتحويل الرابط إلى رابط صورة مباشر عالي الدقة (i.pinimg.com) بنجاح!",
+          });
+        }
+      } catch (e) {
+        console.error("Pinterest auto convert error:", e);
+      } finally {
+        setResolvingPinterestField(null);
+      }
+      return;
+    }
+  };
+
+  const handlePinterestAutoConvert = handleUrlAutoConvert;
   const [editingCategory, setEditingCategory] = useState<any>(null);
   const [editingSubCategory, setEditingSubCategory] = useState<any>(null);
   const [expandedCatId, setExpandedCatId] = useState<string | null>(null);
@@ -1209,21 +1292,59 @@ export default function AdminPage() {
     setIsSaving(true);
     try {
       const nowIso = new Date().toISOString();
+      
+      // Auto resolve MediaFire / Pinterest / Firebase / Google Drive URLs to direct links
+      let finalImageUrl = getDirectLink(editingItem.imageUrl || editingItem.downloadUrl || '');
+      if (isMediaFireUrl(finalImageUrl) && !isMediaFireDirectUrl(finalImageUrl)) {
+        const mf = await resolveMediaFireUrl(finalImageUrl);
+        if (mf.directUrl) finalImageUrl = mf.directUrl;
+      } else if (isPinterestUrl(finalImageUrl) && !finalImageUrl.includes('i.pinimg.com')) {
+        finalImageUrl = await resolvePinterestUrl(finalImageUrl);
+      }
+      
+      let finalDownloadUrl = getDirectLink(editingItem.downloadUrl || '');
+      if (isMediaFireUrl(finalDownloadUrl) && !isMediaFireDirectUrl(finalDownloadUrl)) {
+        const mf = await resolveMediaFireUrl(finalDownloadUrl);
+        if (mf.directUrl) finalDownloadUrl = mf.directUrl;
+      } else if (isPinterestUrl(finalDownloadUrl) && !finalDownloadUrl.includes('i.pinimg.com')) {
+        finalDownloadUrl = await resolvePinterestUrl(finalDownloadUrl);
+      }
+      
+      let finalDownloadUrl2 = getDirectLink(editingItem.downloadUrl2 || '');
+      if (isMediaFireUrl(finalDownloadUrl2) && !isMediaFireDirectUrl(finalDownloadUrl2)) {
+        const mf = await resolveMediaFireUrl(finalDownloadUrl2);
+        if (mf.directUrl) finalDownloadUrl2 = mf.directUrl;
+      } else if (isPinterestUrl(finalDownloadUrl2) && !finalDownloadUrl2.includes('i.pinimg.com')) {
+        finalDownloadUrl2 = await resolvePinterestUrl(finalDownloadUrl2);
+      }
+      let finalScreenshots = editingItem.screenshots || [];
+      if (Array.isArray(finalScreenshots) && finalScreenshots.length > 0) {
+        finalScreenshots = await Promise.all(
+          finalScreenshots.map(async (s: string) => {
+            let direct = getDirectLink(s);
+            if (isPinterestUrl(direct) && !direct.includes('i.pinimg.com')) {
+              return await resolvePinterestUrl(direct);
+            }
+            return direct;
+          })
+        );
+      }
+
       await addDoc(collection(db, 'categories', editingItem.subCategoryId, 'items'), {
         title: editingItem.title,
         description: editingItem.description || '',
-        downloadUrl: editingItem.downloadUrl || '',
+        downloadUrl: finalDownloadUrl,
         downloadUrlLabel: editingItem.downloadUrlLabel || '',
-        downloadUrl2: editingItem.downloadUrl2 || '',
+        downloadUrl2: finalDownloadUrl2,
         downloadUrl2Label: editingItem.downloadUrl2Label || '',
         videoUrl: editingItem.videoUrl || '',
-        imageUrl: editingItem.imageUrl || editingItem.downloadUrl || '',
+        imageUrl: finalImageUrl,
         style: editingItem.style || '',
         rating: editingItem.rating || '',
         reviewCount: editingItem.reviewCount || '',
         ageRating: editingItem.ageRating || '',
         size: editingItem.size || '',
-        screenshots: editingItem.screenshots || [],
+        screenshots: finalScreenshots,
         prompt: editingItem.prompt || '',
         sourceUrl: editingItem.sourceUrl || '',
         showCopyButton: editingItem.showCopyButton !== false,
@@ -1322,21 +1443,58 @@ export default function AdminPage() {
     }
     setIsSaving(true);
     try {
+      // Auto resolve MediaFire / Pinterest / Firebase / Google Drive URLs to direct links
+      let finalImageUrl = getDirectLink(editingItem.imageUrl || '');
+      if (isMediaFireUrl(finalImageUrl) && !isMediaFireDirectUrl(finalImageUrl)) {
+        const mf = await resolveMediaFireUrl(finalImageUrl);
+        if (mf.directUrl) finalImageUrl = mf.directUrl;
+      } else if (isPinterestUrl(finalImageUrl) && !finalImageUrl.includes('i.pinimg.com')) {
+        finalImageUrl = await resolvePinterestUrl(finalImageUrl);
+      }
+      
+      let finalDownloadUrl = getDirectLink(editingItem.downloadUrl || '');
+      if (isMediaFireUrl(finalDownloadUrl) && !isMediaFireDirectUrl(finalDownloadUrl)) {
+        const mf = await resolveMediaFireUrl(finalDownloadUrl);
+        if (mf.directUrl) finalDownloadUrl = mf.directUrl;
+      } else if (isPinterestUrl(finalDownloadUrl) && !finalDownloadUrl.includes('i.pinimg.com')) {
+        finalDownloadUrl = await resolvePinterestUrl(finalDownloadUrl);
+      }
+      
+      let finalDownloadUrl2 = getDirectLink(editingItem.downloadUrl2 || '');
+      if (isMediaFireUrl(finalDownloadUrl2) && !isMediaFireDirectUrl(finalDownloadUrl2)) {
+        const mf = await resolveMediaFireUrl(finalDownloadUrl2);
+        if (mf.directUrl) finalDownloadUrl2 = mf.directUrl;
+      } else if (isPinterestUrl(finalDownloadUrl2) && !finalDownloadUrl2.includes('i.pinimg.com')) {
+        finalDownloadUrl2 = await resolvePinterestUrl(finalDownloadUrl2);
+      }
+      let finalScreenshots = editingItem.screenshots || [];
+      if (Array.isArray(finalScreenshots) && finalScreenshots.length > 0) {
+        finalScreenshots = await Promise.all(
+          finalScreenshots.map(async (s: string) => {
+            let direct = getDirectLink(s);
+            if (isPinterestUrl(direct) && !direct.includes('i.pinimg.com')) {
+              return await resolvePinterestUrl(direct);
+            }
+            return direct;
+          })
+        );
+      }
+
       await updateDoc(doc(db, 'categories', subCatId, 'items', editingItem.id), {
         title: editingItem.title,
         description: editingItem.description || '',
-        downloadUrl: editingItem.downloadUrl || '',
+        downloadUrl: finalDownloadUrl,
         downloadUrlLabel: editingItem.downloadUrlLabel || '',
-        downloadUrl2: editingItem.downloadUrl2 || '',
+        downloadUrl2: finalDownloadUrl2,
         downloadUrl2Label: editingItem.downloadUrl2Label || '',
         videoUrl: editingItem.videoUrl || '',
-        imageUrl: editingItem.imageUrl || '',
+        imageUrl: finalImageUrl,
         style: editingItem.style || '',
         rating: editingItem.rating || '',
         reviewCount: editingItem.reviewCount || '',
         ageRating: editingItem.ageRating || '',
         size: editingItem.size || '',
-        screenshots: editingItem.screenshots || [],
+        screenshots: finalScreenshots,
         prompt: editingItem.prompt || '',
         sourceUrl: editingItem.sourceUrl || '',
         showCopyButton: editingItem.showCopyButton !== false,
@@ -5645,39 +5803,152 @@ export default function AdminPage() {
                               {/* Image URL - For most except some? */}
                               {currentParentStyle !== 'style4' && currentParentStyle !== 'style6' && (
                                 <div className="space-y-2 sm:space-y-3">
-                                  <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">رابط الصورة {currentParentStyle === 'style3' ? '(أيقونة التطبيق)' : ''}</label>
-                                  <input
-                                    type="url"
-                                    value={editingItem.imageUrl || ''}
-                                    onChange={(e) => setEditingItem({...editingItem, imageUrl: e.target.value})}
-                                    className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all"
-                                  />
+                                  <div className="flex items-center justify-between">
+                                    <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">
+                                      رابط الصورة {currentParentStyle === 'style3' ? '(أيقونة التطبيق)' : ''}
+                                    </label>
+                                    {resolvingPinterestField === 'imageUrl' && (
+                                      <span className="text-[11px] font-bold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full flex items-center gap-1.5 animate-pulse">
+                                        <RefreshCw className="w-3 h-3 animate-spin" />
+                                        جاري تحويل رابط بينترست لمباشر...
+                                      </span>
+                                    )}
+                                    {editingItem.imageUrl?.includes('i.pinimg.com') && (
+                                      <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full flex items-center gap-1">
+                                        <CheckCircle className="w-3 h-3" />
+                                        رابط بينترست مباشر عالي الدقة
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="relative">
+                                    <input
+                                      type="url"
+                                      value={editingItem.imageUrl || ''}
+                                      placeholder="https://... (رابط صورة أو رابط Pinterest)"
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        setEditingItem({...editingItem, imageUrl: val});
+                                        if (isPinterestUrl(val) && !val.includes('i.pinimg.com')) {
+                                          handlePinterestAutoConvert(val, 'imageUrl', (direct) => {
+                                            setEditingItem((prev: any) => ({ ...prev, imageUrl: direct }));
+                                          });
+                                        }
+                                      }}
+                                      onPaste={(e) => {
+                                        const pasted = e.clipboardData.getData('text');
+                                        if (isPinterestUrl(pasted) && !pasted.includes('i.pinimg.com')) {
+                                          setTimeout(() => {
+                                            handlePinterestAutoConvert(pasted, 'imageUrl', (direct) => {
+                                              setEditingItem((prev: any) => ({ ...prev, imageUrl: direct }));
+                                            });
+                                          }, 100);
+                                        }
+                                      }}
+                                      className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all dir-ltr text-left font-mono"
+                                    />
+                                    {isPinterestUrl(editingItem.imageUrl) && !editingItem.imageUrl?.includes('i.pinimg.com') && resolvingPinterestField !== 'imageUrl' && (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          handlePinterestAutoConvert(editingItem.imageUrl, 'imageUrl', (direct) => {
+                                            setEditingItem((prev: any) => ({ ...prev, imageUrl: direct }));
+                                          })
+                                        }
+                                        className="absolute left-2.5 top-1/2 -translate-y-1/2 bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold px-3 py-1.5 rounded-xl shadow transition-all flex items-center gap-1"
+                                      >
+                                        <Sparkles className="w-3 h-3" />
+                                        تحويل لمباشر
+                                      </button>
+                                    )}
+                                  </div>
                                 </div>
                               )}
                               {/* Download / Audio URL */}
                               {(currentParentStyle === 'style1' || currentParentStyle === 'style2' || currentParentStyle === 'style3' || currentParentStyle === 'style4' || currentParentStyle === 'style5' || currentParentStyle === 'style6') && (
                                 <div className="space-y-4">
                                   <div className="space-y-2 sm:space-y-3">
-                                    <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">
-                                      {currentParentStyle === 'style4' || currentParentStyle === 'style6' ? 'رابط الملف الصوتي' : currentParentStyle === 'style5' ? 'رابط الملف / التحميل (اختياري - يظهر زر التحميل عند إضافته)' : 'رابط التحميل المباشر (اللوجو 1)'}
-                                    </label>
+                                    <div className="flex items-center justify-between">
+                                      <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">
+                                        {currentParentStyle === 'style4' || currentParentStyle === 'style6' ? 'رابط الملف الصوتي (يدعم MediaFire / Firebase / Direct / Drive)' : currentParentStyle === 'style5' ? 'رابط الملف / التحميل (اختياري - يدعم MediaFire / Firebase)' : 'رابط التحميل المباشر (اللوجو 1)'}
+                                      </label>
+                                      {resolvingPinterestField === 'downloadUrl' && (
+                                        <span className="text-[11px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full flex items-center gap-1 animate-pulse">
+                                          <RefreshCw className="w-2.5 h-2.5 animate-spin" />
+                                          تحويل الرابط...
+                                        </span>
+                                      )}
+                                      {isMediaFireDirectUrl(editingItem.downloadUrl) && (
+                                        <span className="text-[11px] font-bold text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                                          <CheckCircle className="w-3 h-3" />
+                                          رابط ميديا فاير مباشر
+                                        </span>
+                                      )}
+                                      {isFirebaseUrl(editingItem.downloadUrl) && editingItem.downloadUrl?.includes('alt=media') && (
+                                        <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                                          <CheckCircle className="w-3 h-3" />
+                                          رابط تحميل فايربيس مباشر
+                                        </span>
+                                      )}
+                                    </div>
                                     <input
                                       type="url"
                                       value={editingItem.downloadUrl || ''}
-                                      onChange={(e) => setEditingItem({...editingItem, downloadUrl: e.target.value})}
-                                      className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all"
-                                      placeholder="https://..."
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        setEditingItem({...editingItem, downloadUrl: val});
+                                        handleUrlAutoConvert(val, 'downloadUrl', (direct) => {
+                                          setEditingItem((prev: any) => ({ ...prev, downloadUrl: direct }));
+                                        });
+                                      }}
+                                      onPaste={(e) => {
+                                        const pasted = e.clipboardData.getData('text');
+                                        setTimeout(() => {
+                                          handleUrlAutoConvert(pasted, 'downloadUrl', (direct) => {
+                                            setEditingItem((prev: any) => ({ ...prev, downloadUrl: direct }));
+                                          });
+                                        }, 100);
+                                      }}
+                                      className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all dir-ltr text-left font-mono"
+                                      placeholder="https://... (يدعم روابط MediaFire و Firebase Storage و Google Drive)"
                                     />
                                   </div>
                                   <div className="space-y-2 sm:space-y-3">
-                                    <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">
-                                      رابط التحميل الثاني (اللوجو 2 / الملحق 2) - اختياري
-                                    </label>
+                                    <div className="flex items-center justify-between">
+                                      <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">
+                                        رابط التحميل الثاني (اللوجو 2 / الملحق 2) - اختياري
+                                      </label>
+                                      {isMediaFireDirectUrl(editingItem.downloadUrl2) && (
+                                        <span className="text-[11px] font-bold text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                                          <CheckCircle className="w-3 h-3" />
+                                          رابط ميديا فاير مباشر
+                                        </span>
+                                      )}
+                                      {isFirebaseUrl(editingItem.downloadUrl2) && editingItem.downloadUrl2?.includes('alt=media') && (
+                                        <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                                          <CheckCircle className="w-3 h-3" />
+                                          رابط تحميل فايربيس مباشر
+                                        </span>
+                                      )}
+                                    </div>
                                     <input
                                       type="url"
                                       value={editingItem.downloadUrl2 || ''}
-                                      onChange={(e) => setEditingItem({...editingItem, downloadUrl2: e.target.value})}
-                                      className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all"
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        setEditingItem({...editingItem, downloadUrl2: val});
+                                        handleUrlAutoConvert(val, 'downloadUrl2', (direct) => {
+                                          setEditingItem((prev: any) => ({ ...prev, downloadUrl2: direct }));
+                                        });
+                                      }}
+                                      onPaste={(e) => {
+                                        const pasted = e.clipboardData.getData('text');
+                                        setTimeout(() => {
+                                          handleUrlAutoConvert(pasted, 'downloadUrl2', (direct) => {
+                                            setEditingItem((prev: any) => ({ ...prev, downloadUrl2: direct }));
+                                          });
+                                        }, 100);
+                                      }}
+                                      className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all dir-ltr text-left font-mono"
                                       placeholder="https://... (اختياري عند وجود ملفين أو لوجو ثاني)"
                                     />
                                   </div>
@@ -5774,12 +6045,45 @@ export default function AdminPage() {
                                     </div>
                                   </div>
                                   <div className="space-y-2">
-                                    <label className="text-[10px] font-bold text-gray-400 mr-2">لقطات الشاشة (رابط في كل سطر)</label>
+                                    <div className="flex items-center justify-between">
+                                      <label className="text-[10px] font-bold text-gray-400 mr-2">لقطات الشاشة (رابط في كل سطر)</label>
+                                      {resolvingPinterestField === 'screenshots' && (
+                                        <span className="text-[10px] font-bold text-amber-600 flex items-center gap-1 animate-pulse">
+                                          <RefreshCw className="w-2.5 h-2.5 animate-spin" />
+                                          تحويل بينترست...
+                                        </span>
+                                      )}
+                                    </div>
                                     <textarea
                                       value={(editingItem.screenshots || []).join('\n')}
-                                      onChange={(e) => setEditingItem({...editingItem, screenshots: e.target.value.split('\n').filter(s => s.trim() !== '')})}
-                                      className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2 text-xs font-medium h-24 resize-none outline-none"
-                                      placeholder="أدخل روابط الصور هنا..."
+                                      onChange={async (e) => {
+                                        const lines = e.target.value.split('\n');
+                                        setEditingItem({...editingItem, screenshots: lines.filter(s => s.trim() !== '')});
+                                        const hasUnresolvedPin = lines.some(l => isPinterestUrl(l) && !l.includes('i.pinimg.com'));
+                                        if (hasUnresolvedPin) {
+                                          setResolvingPinterestField('screenshots');
+                                          try {
+                                            const resolved = await Promise.all(
+                                              lines.map(async (l) => {
+                                                if (isPinterestUrl(l) && !l.includes('i.pinimg.com')) {
+                                                  return await resolvePinterestUrl(l);
+                                                }
+                                                return l;
+                                              })
+                                            );
+                                            setEditingItem((prev: any) => ({
+                                              ...prev,
+                                              screenshots: resolved.filter(s => s.trim() !== '')
+                                            }));
+                                          } catch (err) {
+                                            console.error("Failed to auto resolve screenshots:", err);
+                                          } finally {
+                                            setResolvingPinterestField(null);
+                                          }
+                                        }
+                                      }}
+                                      className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2 text-xs font-medium h-24 resize-none outline-none font-mono dir-ltr text-left"
+                                      placeholder="أدخل روابط الصور هنا (يدعم روابط Pinterest)..."
                                     />
                                   </div>
                                 </div>

@@ -9,6 +9,7 @@ import Sidebar from '@/components/Sidebar';
 import AdBanner from '@/components/AdBanner';
 import ScrollReveal from '@/components/ScrollReveal';
 import QuickShareButton from '@/components/QuickShareButton';
+import { triggerFileDownload } from '@/lib/utils';
 
 export default function SubCategoryPage() {
   const { id } = useParams();
@@ -99,7 +100,7 @@ export default function SubCategoryPage() {
                         <button 
                           className="text-primary-foreground px-4 py-2 rounded-xl text-sm font-bold active:scale-95 transition-transform"
                           style={{ background: 'var(--primary-gradient)' }}
-                          onClick={() => item.downloadUrl && window.open(item.downloadUrl, '_blank')}
+                          onClick={() => item.downloadUrl && triggerFileDownload(item.downloadUrl, item.title)}
                         >
                           تحميل
                         </button>

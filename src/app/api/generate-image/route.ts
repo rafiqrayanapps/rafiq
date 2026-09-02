@@ -42,16 +42,15 @@ export async function POST(req: Request) {
         if (accIdx !== -1 && parts[accIdx + 1]) return parts[accIdx + 1].split('?')[0].split('#')[0];
         return parts[parts.length - 1].split('?')[0].split('#')[0];
       }
-      return trimmed;
+      return trimmed.replace(/[^a-zA-Z0-9_-]/g, '');
     };
 
     const accountId = extractId(rawAccountId);
     const apiToken = rawApiToken.trim().split(' ')[rawApiToken.trim().split(' ').length - 1]; // Take last part if user pasted "Bearer ..."
 
-    // Clean modelId (ensure no full URLs or template tags)
-    let finalModelId = modelId.trim();
+    // Clean modelId (ensure no full URLs, path traversals or invalid characters)
+    let finalModelId = (typeof modelId === 'string' ? modelId : '@google/imagen-4').trim();
     if (finalModelId.includes('${')) {
-        // User pasted the template literally? Default to imagen-4
         finalModelId = '@google/imagen-4';
     }
     if (finalModelId.startsWith('http')) {
@@ -63,9 +62,17 @@ export async function POST(req: Request) {
             finalModelId = parts[parts.length - 1];
         }
     }
+    // Whitelist characters in modelId
+    finalModelId = finalModelId.replace(/[^a-zA-Z0-9@/._-]/g, '');
+    if (!finalModelId) {
+      finalModelId = '@google/imagen-4';
+    }
+
+    // Sanitize and limit prompt length
+    const cleanPrompt = typeof prompt === 'string' ? prompt.trim().slice(0, 1000) : "A high-quality 3D logo for Mohtawa brand";
 
     // Quality enhancements
-    const finalPrompt = `${prompt || "A high-quality 3D logo for Mohtawa brand"}, high quality, 8k, cinematic lighting, masterpiece, highly detailed`;
+    const finalPrompt = `${cleanPrompt || "A high-quality 3D logo for Mohtawa brand"}, high quality, 8k, cinematic lighting, masterpiece, highly detailed`;
 
     const cfUrl = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${finalModelId}`;
     

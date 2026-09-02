@@ -17,7 +17,7 @@ import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import MaintenanceView from '@/components/MaintenanceView';
 import useLocalStorage from '@/hooks/use-local-storage';
-import { cn, getDirectLink } from '@/lib/utils';
+import { cn, getDirectLink, triggerFileDownload } from '@/lib/utils';
 import CategorySkeleton from '@/components/skeletons/CategorySkeleton';
 import { useUserProfile } from '@/hooks/use-user-profile';
 import { useCategories } from '@/components/providers/CategoryProvider';
@@ -148,7 +148,7 @@ const AudioPlayerRow = ({
                     </button>
                     {item.downloadUrl && item.showDownloadButton !== false && (
                         <button 
-                            onClick={() => onAction(() => window.open(item.downloadUrl, '_blank'))} 
+                            onClick={() => onAction(() => triggerFileDownload(item.downloadUrl, item.title))} 
                             className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground"
                         >
                             <Download className="h-3.5 w-3.5" />
@@ -312,7 +312,7 @@ export default function CategoryPage() {
                                 "flex-1 rounded-2xl h-10 font-bold text-xs gap-2 shadow-sm active:scale-95 transition-transform",
                                 item.showDownloadButton === false && "hidden"
                             )}
-                            onClick={() => handleAction(item, () => { markItemAsViewed(item.id); item.downloadUrl && window.open(item.downloadUrl, '_blank'); })}
+                            onClick={() => handleAction(item, () => { markItemAsViewed(item.id); item.downloadUrl && triggerFileDownload(item.downloadUrl, item.title); })}
                         >
                             <Download className="h-3.5 w-3.5" />
                             تحميل
@@ -362,7 +362,7 @@ export default function CategoryPage() {
                                 "flex-1 rounded-[1.5rem] h-12 font-bold gap-2 shadow-lg active:scale-95 transition-transform",
                                 item.showDownloadButton === false && "hidden"
                             )}
-                            onClick={() => handleAction(item, () => { markItemAsViewed(item.id); item.downloadUrl && window.open(item.downloadUrl, '_blank'); })}
+                            onClick={() => handleAction(item, () => { markItemAsViewed(item.id); item.downloadUrl && triggerFileDownload(item.downloadUrl, item.title); })}
                         >
                             <Download className="h-4 w-4" />
                             تحميل
@@ -438,7 +438,7 @@ export default function CategoryPage() {
                                 "flex-1 rounded-full h-14 font-black text-lg gap-3 shadow-lg shadow-red-500/20 bg-red-600 hover:bg-red-700 text-white active:scale-95 transition-all",
                                 item.showDownloadButton === false && "hidden"
                             )}
-                            onClick={() => handleAction(item, () => item.downloadUrl && window.open(item.downloadUrl, '_blank'))}
+                            onClick={() => handleAction(item, () => item.downloadUrl && triggerFileDownload(item.downloadUrl, item.title))}
                         >
                             تثبيت
                         </Button>
@@ -525,7 +525,7 @@ export default function CategoryPage() {
                                         size="icon" 
                                         onClick={() => handleAction(item, () => {
                                             if (item.downloadUrl) {
-                                                window.open(getDirectLink(item.downloadUrl), '_blank');
+                                                triggerFileDownload(item.downloadUrl, item.title);
                                             }
                                         })}
                                         title="تحميل الملف"
@@ -567,7 +567,7 @@ export default function CategoryPage() {
                                     <button 
                                         onClick={() => handleAction(item, () => {
                                             if (item.downloadUrl) {
-                                                window.open(getDirectLink(item.downloadUrl), '_blank');
+                                                triggerFileDownload(item.downloadUrl, item.title);
                                             }
                                         })}
                                         className="h-10 px-4 bg-primary text-primary-foreground rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg active:scale-95 transition-transform"
