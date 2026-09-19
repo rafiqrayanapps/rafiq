@@ -20,14 +20,14 @@ const tajawal = Tajawal({
 });
 
 export const metadata: Metadata = {
-  title: "رفيق المصمم",
-  description: "تطبيق رفيق - كل ما يحتاجه المصمم في مكان واحد",
+  title: "رفيق",
+  description: "تطبيق شامل للمصممين يتضمن مكتبة الملحقات والتصاميم، أدوات التصميم وتنسيق الألوان.",
   manifest: "/manifest.json",
-  applicationName: "رفيق المصمم",
+  applicationName: "رفيق",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "رفيق المصمم",
+    title: "رفيق",
   },
   formatDetection: {
     telephone: false,
@@ -36,6 +36,7 @@ export const metadata: Metadata = {
     icon: [
       { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
       { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+      { url: "/icon.svg", type: "image/svg+xml" },
     ],
     apple: [
       { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
@@ -45,7 +46,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#3B82F6",
+  themeColor: "#2563EB",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -60,15 +61,6 @@ export default function RootLayout({
   return (
     <html lang="ar" dir="rtl" className={`${inter.variable} ${cairo.variable} ${tajawal.variable}`} suppressHydrationWarning>
       <head>
-        <link rel="manifest" href="/manifest.json" />
-        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-        <link rel="apple-touch-icon" sizes="512x512" href="/icon-512.png" />
-        <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
-        <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
-        <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="apple-mobile-web-app-title" content="رفيق المصمم" />
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -81,12 +73,26 @@ export default function RootLayout({
                     msg.indexOf('Loading chunk') !== -1 || 
                     msg.indexOf('ChunkLoadError') !== -1 || 
                     msg.indexOf('Failed to fetch dynamically imported module') !== -1 ||
+                    msg.indexOf("Unexpected token '<'") !== -1 ||
+                    msg.indexOf("Unexpected token <") !== -1 ||
                     (msg.indexOf('timeout:') !== -1 && msg.indexOf('/_next/static/chunks/') !== -1);
                   if (isChunk) {
                     var last = sessionStorage.getItem(reloadKey);
                     var now = Date.now();
                     if (!last || (now - parseInt(last, 10)) > 6000) {
                       sessionStorage.setItem(reloadKey, now.toString());
+                      try {
+                        if ('serviceWorker' in navigator) {
+                          navigator.serviceWorker.getRegistrations().then(function(regs) {
+                            for (var i = 0; i < regs.length; i++) regs[i].unregister();
+                          });
+                        }
+                        if ('caches' in window) {
+                          caches.keys().then(function(keys) {
+                            for (var i = 0; i < keys.length; i++) caches.delete(keys[i]);
+                          });
+                        }
+                      } catch (ign) {}
                       window.location.reload();
                     }
                   }

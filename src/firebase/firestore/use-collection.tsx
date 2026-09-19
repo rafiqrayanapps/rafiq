@@ -67,9 +67,12 @@ export function useCollection<T = any>(
         setIsLoading(false);
       },
       (snapshotError: FirestoreError) => {
+        const path = (activeQuery as any)?.path || 
+                     (activeQuery as any)?._query?.path?.segments?.join('/') || 
+                     (activeQuery.type === 'collection' ? (activeQuery as CollectionReference).path : 'unknown query path');
+
         if (snapshotError.code === 'permission-denied') {
-          console.error("useCollection error:", snapshotError);
-          const path = activeQuery.type === 'collection' ? (activeQuery as CollectionReference).path : 'unknown query path';
+          console.error(`useCollection error on path [${path}]:`, snapshotError);
           const permissionError = new FirestorePermissionError({
             operation: 'list',
             path: path,
@@ -79,7 +82,7 @@ export function useCollection<T = any>(
         } else if (snapshotError.code === 'unavailable') {
           setError(snapshotError);
         } else {
-          console.error("useCollection error:", snapshotError);
+          console.error(`useCollection error on path [${path}]:`, snapshotError);
           setError(snapshotError);
         }
         

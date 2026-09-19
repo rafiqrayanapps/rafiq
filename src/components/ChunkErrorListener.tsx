@@ -13,6 +13,8 @@ export default function ChunkErrorListener() {
         msg.includes('Loading chunk') ||
         msg.includes('ChunkLoadError') ||
         msg.includes('Failed to fetch dynamically imported module') ||
+        msg.includes("Unexpected token '<'") ||
+        msg.includes("Unexpected token <") ||
         (msg.includes('timeout:') && msg.includes('/_next/static/chunks/'))
       );
     };
@@ -25,6 +27,22 @@ export default function ChunkErrorListener() {
       // Avoid infinite reload loops: reload only if not reloaded in last 6 seconds
       if (!lastReload || now - parseInt(lastReload, 10) > 6000) {
         sessionStorage.setItem(reloadKey, now.toString());
+        try {
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then((registrations) => {
+              for (const registration of registrations) {
+                registration.unregister();
+              }
+            });
+          }
+          if ('caches' in window) {
+            caches.keys().then((keys) => {
+              for (const key of keys) {
+                caches.delete(key);
+              }
+            });
+          }
+        } catch (e) {}
         window.location.reload();
       }
     };

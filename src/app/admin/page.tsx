@@ -4,15 +4,17 @@ import { useAuth, useCollection, useDoc, handleFirestoreError, OperationType } f
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import { cn, isPinterestUrl, resolvePinterestUrl, getDirectLink, isFirebaseUrl, convertFirebaseToDirectUrl, isMediaFireUrl, resolveMediaFireUrl, isMediaFireDirectUrl } from '@/lib/utils';
-import { Shield, Globe, Database, AlertTriangle, CheckCircle, Copy, LogIn, Plus, FolderPlus, FilePlus, List, ChevronDown, Trash2, Palette, BellRing, Send, Lock, Download, Edit3, ChevronRight, X, Settings, UserPlus, MessageSquare, MessageCircle, User, ShieldCheck, Bell, MousePointer2, Hammer, Ticket, Zap, Home, Users, ArrowUp, ArrowDown, Info, Heart, Star, Target, Rocket, Award, Instagram, Twitter, Github, MapPin, Clock, Phone, Mail, ExternalLink, Share2, Wrench, Power, Eye, KeyRound, Code2, Terminal, Check, EyeOff, Type, Upload, Sparkles, RefreshCw } from 'lucide-react';
+import { Shield, Globe, Database, AlertTriangle, CheckCircle, Copy, LogIn, Plus, FolderPlus, FilePlus, List, ChevronDown, ChevronUp, Trash2, Palette, BellRing, Send, Lock, Download, Edit3, ChevronRight, X, Settings, UserPlus, MessageSquare, MessageCircle, User, ShieldCheck, Bell, MousePointer2, Hammer, Ticket, Zap, Home, Users, ArrowUp, ArrowDown, Info, Heart, Star, Target, Rocket, Award, Instagram, Twitter, Github, MapPin, Clock, Phone, Mail, ExternalLink, Share2, Wrench, Power, Eye, KeyRound, Code2, Terminal, Check, EyeOff, Type, Upload, Sparkles, RefreshCw, BookOpen, Layers, Search, FolderInput, CheckSquare, Square, ArrowRightLeft, FileText } from 'lucide-react';
 import SocialLinks, { SocialPlatformIcon, getSocialPlatformInfo, SocialLinkItem } from '@/components/SocialLinks';
 import MaintenanceView from '@/components/MaintenanceView';
+import BlogsManager from '@/components/admin/BlogsManager';
+import PagesManager from '@/components/admin/PagesManager';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { db } from '@/firebase';
-import { collection, addDoc, serverTimestamp, deleteDoc, doc, updateDoc, setDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, deleteDoc, doc, updateDoc, setDoc, writeBatch, deleteField } from 'firebase/firestore';
 const iconMap: Record<string, any> = {
   Phone,
   Mail,
@@ -38,34 +40,34 @@ const iconMap: Record<string, any> = {
 };
 import { triggerAppShare } from '@/components/AppShareModal';
 
+const POPULAR_PROMPT_APPS = [
+  'Midjourney',
+  'ChatGPT',
+  'Flux',
+  'Leonardo AI',
+  'Ideogram',
+  'Stable Diffusion',
+  'Photoshop',
+  'Illustrator',
+  'Canva',
+  'DALL·E 3',
+  'Recraft',
+  'Runway',
+  'SeaArt',
+  'Krea AI'
+];
+
 export default function AdminPage() {
   const { toast } = useToast();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { user, isAdmin, isEditor, loading, loginWithGoogle, logout } = useAuth();
   const [currentDomain, setCurrentDomain] = useState('');
   const [copySuccess, setCopySuccess] = useState(false);
-  const [activeTab, setActiveTab] = useState<'menu' | 'users' | 'content' | 'colors' | 'notifications' | 'dialog' | 'floatingButton' | 'about' | 'contact' | 'tools' | 'ads' | 'social' | 'security' | 'maintenance' | 'api' | 'share' | 'appName' | 'font'>('menu');
+  const [activeTab, setActiveTab] = useState<'menu' | 'users' | 'content' | 'blogs' | 'pages' | 'colors' | 'notifications' | 'dialog' | 'floatingButton' | 'about' | 'contact' | 'social' | 'security' | 'maintenance' | 'share' | 'appName' | 'font'>('menu');
   const [viewLevel, setViewLevel] = useState<'categories' | 'subcategories' | 'items'>('categories');
   const router = useRouter();
-  // API Management State
-  const { data: apiConfig } = useDoc('appConfig', 'api');
-  const { data: apiKeysList } = useCollection('apiKeys');
-  const [apiEnabled, setApiEnabled] = useState(true);
-  const [newKeyName, setNewKeyName] = useState('');
-  const [generatedKey, setGeneratedKey] = useState('');
-  const [visibleKeyId, setVisibleKeyId] = useState<string | null>(null);
-  const [testEndpoint, setTestEndpoint] = useState('/api/v1/content');
-  const [testApiKey, setTestApiKey] = useState('');
-  const [testResult, setTestResult] = useState<any>(null);
-  const [isTestingApi, setIsTestingApi] = useState(false);
-
-  useEffect(() => {
-    if (apiConfig) {
-      setApiEnabled(apiConfig.enabled !== false);
-    }
-  }, [apiConfig]);
   // User Management State
-  const { data: whitelistData } = useCollection('whitelist');
+  const { data: whitelistData } = useCollection(isAdmin ? 'whitelist' : '');
   const [newUserId, setNewUserId] = useState('');
   const [newUserRole, setNewUserRole] = useState<'admin' | 'editor'>('editor');
   // System Management State
@@ -88,7 +90,6 @@ export default function AdminPage() {
   const [darkGradientEnd, setDarkGradientEnd] = useState('#8B5CF6');
   const [bottomNavColor, setBottomNavColor] = useState('#ffffff');
   const [darkBottomNavColor, setDarkBottomNavColor] = useState('#020617');
-  const [customCss, setCustomCss] = useState('');
   useEffect(() => {
     if (theme?.primaryColor) setPrimaryColor(theme.primaryColor);
     if (theme?.darkPrimaryColor) setDarkPrimaryColor(theme.darkPrimaryColor);
@@ -108,12 +109,12 @@ export default function AdminPage() {
     if (theme?.darkGradientEnd) setDarkGradientEnd(theme.darkGradientEnd);
     if (theme?.bottomNavColor) setBottomNavColor(theme.bottomNavColor);
     if (theme?.darkBottomNavColor) setDarkBottomNavColor(theme.darkBottomNavColor);
-    if (theme?.customCss !== undefined) setCustomCss(theme.customCss);
   }, [theme]);
   const [notifTitle, setNotifTitle] = useState('');
   const [notifBody, setNotifBody] = useState('');
   const [notifLink, setNotifLink] = useState('');
   const [editingItem, setEditingItem] = useState<any>(null);
+  const [customAppInput, setCustomAppInput] = useState('');
   const [resolvingPinterestField, setResolvingPinterestField] = useState<string | null>(null);
 
   const handleUrlAutoConvert = async (
@@ -204,13 +205,28 @@ export default function AdminPage() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [selectedManagerId, setSelectedManagerId] = useState<{type: 'category' | 'subcategory', id: string} | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [categoryViewTab, setCategoryViewTab] = useState<'all' | 'subcategories' | 'items'>('all');
+  // Content selection and transfer state
+  const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
+  const [transferModal, setTransferModal] = useState<{ itemIds: string[] } | null>(null);
+  const [targetDestinationId, setTargetDestinationId] = useState<string>('');
+  const [isTransferring, setIsTransferring] = useState(false);
+  const [transferSearchQuery, setTransferSearchQuery] = useState('');
+  const [transferTab, setTransferTab] = useState<'subs' | 'all'>('subs');
+
   const handleSetViewLevel = (level: 'categories' | 'subcategories' | 'items') => {
     setViewLevel(level);
     setSearchQuery('');
+    setCategoryViewTab('all');
+    setSelectedItemIds([]);
+    setTransferModal(null);
   };
   const handleSetSelectedManager = (idObj: {type: 'category' | 'subcategory', id: string} | null) => {
     setSelectedManagerId(idObj);
     setSearchQuery('');
+    setCategoryViewTab('all');
+    setSelectedItemIds([]);
+    setTransferModal(null);
   };
   // Delete Confirmation State
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string, type: string, label: string } | null>(null);
@@ -277,65 +293,7 @@ export default function AdminPage() {
   const [fbLink, setFbLink] = useState('');
   const [fbDuration, setFbDuration] = useState(30);
   const [isFbActive, setIsFbActive] = useState(false);
-  // Tool Config State
-  const { data: toolConfig } = useDoc('toolConfig', 'global');
-  const [chatId, setChatId] = useState('');
-  const [imageGenId, setImageGenId] = useState('');
-  const [promptGenId, setPromptGenId] = useState('');
-  const [storyGenId, setStoryGenId] = useState('');
-  const [globalApiKey, setGlobalApiKey] = useState('');
-  // Ads Config State
-  const { data: adsConfig } = useDoc('appConfig', 'ads');
-  const [showAds, setShowAds] = useState(false);
   const [globalShowShareButton, setGlobalShowShareButton] = useState(true);
-  const [customAdSlots, setCustomAdSlots] = useState<Array<{
-    id: string;
-    title: string;
-    companyName?: string;
-    script: string;
-    placement: 'all' | 'home' | 'lists' | 'content' | 'top' | 'bottom';
-    height?: string;
-    active: boolean;
-    notes?: string;
-  }>>([]);
-  const [showHomeAd, setShowHomeAd] = useState(true);
-  const [showContentAds, setShowContentAds] = useState(true);
-  const [adScript, setAdScript] = useState('');
-  const [inlineAdFrequency, setInlineAdFrequency] = useState(4);
-  // Expanded Ads State
-  // Banner Ads State
-  const [bannerShow, setBannerShow] = useState(false);
-  const [bannerHome, setBannerHome] = useState(true);
-  const [bannerLists, setBannerLists] = useState(true);
-  const [bannerContent, setBannerContent] = useState(true);
-  const [bannerScript, setBannerScript] = useState('');
-  const [bannerCategoryMode, setBannerCategoryMode] = useState<'all' | 'specific'>('all');
-  const [bannerCategories, setBannerCategories] = useState<string[]>([]);
-  // Interstitial Ads State
-  const [interstitialShow, setInterstitialShow] = useState(false);
-  const [interstitialHome, setInterstitialHome] = useState(false);
-  const [interstitialLists, setInterstitialLists] = useState(false);
-  const [interstitialContent, setInterstitialContent] = useState(false);
-  const [interstitialScript, setInterstitialScript] = useState('');
-  const [interstitialCategoryMode, setInterstitialCategoryMode] = useState<'all' | 'specific'>('all');
-  const [interstitialCategories, setInterstitialCategories] = useState<string[]>([]);
-  // Popup Ads State
-  const [popupShow, setPopupShow] = useState(false);
-  const [popupHome, setPopupHome] = useState(false);
-  const [popupLists, setPopupLists] = useState(false);
-  const [popupContent, setPopupContent] = useState(false);
-  const [popupScript, setPopupScript] = useState('');
-  const [popupCategoryMode, setPopupCategoryMode] = useState<'all' | 'specific'>('all');
-  const [popupCategories, setPopupCategories] = useState<string[]>([]);
-  // Inline Ads State
-  const [inlineShow, setInlineShow] = useState(false);
-  const [inlineHome, setInlineHome] = useState(false);
-  const [inlineLists, setInlineLists] = useState(true);
-  const [inlineContent, setInlineContent] = useState(true);
-  const [inlineScript, setInlineScript] = useState('');
-  const [inlineFrequency, setInlineFrequency] = useState(4);
-  const [inlineCategoryMode, setInlineCategoryMode] = useState<'all' | 'specific'>('all');
-  const [inlineCategories, setInlineCategories] = useState<string[]>([]);
   // Security Config State
   const { data: securityConfig } = useDoc('appConfig', 'security');
   const [preventCopy, setPreventCopy] = useState(true);
@@ -620,107 +578,7 @@ export default function AdminPage() {
     }
   };
 
-  // API Management Handlers
-  const handleCreateApiKey = async () => {
-    if (!newKeyName.trim()) {
-      toast({ title: 'تنبيه', description: 'يرجى كتابة اسم تعريفي لمفتاح الـ API', variant: 'destructive' });
-      return;
-    }
-    setIsSaving(true);
-    try {
-      const rawKey = 'ak_live_' + Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2) + Date.now().toString(36);
-      await addDoc(collection(db, 'apiKeys'), {
-        name: newKeyName.trim(),
-        key: rawKey,
-        active: true,
-        createdAt: new Date().toISOString(),
-        usageCount: 0
-      });
-      setNewKeyName('');
-      setGeneratedKey(rawKey);
-      toast({ title: 'تم الإنشاء بنجاح', description: 'تم توليد مفتاح API جديد وحفظه في النظام!' });
-    } catch (error: any) {
-      handleFirestoreError(error, OperationType.WRITE, 'apiKeys');
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
-  const handleToggleApiKey = async (id: string, currentActive: boolean) => {
-    try {
-      await updateDoc(doc(db, 'apiKeys', id), {
-        active: !currentActive
-      });
-      toast({
-        title: !currentActive ? 'تم تفعيل المفتاح' : 'تم تعطيل المفتاح',
-        description: !currentActive ? 'المفتاح جاهز للاستخدام الآن' : 'تم إيقاف صلاحية هذا المفتاح مؤقتاً'
-      });
-    } catch (error: any) {
-      handleFirestoreError(error, OperationType.UPDATE, `apiKeys/${id}`);
-    }
-  };
-
-  const handleDeleteApiKey = async (id: string) => {
-    if (!confirm('هل أنت متاكد من حذف مفتاح الـ API هذا نهائياً؟')) return;
-    try {
-      await deleteDoc(doc(db, 'apiKeys', id));
-      toast({ title: 'تم الحذف', description: 'تم حذف المفتاح بنجاح' });
-    } catch (error: any) {
-      handleFirestoreError(error, OperationType.DELETE, `apiKeys/${id}`);
-    }
-  };
-
-  const handleSaveApiGlobalConfig = async (enabled: boolean) => {
-    setApiEnabled(enabled);
-    try {
-      await setDoc(doc(db, 'appConfig', 'api'), {
-        enabled,
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
-      toast({
-        title: enabled ? "تم تفعيل الـ API" : "تم تعطيل الـ API",
-        description: enabled ? "يمكن للتطبيقات الخارجية الآن استهلاك خدمات الـ API" : "تم إغلاق طلبات الـ API الخارجية مؤقتاً",
-      });
-    } catch (error: any) {
-      handleFirestoreError(error, OperationType.UPDATE, 'appConfig/api');
-    }
-  };
-
-  const handleRunApiTest = async () => {
-    setIsTestingApi(true);
-    setTestResult(null);
-    try {
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      if (testApiKey) {
-        headers['x-api-key'] = testApiKey;
-      }
-      const res = await fetch(testEndpoint, {
-        method: testEndpoint.includes('generate-image') || testEndpoint.includes('validate') ? 'POST' : 'GET',
-        headers,
-        body: testEndpoint.includes('generate-image')
-          ? JSON.stringify({ prompt: 'شعارات وتصميم ثلاثي الأبعاد' })
-          : testEndpoint.includes('validate')
-          ? JSON.stringify({})
-          : undefined,
-      });
-      const data = await res.json();
-      setTestResult({
-        status: res.status,
-        ok: res.ok,
-        data,
-      });
-    } catch (err: any) {
-      setTestResult({
-        status: 500,
-        ok: false,
-        data: { error: err.message || 'فشل الاتصال بالخادم' },
-      });
-    } finally {
-      setIsTestingApi(false);
-    }
-  };
   useEffect(() => {
     if (socialConfig?.links) {
       setSocialLinksList(socialConfig.links);
@@ -764,7 +622,7 @@ export default function AdminPage() {
     }
   };
   // Dynamic Contacts State
-  const { data: contactsData } = useCollection('contacts');
+  const { data: contactsData } = useCollection(isAdmin ? 'contacts' : '');
   const [editingContact, setEditingContact] = useState<any>(null);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   useEffect(() => {
@@ -839,56 +697,6 @@ export default function AdminPage() {
     }
   }, [fbConfig]);
   useEffect(() => {
-    if (toolConfig) {
-      setChatId(toolConfig.chatId || '');
-      setImageGenId(toolConfig.imageGenId || '');
-      setPromptGenId(toolConfig.promptGenId || '');
-      setStoryGenId(toolConfig.storyGenId || '');
-      setGlobalApiKey(toolConfig.globalApiKey || '');
-    }
-  }, [toolConfig]);
-  useEffect(() => {
-    if (adsConfig) {
-      setShowAds(adsConfig.showAds !== false);
-      setGlobalShowShareButton(adsConfig.showShareButton ?? adsConfig.globalShowShareButton ?? true);
-      setCustomAdSlots(Array.isArray(adsConfig.customSlots) ? adsConfig.customSlots : []);
-      setShowHomeAd(adsConfig.showHomeAd ?? true);
-      setShowContentAds(adsConfig.showContentAds ?? true);
-      setAdScript(adsConfig.adScript ?? '');
-      setInlineAdFrequency(adsConfig.inlineAdFrequency ?? 4);
-      // Hydrate new structured settings
-      setBannerShow(adsConfig.banner?.show ?? adsConfig.showAds ?? false);
-      setBannerHome(adsConfig.banner?.showOnHome ?? adsConfig.showHomeAd ?? true);
-      setBannerLists(adsConfig.banner?.showOnLists ?? adsConfig.showContentAds ?? true);
-      setBannerContent(adsConfig.banner?.showOnContent ?? adsConfig.showContentAds ?? true);
-      setBannerScript(adsConfig.banner?.script ?? adsConfig.adScript ?? '');
-      setBannerCategoryMode(adsConfig.banner?.categoryMode || 'all');
-      setBannerCategories(adsConfig.banner?.targetCategories || []);
-      setInterstitialShow(adsConfig.interstitial?.show ?? false);
-      setInterstitialHome(adsConfig.interstitial?.showOnHome ?? false);
-      setInterstitialLists(adsConfig.interstitial?.showOnLists ?? false);
-      setInterstitialContent(adsConfig.interstitial?.showOnContent ?? false);
-      setInterstitialScript(adsConfig.interstitial?.script ?? '');
-      setInterstitialCategoryMode(adsConfig.interstitial?.categoryMode || 'all');
-      setInterstitialCategories(adsConfig.interstitial?.targetCategories || []);
-      setPopupShow(adsConfig.popup?.show ?? false);
-      setPopupHome(adsConfig.popup?.showOnHome ?? false);
-      setPopupLists(adsConfig.popup?.showOnLists ?? false);
-      setPopupContent(adsConfig.popup?.showOnContent ?? false);
-      setPopupScript(adsConfig.popup?.script ?? '');
-      setPopupCategoryMode(adsConfig.popup?.categoryMode || 'all');
-      setPopupCategories(adsConfig.popup?.targetCategories || []);
-      setInlineShow(adsConfig.inline?.show ?? adsConfig.showAds ?? false);
-      setInlineHome(adsConfig.inline?.showOnHome ?? false);
-      setInlineLists(adsConfig.inline?.showOnLists ?? adsConfig.showContentAds ?? true);
-      setInlineContent(adsConfig.inline?.showOnContent ?? adsConfig.showContentAds ?? true);
-      setInlineScript(adsConfig.inline?.script ?? adsConfig.adScript ?? '');
-      setInlineFrequency(adsConfig.inline?.frequency ?? adsConfig.inlineAdFrequency ?? 4);
-      setInlineCategoryMode(adsConfig.inline?.categoryMode || 'all');
-      setInlineCategories(adsConfig.inline?.targetCategories || []);
-    }
-  }, [adsConfig]);
-  useEffect(() => {
     if (securityConfig) {
       setPreventCopy(securityConfig.preventCopy ?? true);
       setPreventContextMenu(securityConfig.preventContextMenu ?? true);
@@ -899,10 +707,10 @@ export default function AdminPage() {
       }
     }
   }, [securityConfig]);
-  const { data: allCategoriesData } = useCollection('categories');
-  const { data: notifications } = useCollection('notifications');
+  const { data: allCategoriesData } = useCollection(isAdmin ? 'categories' : '');
+  const { data: notifications } = useCollection(isAdmin ? 'notifications' : '');
   // Items fetching based on selection
-  const itemsPath = selectedManagerId?.id ? `categories/${selectedManagerId.id}/items` : null;
+  const itemsPath = (isAdmin && selectedManagerId?.id) ? `categories/${selectedManagerId.id}/items` : null;
   const { data: itemsData } = useCollection(itemsPath || '');
   const allCategories = (allCategoriesData || []).sort((a, b) => (a.order || 0) - (b.order || 0));
   const categories = allCategories.filter(c => !c.parentId);
@@ -925,6 +733,35 @@ export default function AdminPage() {
       await updateDoc(doc(db, 'categories', targetCat.id), { order: currentIndex });
     } catch (error: any) {
       handleFirestoreError(error, OperationType.UPDATE, 'categories');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleMoveItem = async (itemId: string, direction: 'up' | 'down') => {
+    if (!selectedManagerId?.id) return;
+    const sorted = [...items].sort((a, b) => {
+      if (typeof a.order === 'number' && typeof b.order === 'number' && a.order !== b.order) {
+        return a.order - b.order;
+      }
+      return 0;
+    });
+    const currentIndex = sorted.findIndex(i => i.id === itemId);
+    if (currentIndex === -1) return;
+    if (direction === 'up' && currentIndex === 0) return;
+    if (direction === 'down' && currentIndex === sorted.length - 1) return;
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    const currentItem = sorted[currentIndex];
+    const targetItem = sorted[targetIndex];
+    setIsSaving(true);
+    try {
+      const currentOrder = typeof targetItem.order === 'number' ? targetItem.order : targetIndex;
+      const targetOrder = typeof currentItem.order === 'number' ? currentItem.order : currentIndex;
+      await updateDoc(doc(db, 'categories', selectedManagerId.id, 'items', currentItem.id), { order: currentOrder });
+      await updateDoc(doc(db, 'categories', selectedManagerId.id, 'items', targetItem.id), { order: targetOrder });
+      toast({ title: "تم الترتيب", description: "تم تحديث ترتيب المنشور بنجاح!" });
+    } catch (error: any) {
+      handleFirestoreError(error, OperationType.UPDATE, `categories/${selectedManagerId.id}/items`);
     } finally {
       setIsSaving(false);
     }
@@ -1085,103 +922,6 @@ export default function AdminPage() {
       setIsSaving(false);
     }
   };
-  const handleUpdateTools = async () => {
-    setIsSaving(true);
-    try {
-      await setDoc(doc(db, 'toolConfig', 'global'), {
-        chatId,
-        imageGenId,
-        promptGenId,
-        storyGenId,
-        globalApiKey,
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
-      toast({ title: "تم النجاح", description: "تم تحديث معرفات الأدوات بنجاح!" });
-    } catch (error: any) {
-      handleFirestoreError(error, OperationType.UPDATE, 'toolConfig/global');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-  const handleAddCustomSlot = () => {
-    const newSlot = {
-      id: 'slot_' + Date.now(),
-      title: `مساحة إعلانية مخصصة #${customAdSlots.length + 1}`,
-      companyName: '',
-      script: '',
-      placement: 'all' as const,
-      height: '60px',
-      active: true,
-      notes: ''
-    };
-    setCustomAdSlots([...customAdSlots, newSlot]);
-  };
-  const handleUpdateCustomSlot = (id: string, updated: any) => {
-    setCustomAdSlots(customAdSlots.map(s => s.id === id ? { ...s, ...updated } : s));
-  };
-  const handleRemoveCustomSlot = (id: string) => {
-    setCustomAdSlots(customAdSlots.filter(s => s.id !== id));
-  };
-  const handleUpdateAds = async () => {
-    setIsSaving(true);
-    try {
-      await setDoc(doc(db, 'appConfig', 'ads'), {
-        showAds,
-        showShareButton: globalShowShareButton,
-        globalShowShareButton: globalShowShareButton,
-        customSlots: customAdSlots,
-        // Structured multiple ad configurations
-        banner: {
-          show: bannerShow,
-          showOnHome: bannerHome,
-          showOnLists: bannerLists,
-          showOnContent: bannerContent,
-          script: bannerScript,
-          categoryMode: bannerCategoryMode,
-          targetCategories: bannerCategories
-        },
-        interstitial: {
-          show: interstitialShow,
-          showOnHome: interstitialHome,
-          showOnLists: interstitialLists,
-          showOnContent: interstitialContent,
-          script: interstitialScript,
-          categoryMode: interstitialCategoryMode,
-          targetCategories: interstitialCategories
-        },
-        popup: {
-          show: popupShow,
-          showOnHome: popupHome,
-          showOnLists: popupLists,
-          showOnContent: popupContent,
-          script: popupScript,
-          categoryMode: popupCategoryMode,
-          targetCategories: popupCategories
-        },
-        inline: {
-          show: inlineShow,
-          showOnHome: inlineHome,
-          showOnLists: inlineLists,
-          showOnContent: inlineContent,
-          script: inlineScript,
-          frequency: inlineFrequency,
-          categoryMode: inlineCategoryMode,
-          targetCategories: inlineCategories
-        },
-        // Legacy compatibility support
-        showHomeAd: bannerHome,
-        showContentAds: bannerLists || bannerContent,
-        adScript: bannerScript || inlineScript || adScript,
-        inlineAdFrequency: inlineFrequency,
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
-      toast({ title: "تم النجاح", description: "تم تحديث إعدادات الإعلانات بنجاح!" });
-    } catch (error: any) {
-      handleFirestoreError(error, OperationType.UPDATE, 'appConfig/ads');
-    } finally {
-      setIsSaving(false);
-    }
-  };
   const handleSaveSecurity = async () => {
     setIsSaving(true);
     try {
@@ -1191,11 +931,6 @@ export default function AdminPage() {
         showShareButton: globalShowShareButton,
         globalShowShareButton: globalShowShareButton,
         updatedAt: new Date().toISOString()
-      }, { merge: true });
-
-      await setDoc(doc(db, 'appConfig', 'ads'), {
-        showShareButton: globalShowShareButton,
-        globalShowShareButton: globalShowShareButton,
       }, { merge: true });
 
       toast({ title: "تم النجاح", description: "تم تحديث إعدادات حماية المحتوى والمشاركة بنجاح!" });
@@ -1221,6 +956,7 @@ export default function AdminPage() {
         displayStyle: editingCategory.displayStyle || 'style1',
         subCategoryLayout: editingCategory.subCategoryLayout || 'vertical',
         isUnderMaintenance: editingCategory.isUnderMaintenance || false,
+        isHidden: editingCategory.isHidden || false,
         showShareButton: editingCategory.showShareButton !== false,
         isNew: editingCategory.isNew !== undefined ? editingCategory.isNew : true,
         hasNewContent: true,
@@ -1261,6 +997,7 @@ export default function AdminPage() {
         displayStyle: editingSubCategory.displayStyle || 'style1',
         fileTypes: editingSubCategory.fileTypes || '',
         isUnderMaintenance: editingSubCategory.isUnderMaintenance || false,
+        isHidden: editingSubCategory.isHidden || false,
         showShareButton: editingSubCategory.showShareButton !== false,
         isNew: editingSubCategory.isNew !== undefined ? editingSubCategory.isNew : true,
         hasNewContent: true,
@@ -1319,6 +1056,16 @@ export default function AdminPage() {
       } else if (isPinterestUrl(finalDownloadUrl2) && !finalDownloadUrl2.includes('i.pinimg.com')) {
         finalDownloadUrl2 = await resolvePinterestUrl(finalDownloadUrl2);
       }
+
+      let finalMaterialsUrl = getDirectLink(editingItem.materialsUrl || '');
+      if (isMediaFireUrl(finalMaterialsUrl)) {
+        const mf = await resolveMediaFireUrl(finalMaterialsUrl);
+        if (mf.permanentUrl) finalMaterialsUrl = mf.permanentUrl;
+        else if (mf.directUrl) finalMaterialsUrl = mf.directUrl;
+      } else if (isPinterestUrl(finalMaterialsUrl) && !finalMaterialsUrl.includes('i.pinimg.com')) {
+        finalMaterialsUrl = await resolvePinterestUrl(finalMaterialsUrl);
+      }
+
       let finalScreenshots = editingItem.screenshots || [];
       if (Array.isArray(finalScreenshots) && finalScreenshots.length > 0) {
         finalScreenshots = await Promise.all(
@@ -1348,11 +1095,17 @@ export default function AdminPage() {
         size: editingItem.size || '',
         screenshots: finalScreenshots,
         prompt: editingItem.prompt || '',
+        promptInstructions: editingItem.promptInstructions || '',
+        usedApps: Array.isArray(editingItem.usedApps) ? editingItem.usedApps : (editingItem.usedApps ? [editingItem.usedApps] : []),
+        hasMaterials: !!editingItem.hasMaterials,
+        materialsUrl: finalMaterialsUrl,
+        materialsLabel: editingItem.materialsLabel || '',
+        materialsDescription: editingItem.materialsDescription || '',
         sourceUrl: editingItem.sourceUrl || '',
         showCopyButton: editingItem.showCopyButton !== false,
         showDownloadButton: editingItem.showDownloadButton !== false,
         showShareButton: editingItem.showShareButton !== false,
-        order: items.length,
+        order: typeof editingItem.order === 'number' ? editingItem.order : (editingItem.order !== undefined && editingItem.order !== '' ? parseInt(editingItem.order) : items.length),
         isNew: true,
         createdAt: nowIso,
         updatedAt: nowIso
@@ -1382,6 +1135,115 @@ export default function AdminPage() {
       setIsSaving(false);
     }
   };
+
+  const toggleSelectItem = (id: string) => {
+    setSelectedItemIds(prev =>
+      prev.includes(id) ? prev.filter(itemId => itemId !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAllItems = (currentList: any[]) => {
+    const listIds = currentList.map(i => i.id);
+    const allSelected = listIds.length > 0 && listIds.every(id => selectedItemIds.includes(id));
+    if (allSelected) {
+      setSelectedItemIds(prev => prev.filter(id => !listIds.includes(id)));
+    } else {
+      setSelectedItemIds(prev => Array.from(new Set([...prev, ...listIds])));
+    }
+  };
+
+  const openSingleItemTransfer = (itemId: string) => {
+    setTransferModal({ itemIds: [itemId] });
+    setTargetDestinationId('');
+    setTransferSearchQuery('');
+    setTransferTab(relevantSubs.length > 0 ? 'subs' : 'all');
+  };
+
+  const openBatchTransfer = () => {
+    if (selectedItemIds.length === 0) return;
+    setTransferModal({ itemIds: [...selectedItemIds] });
+    setTargetDestinationId('');
+    setTransferSearchQuery('');
+    setTransferTab(relevantSubs.length > 0 ? 'subs' : 'all');
+  };
+
+  const handleTransferItems = async () => {
+    if (!transferModal || !selectedManagerId?.id || !targetDestinationId || transferModal.itemIds.length === 0) return;
+    if (targetDestinationId === selectedManagerId.id) {
+      toast({ title: "تنبيه", description: "لا يمكن النقل إلى نفس القسم الحالي!", variant: "destructive" });
+      return;
+    }
+
+    setIsTransferring(true);
+    try {
+      const itemsToMove = items.filter(item => transferModal.itemIds.includes(item.id));
+      if (itemsToMove.length === 0) {
+        toast({ title: "تنبيه", description: "لم يتم العثور على المنشورات المحددة.", variant: "destructive" });
+        return;
+      }
+
+      const nowIso = new Date().toISOString();
+      const batch = writeBatch(db);
+
+      for (const item of itemsToMove) {
+        const { id: itemId, ...itemData } = item;
+        const targetDocRef = doc(db, 'categories', targetDestinationId, 'items', itemId);
+        const sourceDocRef = doc(db, 'categories', selectedManagerId.id, 'items', itemId);
+
+        const cleanData: Record<string, any> = {};
+        Object.entries(itemData).forEach(([key, val]) => {
+          if (val !== undefined) {
+            cleanData[key] = val;
+          }
+        });
+        cleanData.subCategoryId = targetDestinationId;
+        cleanData.updatedAt = nowIso;
+
+        batch.set(targetDocRef, cleanData);
+        batch.delete(sourceDocRef);
+      }
+
+      await batch.commit();
+
+      try {
+        await updateDoc(doc(db, 'categories', targetDestinationId), {
+          hasNewContent: true,
+          lastContentAddedAt: nowIso,
+          updatedAt: nowIso
+        });
+        const destCat = allCategories.find(c => c.id === targetDestinationId);
+        if (destCat && destCat.parentId) {
+          await updateDoc(doc(db, 'categories', destCat.parentId), {
+            hasNewContent: true,
+            lastContentAddedAt: nowIso,
+            updatedAt: nowIso
+          });
+        }
+      } catch (err) {
+        console.error("Failed updating target category new status on item transfer:", err);
+      }
+
+      const destName = allCategories.find(c => c.id === targetDestinationId)?.name || 'القسم المحدد';
+      toast({
+        title: "تم النقل بنجاح! 🎉",
+        description: `تم نقل ${itemsToMove.length} منشور بنجاح إلى "${destName}".`
+      });
+
+      setSelectedItemIds(prev => prev.filter(id => !transferModal.itemIds.includes(id)));
+      setTransferModal(null);
+      setTargetDestinationId('');
+    } catch (error: any) {
+      console.error("Error transferring items:", error);
+      toast({
+        title: "خطأ أثناء النقل",
+        description: error.message || "حدث خطأ غير متوقع أثناء نقل المحتوى",
+        variant: "destructive"
+      });
+    } finally {
+      setIsTransferring(false);
+    }
+  };
+
   const handleUpdateCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingCategory) return;
@@ -1393,6 +1255,7 @@ export default function AdminPage() {
         displayStyle: editingCategory.displayStyle || 'style1',
         subCategoryLayout: editingCategory.subCategoryLayout || 'vertical',
         isUnderMaintenance: editingCategory.isUnderMaintenance || false,
+        isHidden: editingCategory.isHidden || false,
         showShareButton: editingCategory.showShareButton !== false,
         isNew: editingCategory.isNew || false,
         hasNewContent: editingCategory.hasNewContent || false,
@@ -1420,6 +1283,7 @@ export default function AdminPage() {
         displayStyle: editingSubCategory.displayStyle || 'style1',
         fileTypes: editingSubCategory.fileTypes || '',
         isUnderMaintenance: editingSubCategory.isUnderMaintenance || false,
+        isHidden: editingSubCategory.isHidden || false,
         showShareButton: editingSubCategory.showShareButton !== false,
         isNew: editingSubCategory.isNew || false,
         hasNewContent: editingSubCategory.hasNewContent || false,
@@ -1433,6 +1297,36 @@ export default function AdminPage() {
       handleFirestoreError(error, OperationType.UPDATE, 'categories');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleToggleCategoryVisibility = async (catId: string, currentHidden: boolean) => {
+    try {
+      await updateDoc(doc(db, 'categories', catId), {
+        isHidden: !currentHidden,
+        updatedAt: new Date().toISOString()
+      });
+      toast({
+        title: !currentHidden ? "تم إخفاء القسم" : "تم إظهار القسم للزوار",
+        description: !currentHidden ? "أصبح القسم الآن مخفياً عن جميع الزوار في الموقع" : "أصبح القسم الآن معروضاً للزوار في الموقع"
+      });
+    } catch (error: any) {
+      handleFirestoreError(error, OperationType.UPDATE, 'categories');
+    }
+  };
+
+  const handleToggleSubCategoryVisibility = async (subId: string, currentHidden: boolean) => {
+    try {
+      await updateDoc(doc(db, 'categories', subId), {
+        isHidden: !currentHidden,
+        updatedAt: new Date().toISOString()
+      });
+      toast({
+        title: !currentHidden ? "تم إخفاء القسم الفرعي" : "تم إظهار القسم الفرعي",
+        description: !currentHidden ? "القسم الفرعي الآن مخفي عن الزوار" : "القسم الفرعي الآن ظاهر ومعروض للزوار"
+      });
+    } catch (error: any) {
+      handleFirestoreError(error, OperationType.UPDATE, 'categories');
     }
   };
   const handleUpdateItem = async (e: React.FormEvent) => {
@@ -1471,6 +1365,16 @@ export default function AdminPage() {
       } else if (isPinterestUrl(finalDownloadUrl2) && !finalDownloadUrl2.includes('i.pinimg.com')) {
         finalDownloadUrl2 = await resolvePinterestUrl(finalDownloadUrl2);
       }
+
+      let finalMaterialsUrl = getDirectLink(editingItem.materialsUrl || '');
+      if (isMediaFireUrl(finalMaterialsUrl)) {
+        const mf = await resolveMediaFireUrl(finalMaterialsUrl);
+        if (mf.permanentUrl) finalMaterialsUrl = mf.permanentUrl;
+        else if (mf.directUrl) finalMaterialsUrl = mf.directUrl;
+      } else if (isPinterestUrl(finalMaterialsUrl) && !finalMaterialsUrl.includes('i.pinimg.com')) {
+        finalMaterialsUrl = await resolvePinterestUrl(finalMaterialsUrl);
+      }
+
       let finalScreenshots = editingItem.screenshots || [];
       if (Array.isArray(finalScreenshots) && finalScreenshots.length > 0) {
         finalScreenshots = await Promise.all(
@@ -1500,10 +1404,17 @@ export default function AdminPage() {
         size: editingItem.size || '',
         screenshots: finalScreenshots,
         prompt: editingItem.prompt || '',
+        promptInstructions: editingItem.promptInstructions || '',
+        usedApps: Array.isArray(editingItem.usedApps) ? editingItem.usedApps : (editingItem.usedApps ? [editingItem.usedApps] : []),
+        hasMaterials: !!editingItem.hasMaterials,
+        materialsUrl: finalMaterialsUrl,
+        materialsLabel: editingItem.materialsLabel || '',
+        materialsDescription: editingItem.materialsDescription || '',
         sourceUrl: editingItem.sourceUrl || '',
         showCopyButton: editingItem.showCopyButton !== false,
         showDownloadButton: editingItem.showDownloadButton !== false,
         showShareButton: editingItem.showShareButton !== false,
+        order: typeof editingItem.order === 'number' ? editingItem.order : (editingItem.order !== undefined && editingItem.order !== '' ? parseInt(editingItem.order) : 0),
         updatedAt: new Date().toISOString()
       });
       setEditingItem(null);
@@ -1556,7 +1467,7 @@ export default function AdminPage() {
         darkGradientEnd,
         bottomNavColor,
         darkBottomNavColor,
-        customCss,
+        customCss: deleteField(),
         updatedAt: new Date().toISOString()
       });
       setShowSuccess(true);
@@ -1606,14 +1517,14 @@ export default function AdminPage() {
     switch (activeTab) {
       case 'users': return 'إدارة المستخدمين';
       case 'content': return 'المحتوى والأقسام';
+      case 'pages': return 'إدارة الصفحات';
+      case 'blogs': return 'إدارة المدونات';
       case 'colors': return 'المظهر والألوان';
       case 'notifications': return 'الإشعارات';
       case 'dialog': return 'النافذة المنبثقة';
       case 'floatingButton': return 'الزر العائم';
       case 'about': return 'من نحن';
       case 'contact': return 'تواصل معنا';
-      case 'tools': return 'إعدادات الأدوات الاحترافية';
-      case 'ads': return 'إعدادات الإعلانات';
       case 'security': return 'حماية المحتوى والأمان';
       default: return 'لوحة التحكم';
     }
@@ -1688,11 +1599,23 @@ export default function AdminPage() {
           <>
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8 sm:mb-10">
               <div className="flex items-center gap-3">
-                <Settings className="text-primary w-6 h-6 sm:w-8 sm:h-8" />
+                {activeTab !== 'menu' ? (
+                  <button
+                    onClick={() => setActiveTab('menu')}
+                    className="p-2.5 rounded-2xl bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 transition-all flex items-center gap-1.5 text-xs font-black shadow-sm"
+                  >
+                    <ChevronRight size={18} />
+                    <span>العودة للقائمة</span>
+                  </button>
+                ) : (
+                  <Settings className="text-primary w-6 h-6 sm:w-8 sm:h-8" />
+                )}
                 <h1 className="text-xl sm:text-2xl font-black text-foreground tracking-tight leading-tight">
                   <span className="block sm:inline">لوحة تحكم المدير</span>
                   <span className="hidden sm:inline"> | </span>
-                  <span className="block sm:inline text-primary/70 sm:text-inherit">الملكية</span>
+                  <span className="block sm:inline text-primary/70 sm:text-inherit">
+                    {activeTab === 'blogs' ? 'إدارة المدونات' : 'الملكية'}
+                  </span>
                 </h1>
               </div>
               <button
@@ -1788,12 +1711,11 @@ export default function AdminPage() {
                   <div className="space-y-10">
                     {[
                       {
-                        title: 'إدارة المحتوى والمستخدمين والربط البرمجي',
+                        title: 'إدارة المحتوى والمستخدمين',
                         items: [
                           { id: 'content', label: 'المحتوى والأقسام', icon: Home, desc: 'إدارة الأقسام والمنشورات' },
+                          { id: 'blogs', label: 'إدارة المدونات (Blogger)', icon: BookOpen, desc: 'إضافة ومزامنة وتحديث مدونات Blogger والمقالات' },
                           { id: 'users', label: 'المستخدمين', icon: Users, desc: 'إدارة صلاحيات الوصول' },
-                          { id: 'api', label: 'الربط البرمجي (API)', icon: Code2, desc: 'مفاتيح الوصول وتوثيق واجهات الموقع الخارجية' },
-                          { id: 'tools', label: 'إعدادات الأدوات', icon: Hammer, desc: 'تغيير معرفات Cloudflare للادوات' },
                           { id: 'security', label: 'حماية المحتوى والنسخ', icon: Lock, desc: 'منع النسخ وحماية حقوق النشر والزر الأيمن' },
                         ]
                       },
@@ -1803,7 +1725,6 @@ export default function AdminPage() {
                           { id: 'appName', label: 'اسم الهوية والتطبيق', icon: Type, desc: 'تعديل اسم التطبيق الظاهر في الهيدر والصفحة الرئيسية والقائمة الجانبية' },
                           { id: 'font', label: 'خط التطبيق (تحميل مخصص)', icon: Type, desc: 'تحميل ملف خط مخصص (TTF, OTF, WOFF) أو اختيار خط عربي متميز' },
                           { id: 'colors', label: 'ألوان الموقع', icon: Palette, desc: 'تخصيص ألوان الواجهة' },
-                          { id: 'ads', label: 'إعلانات الموقع', icon: Award, desc: 'إدارة إعلانات Adsterra وشفراتها' },
                           { id: 'maintenance', label: 'صيانة الموقع', icon: Wrench, desc: 'تفعيل وتخصيص صفحة صيانة الموقع للتطبيقات' },
                         ]
                       },
@@ -1820,6 +1741,7 @@ export default function AdminPage() {
                       {
                         title: 'صفحات الموقع',
                         items: [
+                          { id: 'pages', label: 'إدارة الصفحات', icon: FileText, desc: 'إضافة وتعديل وحذف الصفحات المخصصة ونشرها بالقائمة' },
                           { id: 'about', label: 'من نحن', icon: Info, desc: 'تعديل صفحة حول التطبيق' },
                           { id: 'contact', label: 'تواصل معنا', icon: MessageCircle, desc: 'إدارة أرقام وروابط التواصل' },
                         ]
@@ -1847,6 +1769,24 @@ export default function AdminPage() {
                       </div>
                     ))}
                   </div>
+                </motion.div>
+              ) : activeTab === 'pages' ? (
+                <motion.div
+                  key="pages"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                >
+                  <PagesManager />
+                </motion.div>
+              ) : activeTab === 'blogs' ? (
+                <motion.div
+                  key="blogs"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                >
+                  <BlogsManager />
                 </motion.div>
               ) : activeTab === 'users' ? (
                 <motion.div
@@ -2222,16 +2162,6 @@ export default function AdminPage() {
                             <input type="text" value={darkBottomNavColor} onChange={(e) => setDarkBottomNavColor(e.target.value)} className="flex-1 bg-card border border-border rounded-xl px-4 py-2 text-xs font-mono font-bold text-foreground" />
                           </div>
                         </div>
-                      </div>
-                      <div className="p-6 bg-muted rounded-2xl border border-border">
-                        <label className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block mb-4">كود CSS مخصص</label>
-                        <textarea
-                          value={customCss}
-                          onChange={(e) => setCustomCss(e.target.value)}
-                          className="w-full bg-card border border-border rounded-xl px-4 py-4 text-sm font-mono font-bold h-48 resize-none focus:ring-2 focus:ring-primary/20 outline-none text-foreground"
-                          placeholder="/* اكتب كود CSS هنا... */&#10;.my-class {&#10;  color: red;&#10;}"
-                          dir="ltr"
-                        />
                       </div>
                       <button
                         onClick={handleUpdateTheme}
@@ -3048,749 +2978,6 @@ export default function AdminPage() {
                         {isSaving ? 'جاري الحفظ...' : 'حفظ إعدادات الزر العائم'}
                       </button>
                     </div>
-                  </section>
-                </motion.div>
-              ) : activeTab === 'tools' ? (
-                <motion.div
-                  key="tools"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  className="space-y-8"
-                >
-                  <section className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100">
-                    <div className="flex items-center gap-3 mb-8">
-                      <div className="w-10 h-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center">
-                        <Hammer size={20} />
-                      </div>
-                      <h2 className="text-xl font-bold">إعدادات الأدوات (Copy ID)</h2>
-                    </div>
-                    <div className="space-y-6">
-                      <div className="p-6 bg-red-50 border border-red-100 rounded-2xl flex items-start gap-4 mb-4">
-                        <AlertTriangle className="text-red-500 shrink-0 mt-1" size={20} />
-                        <div className="space-y-1">
-                          <p className="text-sm font-black text-red-900">تنبيه هام</p>
-                          <p className="text-xs text-red-700 leading-relaxed font-bold">هذه المعرفات هي مفاتيح تشغيل الأدوات. إذا تركت الحقل فارغاً، سيتم تعطيل الأداة تلقائياً للمستخدمين مع رسالة تخبرهم بأن الأداة معطلة من قبل الإدارة.</p>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 gap-6">
-                        <div className="space-y-2">
-                          <label className="text-xs font-black text-gray-400 uppercase tracking-wider block ml-2">معرف أداة الدردشة الذكية (Chat Worker ID)</label>
-                          <div className="relative">
-                            <input
-                              type="text"
-                              value={chatId}
-                              onChange={(e) => setChatId(e.target.value)}
-                              className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all ltr"
-                              dir="ltr"
-                              placeholder="أدخل Copy ID من Cloudflare..."
-                            />
-                            {chatId && <div className="absolute left-4 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-green-500 shadow-sm shadow-green-200" />}
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-black text-gray-400 uppercase tracking-wider block ml-2">معرف أداة توليد الصور (Image Gen ID)</label>
-                          <div className="relative">
-                            <input
-                              type="text"
-                              value={imageGenId}
-                              onChange={(e) => setImageGenId(e.target.value)}
-                              className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all ltr"
-                              dir="ltr"
-                              placeholder="أدخل Copy ID من Cloudflare..."
-                            />
-                            {imageGenId && <div className="absolute left-4 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-green-500 shadow-sm shadow-green-200" />}
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-black text-gray-400 uppercase tracking-wider block ml-2">معرف أداة تحليل الصور (Prompt Gen ID)</label>
-                          <div className="relative">
-                            <input
-                              type="text"
-                              value={promptGenId}
-                              onChange={(e) => setPromptGenId(e.target.value)}
-                              className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all ltr"
-                              dir="ltr"
-                              placeholder="أدخل Copy ID من Cloudflare..."
-                            />
-                            {promptGenId && <div className="absolute left-4 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-green-500 shadow-sm shadow-green-200" />}
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-black text-gray-400 uppercase tracking-wider block ml-2">معرف مولد القصص (Story Gen ID)</label>
-                          <div className="relative">
-                            <input
-                              type="text"
-                              value={storyGenId}
-                              onChange={(e) => setStoryGenId(e.target.value)}
-                              className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all ltr"
-                              dir="ltr"
-                              placeholder="أدخل مفتاح Gemini المخصص..."
-                            />
-                            {storyGenId && <div className="absolute left-4 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-green-500 shadow-sm shadow-green-200" />}
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-black text-gray-400 uppercase tracking-wider block ml-2">مفتاح API العالمي (Global Gemini Key)</label>
-                          <div className="relative">
-                            <input
-                              type="password"
-                              value={globalApiKey}
-                              onChange={(e) => setGlobalApiKey(e.target.value)}
-                              className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all ltr"
-                              dir="ltr"
-                              placeholder="مفتاح احتياطي لكل الأدوات..."
-                            />
-                            {globalApiKey && <div className="absolute left-4 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-green-500 shadow-sm shadow-green-200" />}
-                          </div>
-                        </div>
-                      </div>
-                      <button
-                        onClick={handleUpdateTools}
-                        disabled={isSaving}
-                        className="w-full text-white h-14 rounded-2xl font-black text-sm hover:opacity-90 transition-all shadow-xl active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 mt-4"
-                        style={{ background: 'var(--primary-gradient)' }}
-                      >
-                        {isSaving ? (
-                          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        ) : <ShieldCheck size={20} />}
-                        {isSaving ? 'جاري الحفظ...' : 'حفظ وإرسال التغييرات'}
-                      </button>
-                    </div>
-                  </section>
-                </motion.div>
-              ) : activeTab === 'ads' ? (
-                <motion.div
-                  key="ads"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  className="space-y-8"
-                >
-                  <section className="bg-white rounded-[2rem] p-5 sm:p-8 shadow-sm border border-gray-100">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 border-b border-gray-100 pb-6">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-primary/10 text-primary rounded-2xl flex items-center justify-center shrink-0">
-                          <Award size={24} />
-                        </div>
-                        <div>
-                          <h2 className="text-lg sm:text-xl font-black text-gray-900">إدارة الإعلانات المتقدمة</h2>
-                          <p className="text-xs text-gray-400 mt-1">تحكم كامل بمواضع الإعلانات المخصصة وحجوزات الشركات</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between sm:justify-start gap-4 bg-gray-50 px-4 py-3 rounded-2xl border border-gray-100">
-                        <div className="flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full animate-pulse bg-emerald-500" />
-                          <span className="text-xs text-gray-700 font-bold">الحالة العامة للإعلانات:</span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setShowAds(!showAds)}
-                          className={cn(
-                            "w-12 h-7 rounded-full transition-all relative shrink-0",
-                            showAds ? "bg-primary" : "bg-gray-300"
-                          )}
-                        >
-                          <span className={cn(
-                            "w-5 h-5 bg-white rounded-full absolute top-1 transition-all shadow-sm",
-                            showAds ? "left-1" : "right-1"
-                          )} />
-                        </button>
-                      </div>
-                    </div>
-                    {showAds ? (
-                      <div className="space-y-8">
-                        {/* Company Sponsored Ad Slots Builder */}
-                        <div className="p-6 bg-gradient-to-br from-primary/5 via-primary/10 to-transparent rounded-[2rem] border border-primary/20 space-y-6">
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-primary/10">
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className="p-1.5 bg-primary/20 text-primary rounded-xl font-bold text-xs">جديد</span>
-                                <p className="font-black text-lg text-gray-900">مساحات حجز الإعلانات والشركات (Sponsored Banner Slots)</p>
-                              </div>
-                              <p className="text-xs text-gray-500 mt-1">
-                                أنشئ مساحات إعلانية متعددة للشركات والمستثمرين بضغط زر (+)، ولكل خانة كودها وموقعها وارتفاعها الخطي المستقل
-                              </p>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={handleAddCustomSlot}
-                              className="px-5 py-3 rounded-2xl bg-primary text-white font-black text-xs hover:bg-primary/90 transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 shrink-0"
-                            >
-                              <Plus size={18} />
-                              <span>إضافة مساحة إعلانية جديدة (+)</span>
-                            </button>
-                          </div>
-                          {customAdSlots.length === 0 ? (
-                            <div className="text-center py-8 bg-white/60 rounded-2xl border border-dashed border-gray-300 p-6 space-y-2">
-                              <p className="text-xs font-bold text-gray-600">لا توجد مساحات إعلانية مخصصة للشركات حالياً.</p>
-                              <p className="text-[11px] text-gray-400">انقر على زر &quot;إضافة مساحة إعلانية جديدة (+)&quot; أعلاه لإضافة أول حجز إعلاني لشركة.</p>
-                            </div>
-                          ) : (
-                            <div className="space-y-4">
-                              {customAdSlots.map((slot, idx) => (
-                                <div key={slot.id} className="p-5 bg-white rounded-2xl border border-gray-200 shadow-sm space-y-4 transition-all hover:border-primary/40">
-                                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-gray-100">
-                                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                                      <span className="w-8 h-8 rounded-xl bg-gray-100 font-mono font-black text-xs text-gray-600 flex items-center justify-center shrink-0">
-                                        #{idx + 1}
-                                      </span>
-                                      <input
-                                        type="text"
-                                        value={slot.title || ''}
-                                        onChange={(e) => handleUpdateCustomSlot(slot.id, { title: e.target.value })}
-                                        placeholder="اسم المساحة الإعلانية (مثال: إعلان شركة X)"
-                                        className="font-black text-sm text-gray-900 bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5 outline-none focus:bg-white focus:border-primary transition-all flex-1 min-w-0"
-                                      />
-                                    </div>
-                                    <div className="flex items-center gap-3 shrink-0">
-                                      <button
-                                        type="button"
-                                        onClick={() => handleUpdateCustomSlot(slot.id, { active: !slot.active })}
-                                        className={cn(
-                                          "px-3 py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5",
-                                          slot.active ? "bg-emerald-50 border-emerald-300 text-emerald-700" : "bg-gray-100 border-gray-200 text-gray-500"
-                                        )}
-                                      >
-                                        <div className={cn("w-2 h-2 rounded-full", slot.active ? "bg-emerald-500" : "bg-gray-400")} />
-                                        <span>{slot.active ? "مفعّلة" : "معطلة"}</span>
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleRemoveCustomSlot(slot.id)}
-                                        className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
-                                        title="حذف هذه المساحة"
-                                      >
-                                        <Trash2 size={18} />
-                                      </button>
-                                    </div>
-                                  </div>
-                                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                    <div>
-                                      <label className="text-[11px] font-bold text-gray-500 block mb-1">اسم الشركة / المحجوز باسم:</label>
-                                      <input
-                                        type="text"
-                                        value={slot.companyName || ''}
-                                        onChange={(e) => handleUpdateCustomSlot(slot.id, { companyName: e.target.value })}
-                                        placeholder="اسم الشركة الممثلة"
-                                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:bg-white focus:border-primary"
-                                      />
-                                    </div>
-                                    <div>
-                                      <label className="text-[11px] font-bold text-gray-500 block mb-1">موقع وظهور المساحة:</label>
-                                      <select
-                                        value={slot.placement || 'all'}
-                                        onChange={(e) => handleUpdateCustomSlot(slot.id, { placement: e.target.value as any })}
-                                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:bg-white focus:border-primary"
-                                      >
-                                        <option value="all">جميع الصفحات (كل الموقع)</option>
-                                        <option value="home">الصفحة الرئيسية فقط</option>
-                                        <option value="lists">صفحات القوائم والأقسام</option>
-                                        <option value="content">صفحات المحتوى والتفاصيل</option>
-                                        <option value="top">أعلى الصفحة</option>
-                                        <option value="bottom">أسفل الصفحة</option>
-                                      </select>
-                                    </div>
-                                    <div>
-                                      <label className="text-[11px] font-bold text-gray-500 block mb-1">ارتفاع الخانة (Height):</label>
-                                      <select
-                                        value={slot.height || '60px'}
-                                        onChange={(e) => handleUpdateCustomSlot(slot.id, { height: e.target.value })}
-                                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:bg-white focus:border-primary"
-                                      >
-                                        <option value="60px">60 بكسل (قياسي)</option>
-                                        <option value="90px">90 بكسل (متوسط)</option>
-                                        <option value="120px">120 بكسل</option>
-                                        <option value="250px">250 بكسل (كبير)</option>
-                                        <option value="300px">300 بكسل (بانر مربع)</option>
-                                        <option value="auto">تلقائي (حسب الكود)</option>
-                                      </select>
-                                    </div>
-                                  </div>
-                                  <div>
-                                    <label className="text-[11px] font-bold text-gray-500 block mb-1">شفرة الإعلان الخاصة بالشركة (HTML / Script / Image Link):</label>
-                                    <textarea
-                                      value={slot.script || ''}
-                                      onChange={(e) => handleUpdateCustomSlot(slot.id, { script: e.target.value })}
-                                      rows={3}
-                                      dir="ltr"
-                                      placeholder="<script>...</script> أو <a href='...'><img src='...' /></a>"
-                                      className="w-full bg-gray-900 text-emerald-400 font-mono text-xs rounded-xl p-3 outline-none focus:ring-2 focus:ring-primary/20 ltr"
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="text-[11px] font-bold text-gray-500 block mb-1">ملاحظات حجز الإعلان / تاريخ انتهاء الحجز:</label>
-                                    <input
-                                      type="text"
-                                      value={slot.notes || ''}
-                                      onChange={(e) => handleUpdateCustomSlot(slot.id, { notes: e.target.value })}
-                                      placeholder="مثال: ينتهي الحجز بتاريخ 30 ديسمبر 2026"
-                                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-medium outline-none focus:bg-white focus:border-primary"
-                                    />
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                        {/* Helper function for category targeting */}
-                        {(() => {
-                          const renderCategorySelector = (
-                            mode: 'all' | 'specific',
-                            setMode: (val: 'all' | 'specific') => void,
-                            selectedCategoryIds: string[],
-                            setSelectedCategoryIds: (val: string[]) => void,
-                            title: string
-                          ) => (
-                            <div className="space-y-3 bg-white p-4 rounded-2xl border border-gray-100/80">
-                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                                <span className="text-xs font-black text-gray-700">{title}</span>
-                                <div className="flex items-center bg-gray-100 p-1 rounded-xl text-xs font-bold w-fit">
-                                  <button
-                                    type="button"
-                                    onClick={() => setMode('all')}
-                                    className={cn(
-                                      "px-3 py-1.5 rounded-lg transition-all",
-                                      mode === 'all' ? "bg-white text-primary shadow-sm" : "text-gray-500 hover:text-gray-700"
-                                    )}
-                                  >
-                                    جميع الأقسام
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => setMode('specific')}
-                                    className={cn(
-                                      "px-3 py-1.5 rounded-lg transition-all",
-                                      mode === 'specific' ? "bg-white text-primary shadow-sm" : "text-gray-500 hover:text-gray-700"
-                                    )}
-                                  >
-                                    أقسام معينة فقط
-                                  </button>
-                                </div>
-                              </div>
-                              {mode === 'specific' && (
-                                <div className="space-y-2 pt-2 border-t border-gray-100 animate-in fade-in duration-200">
-                                  <p className="text-[11px] text-gray-500 font-medium">
-                                    حدد الأقسام التي تود أن يظهر هذا الإعلان فيها فقط (ولن يظهر في الأقسام الأخرى):
-                                  </p>
-                                  {categories.length === 0 ? (
-                                    <p className="text-xs text-gray-400 py-1">لا توجد أقسام رئيسية مضافة بعد.</p>
-                                  ) : (
-                                    <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto p-1">
-                                      {categories.map((cat) => {
-                                        const isSelected = selectedCategoryIds.includes(cat.id);
-                                        return (
-                                          <button
-                                            key={cat.id}
-                                            type="button"
-                                            onClick={() => {
-                                              if (isSelected) {
-                                                setSelectedCategoryIds(selectedCategoryIds.filter(id => id !== cat.id));
-                                              } else {
-                                                setSelectedCategoryIds([...selectedCategoryIds, cat.id]);
-                                              }
-                                            }}
-                                            className={cn(
-                                              "px-3.5 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-2",
-                                              isSelected
-                                                ? "bg-primary/10 border-primary text-primary shadow-sm"
-                                                : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100"
-                                            )}
-                                          >
-                                            <span>{cat.name}</span>
-                                            {isSelected && <div className="w-2 h-2 rounded-full bg-primary" />}
-                                          </button>
-                                        );
-                                      })}
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          );
-                          return (
-                            <>
-                              {/* 1. Banner Ads Control */}
-                              <div className="p-6 bg-gray-50/50 rounded-[2rem] border border-gray-100 space-y-4">
-                                <div className="flex items-center justify-between pb-4 border-b border-gray-100/60">
-                                  <div>
-                                    <p className="font-black text-base text-gray-800">1. إعلانات البانر (Banner Ads)</p>
-                                    <p className="text-xs text-gray-400 mt-0.5">إعلانات مستطيلة تظهر في أعلى أو أسفل الصفحات</p>
-                                  </div>
-                                  <button
-                                    onClick={() => setBannerShow(!bannerShow)}
-                                    className={cn(
-                                      "w-12 h-7 rounded-full transition-all relative",
-                                      bannerShow ? "bg-primary" : "bg-gray-300"
-                                    )}
-                                  >
-                                    <span className={cn(
-                                      "w-5 h-5 bg-white rounded-full absolute top-1 transition-all shadow-sm",
-                                      bannerShow ? "left-1" : "right-1"
-                                    )} />
-                                  </button>
-                                </div>
-                                {bannerShow && (
-                                  <div className="space-y-4 animate-in fade-in duration-200">
-                                    <div className="space-y-2">
-                                      <span className="text-xs font-black text-gray-500 block">صفحات العرض العامة:</span>
-                                      <div className="grid grid-cols-3 gap-3">
-                                        <button
-                                          onClick={() => setBannerHome(!bannerHome)}
-                                          className={cn(
-                                            "px-4 py-3 rounded-2xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-2",
-                                            bannerHome ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
-                                          )}
-                                        >
-                                          <span>الصفحة الرئيسية</span>
-                                          {bannerHome && <div className="w-2 h-2 rounded-full bg-primary" />}
-                                        </button>
-                                        <button
-                                          onClick={() => setBannerLists(!bannerLists)}
-                                          className={cn(
-                                            "px-4 py-3 rounded-2xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-2",
-                                            bannerLists ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
-                                          )}
-                                        >
-                                          <span>صفحة القوائم</span>
-                                          {bannerLists && <div className="w-2 h-2 rounded-full bg-primary" />}
-                                        </button>
-                                        <button
-                                          onClick={() => setBannerContent(!bannerContent)}
-                                          className={cn(
-                                            "px-4 py-3 rounded-2xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-2",
-                                            bannerContent ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
-                                          )}
-                                        >
-                                          <span>صفحة المحتوى</span>
-                                          {bannerContent && <div className="w-2 h-2 rounded-full bg-primary" />}
-                                        </button>
-                                      </div>
-                                    </div>
-                                    {/* Category selector for Banner */}
-                                    {renderCategorySelector(
-                                      bannerCategoryMode,
-                                      setBannerCategoryMode,
-                                      bannerCategories,
-                                      setBannerCategories,
-                                      'تحديد أقسام ظهور إعلان البانر'
-                                    )}
-                                    <div className="space-y-2">
-                                      <label className="text-xs font-black text-gray-500 block">شفرة إعلان البانر (Script Code)</label>
-                                      <textarea
-                                        value={bannerScript}
-                                        onChange={(e) => setBannerScript(e.target.value)}
-                                        rows={4}
-                                        className="w-full bg-white border border-gray-200 rounded-2xl px-5 py-3 text-xs font-mono outline-none focus:ring-2 focus:ring-primary/10 transition-all ltr"
-                                        dir="ltr"
-                                        placeholder="<script> ... </script>"
-                                      />
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                              {/* 2. Interstitial Ads Control */}
-                              <div className="p-6 bg-gray-50/50 rounded-[2rem] border border-gray-100 space-y-4">
-                                <div className="flex items-center justify-between pb-4 border-b border-gray-100/60">
-                                  <div>
-                                    <p className="font-black text-base text-gray-800">2. الإعلانات البينية وملء الشاشة (Interstitial Ads)</p>
-                                    <p className="text-xs text-gray-400 mt-0.5">تظهر ملء الشاشة عند التنقل بين الأقسام</p>
-                                  </div>
-                                  <button
-                                    onClick={() => setInterstitialShow(!interstitialShow)}
-                                    className={cn(
-                                      "w-12 h-7 rounded-full transition-all relative",
-                                      interstitialShow ? "bg-primary" : "bg-gray-300"
-                                    )}
-                                  >
-                                    <span className={cn(
-                                      "w-5 h-5 bg-white rounded-full absolute top-1 transition-all shadow-sm",
-                                      interstitialShow ? "left-1" : "right-1"
-                                    )} />
-                                  </button>
-                                </div>
-                                {interstitialShow && (
-                                  <div className="space-y-4 animate-in fade-in duration-200">
-                                    <div className="space-y-2">
-                                      <span className="text-xs font-black text-gray-500 block">صفحات العرض العامة:</span>
-                                      <div className="grid grid-cols-3 gap-3">
-                                        <button
-                                          onClick={() => setInterstitialHome(!interstitialHome)}
-                                          className={cn(
-                                            "px-4 py-3 rounded-2xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-2",
-                                            interstitialHome ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
-                                          )}
-                                        >
-                                          <span>الصفحة الرئيسية</span>
-                                          {interstitialHome && <div className="w-2 h-2 rounded-full bg-primary" />}
-                                        </button>
-                                        <button
-                                          onClick={() => setInterstitialLists(!interstitialLists)}
-                                          className={cn(
-                                            "px-4 py-3 rounded-2xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-2",
-                                            interstitialLists ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
-                                          )}
-                                        >
-                                          <span>صفحة القوائم</span>
-                                          {interstitialLists && <div className="w-2 h-2 rounded-full bg-primary" />}
-                                        </button>
-                                        <button
-                                          onClick={() => setInterstitialContent(!interstitialContent)}
-                                          className={cn(
-                                            "px-4 py-3 rounded-2xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-2",
-                                            interstitialContent ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
-                                          )}
-                                        >
-                                          <span>صفحة المحتوى</span>
-                                          {interstitialContent && <div className="w-2 h-2 rounded-full bg-primary" />}
-                                        </button>
-                                      </div>
-                                    </div>
-                                    {/* Category selector for Interstitial */}
-                                    {renderCategorySelector(
-                                      interstitialCategoryMode,
-                                      setInterstitialCategoryMode,
-                                      interstitialCategories,
-                                      setInterstitialCategories,
-                                      'تحديد أقسام ظهور الإعلان البيني'
-                                    )}
-                                    <div className="space-y-2">
-                                      <label className="text-xs font-black text-gray-500 block">شفرة الإعلان البيني / Popunder (Script Code)</label>
-                                      <textarea
-                                        value={interstitialScript}
-                                        onChange={(e) => setInterstitialScript(e.target.value)}
-                                        rows={4}
-                                        className="w-full bg-white border border-gray-200 rounded-2xl px-5 py-3 text-xs font-mono outline-none focus:ring-2 focus:ring-primary/10 transition-all ltr"
-                                        dir="ltr"
-                                        placeholder="<script> ... </script>"
-                                      />
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                              {/* 3. Popup Ads Control */}
-                              <div className="p-6 bg-gray-50/50 rounded-[2rem] border border-gray-100 space-y-4">
-                                <div className="flex items-center justify-between pb-4 border-b border-gray-100/60">
-                                  <div>
-                                    <p className="font-black text-base text-gray-800">3. الإعلانات المنبثقة (Popup Ads)</p>
-                                    <p className="text-xs text-gray-400 mt-0.5">نافذة منبثقة أو نافذة حوار تظهر للزائر في القسم المحدد</p>
-                                  </div>
-                                  <button
-                                    onClick={() => setPopupShow(!popupShow)}
-                                    className={cn(
-                                      "w-12 h-7 rounded-full transition-all relative",
-                                      popupShow ? "bg-primary" : "bg-gray-300"
-                                    )}
-                                  >
-                                    <span className={cn(
-                                      "w-5 h-5 bg-white rounded-full absolute top-1 transition-all shadow-sm",
-                                      popupShow ? "left-1" : "right-1"
-                                    )} />
-                                  </button>
-                                </div>
-                                {popupShow && (
-                                  <div className="space-y-4 animate-in fade-in duration-200">
-                                    <div className="space-y-2">
-                                      <span className="text-xs font-black text-gray-500 block">صفحات العرض العامة:</span>
-                                      <div className="grid grid-cols-3 gap-3">
-                                        <button
-                                          onClick={() => setPopupHome(!popupHome)}
-                                          className={cn(
-                                            "px-4 py-3 rounded-2xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-2",
-                                            popupHome ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
-                                          )}
-                                        >
-                                          <span>الصفحة الرئيسية</span>
-                                          {popupHome && <div className="w-2 h-2 rounded-full bg-primary" />}
-                                        </button>
-                                        <button
-                                          onClick={() => setPopupLists(!popupLists)}
-                                          className={cn(
-                                            "px-4 py-3 rounded-2xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-2",
-                                            popupLists ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
-                                          )}
-                                        >
-                                          <span>صفحة القوائم</span>
-                                          {popupLists && <div className="w-2 h-2 rounded-full bg-primary" />}
-                                        </button>
-                                        <button
-                                          onClick={() => setPopupContent(!popupContent)}
-                                          className={cn(
-                                            "px-4 py-3 rounded-2xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-2",
-                                            popupContent ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
-                                          )}
-                                        >
-                                          <span>صفحة المحتوى</span>
-                                          {popupContent && <div className="w-2 h-2 rounded-full bg-primary" />}
-                                        </button>
-                                      </div>
-                                    </div>
-                                    {/* Category selector for Popup */}
-                                    {renderCategorySelector(
-                                      popupCategoryMode,
-                                      setPopupCategoryMode,
-                                      popupCategories,
-                                      setPopupCategories,
-                                      'تحديد أقسام ظهور الإعلان المنبثق'
-                                    )}
-                                    <div className="space-y-2">
-                                      <label className="text-xs font-black text-gray-500 block">شفرة الإعلان المنبثق (Script Code)</label>
-                                      <textarea
-                                        value={popupScript}
-                                        onChange={(e) => setPopupScript(e.target.value)}
-                                        rows={4}
-                                        className="w-full bg-white border border-gray-200 rounded-2xl px-5 py-3 text-xs font-mono outline-none focus:ring-2 focus:ring-primary/10 transition-all ltr"
-                                        dir="ltr"
-                                        placeholder="<script> ... </script>"
-                                      />
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                              {/* 4. Inline/Native Ads Control */}
-                              <div className="p-6 bg-gray-50/50 rounded-[2rem] border border-gray-100 space-y-4">
-                                <div className="flex items-center justify-between pb-4 border-b border-gray-100/60">
-                                  <div>
-                                    <p className="font-black text-base text-gray-800">4. الإعلانات المدمجة في المحتوى والقوائم (Inline Ads)</p>
-                                    <p className="text-xs text-gray-400 mt-0.5">تظهر منسجمة بين العناصر في القوائم والأقسام</p>
-                                  </div>
-                                  <button
-                                    onClick={() => setInlineShow(!inlineShow)}
-                                    className={cn(
-                                      "w-12 h-7 rounded-full transition-all relative",
-                                      inlineShow ? "bg-primary" : "bg-gray-300"
-                                    )}
-                                  >
-                                    <span className={cn(
-                                      "w-5 h-5 bg-white rounded-full absolute top-1 transition-all shadow-sm",
-                                      inlineShow ? "left-1" : "right-1"
-                                    )} />
-                                  </button>
-                                </div>
-                                {inlineShow && (
-                                  <div className="space-y-4 animate-in fade-in duration-200">
-                                    <div className="space-y-2">
-                                      <span className="text-xs font-black text-gray-500 block">صفحات العرض العامة:</span>
-                                      <div className="grid grid-cols-3 gap-3">
-                                        <button
-                                          onClick={() => setInlineHome(!inlineHome)}
-                                          className={cn(
-                                            "px-4 py-3 rounded-2xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-2",
-                                            inlineHome ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
-                                          )}
-                                        >
-                                          <span>الصفحة الرئيسية</span>
-                                          {inlineHome && <div className="w-2 h-2 rounded-full bg-primary" />}
-                                        </button>
-                                        <button
-                                          onClick={() => setInlineLists(!inlineLists)}
-                                          className={cn(
-                                            "px-4 py-3 rounded-2xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-2",
-                                            inlineLists ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
-                                          )}
-                                        >
-                                          <span>صفحة القوائم</span>
-                                          {inlineLists && <div className="w-2 h-2 rounded-full bg-primary" />}
-                                        </button>
-                                        <button
-                                          onClick={() => setInlineContent(!inlineContent)}
-                                          className={cn(
-                                            "px-4 py-3 rounded-2xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-2",
-                                            inlineContent ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
-                                          )}
-                                        >
-                                          <span>صفحة المحتوى</span>
-                                          {inlineContent && <div className="w-2 h-2 rounded-full bg-primary" />}
-                                        </button>
-                                      </div>
-                                    </div>
-                                    {/* Category selector for Inline */}
-                                    {renderCategorySelector(
-                                      inlineCategoryMode,
-                                      setInlineCategoryMode,
-                                      inlineCategories,
-                                      setInlineCategories,
-                                      'تحديد أقسام ظهور الإعلان المدمج'
-                                    )}
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                      <div className="space-y-3 bg-white p-4 rounded-2xl border border-gray-100">
-                                        <div>
-                                          <label className="text-xs font-black text-gray-800 block">تكرار الإعلانات المدمجة (تظهر بعد كم منشور):</label>
-                                          <p className="text-[11px] text-gray-400 mt-0.5">حدد العدد الدقيق للمنشورات والقوائم التي يظهر الإعلان المدمج بعدها مباشرة</p>
-                                        </div>
-
-                                        <div className="flex items-center gap-3">
-                                          <span className="text-xs font-bold text-gray-500">يظهر إعلان بعد كل:</span>
-                                          <input
-                                            type="number"
-                                            min={1}
-                                            max={50}
-                                            value={inlineFrequency || 4}
-                                            onChange={(e) => setInlineFrequency(Math.max(1, parseInt(e.target.value) || 1))}
-                                            className="w-24 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-center text-sm font-black text-primary outline-none focus:bg-white focus:border-primary"
-                                          />
-                                          <span className="text-xs font-bold text-gray-500">منشورات</span>
-                                        </div>
-
-                                        <div className="flex flex-wrap gap-1.5 pt-1">
-                                          {[1, 2, 3, 4, 5, 6, 8, 10, 12, 15].map((num) => (
-                                            <button
-                                              key={num}
-                                              type="button"
-                                              onClick={() => setInlineFrequency(num)}
-                                              className={cn(
-                                                "px-3 py-1.5 rounded-xl text-xs font-bold border transition-all",
-                                                inlineFrequency === num
-                                                  ? "bg-primary text-white border-primary shadow-sm"
-                                                  : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100"
-                                              )}
-                                            >
-                                              كل {num} {num === 1 ? 'منشور' : num === 2 ? 'منشورين' : 'منشورات'}
-                                            </button>
-                                          ))}
-                                        </div>
-                                      </div>
-                                      <div className="space-y-2">
-                                        <label className="text-xs font-black text-gray-500 block">شفرة الإعلان المدمج (Script Code)</label>
-                                        <textarea
-                                          value={inlineScript}
-                                          onChange={(e) => setInlineScript(e.target.value)}
-                                          rows={2}
-                                          className="w-full bg-white border border-gray-200 rounded-2xl px-5 py-3 text-xs font-mono outline-none focus:ring-2 focus:ring-primary/10 transition-all ltr"
-                                          dir="ltr"
-                                          placeholder="<script> ... </script>"
-                                        />
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            </>
-                          );
-                        })()}
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center py-12 px-6 text-center border-2 border-dashed border-red-100 rounded-[2rem] bg-red-50/30 space-y-2">
-                        <Award size={48} className="text-red-300 mb-1" />
-                        <p className="font-bold text-gray-800 text-base">الإعلانات معطلة حالياً على كافة صفحات التطبيق</p>
-                        <p className="text-xs text-gray-500 max-w-md">
-                          عند تعطيل هذا الخيار وحفظ الإعدادات، لن تظهر أي إعلانات (بانر، بينية، مدمجة أو مخصصة) للمستخدمين. اضغط على زر الحفظ بالأسفل لتأكيد القفل.
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Always visible Save Button */}
-                    <button
-                      onClick={handleUpdateAds}
-                      disabled={isSaving}
-                      className="w-full text-white h-14 rounded-2xl font-black text-sm hover:opacity-90 transition-all shadow-xl active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 mt-6"
-                      style={{ background: 'var(--primary-gradient)' }}
-                    >
-                      {isSaving ? (
-                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      ) : <ShieldCheck size={20} />}
-                      {isSaving ? 'جاري الحفظ...' : showAds ? 'حفظ إعدادات الإعلانات المتقدمة' : 'حفظ وتأكيد قفل الإعلانات بالكامل'}
-                    </button>
                   </section>
                 </motion.div>
               ) : activeTab === 'security' ? (
@@ -4784,320 +3971,6 @@ export default function AdminPage() {
                     </button>
                   </section>
                 </motion.div>
-              ) : activeTab === 'api' ? (
-                <motion.div
-                  key="api"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  className="space-y-6 text-slate-900 dark:text-slate-100"
-                >
-                  {/* Explanatory Banner in Clear, Friendly Arabic */}
-                  <section className="bg-blue-50/90 dark:bg-slate-800 border-2 border-blue-200 dark:border-slate-700 rounded-3xl p-6 shadow-sm space-y-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-blue-600 text-white rounded-xl flex items-center justify-center shrink-0 shadow-sm">
-                        <Info size={22} />
-                      </div>
-                      <h2 className="text-lg font-bold text-slate-900 dark:text-white">ما هو الـ API وما فائدته لموقعك؟</h2>
-                    </div>
-                    <p className="text-sm text-slate-800 dark:text-slate-200 leading-relaxed font-semibold">
-                      الـ <span className="font-extrabold text-blue-700 dark:text-blue-400 dir-ltr inline-block">API (Application Programming Interface)</span> هو جسر ربط برمجي مخصص لربط موقعك بالتطبيقات الخارجية أو تطبيقات الجوال. يتيح لك استخراج الأقسام والمنشورات وتوليد الصور تلقائياً باستخدام مفاتيح أمان سرية خاضعة لتحكمك الكامل.
-                    </p>
-                  </section>
-
-                  {/* Master API Switch Card */}
-                  <section className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 shadow-sm border-2 border-slate-200 dark:border-slate-800">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b-2 border-slate-100 dark:border-slate-800">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 rounded-2xl flex items-center justify-center shrink-0">
-                          <Code2 size={24} />
-                        </div>
-                        <div>
-                          <h3 className="text-xl font-extrabold text-slate-900 dark:text-white">حالة خدمة الـ API والربط</h3>
-                          <p className="text-xs text-slate-600 dark:text-slate-300 font-bold mt-1">
-                            يمكنك تشغيل أو إيقاف استجابة الموقع للطلبات البرمجية الخارجية
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3 bg-slate-100 dark:bg-slate-800 p-2.5 rounded-2xl border border-slate-300 dark:border-slate-700">
-                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200 px-2">حالة الخدمة:</span>
-                        <button
-                          onClick={() => handleSaveApiGlobalConfig(!apiEnabled)}
-                          className={cn(
-                            "px-4 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 shadow-sm",
-                            apiEnabled
-                              ? "bg-emerald-600 text-white hover:bg-emerald-700"
-                              : "bg-red-600 text-white hover:bg-red-700"
-                          )}
-                        >
-                          <Power size={14} />
-                          <span>{apiEnabled ? "مفعل ومتاح للربط" : "معطل حالياً"}</span>
-                        </button>
-                      </div>
-                    </div>
-
-                    {!apiEnabled && (
-                      <div className="mt-4 p-4 bg-amber-100 dark:bg-amber-950 border-2 border-amber-300 dark:border-amber-700 rounded-2xl flex items-center gap-3 text-amber-950 dark:text-amber-100 text-xs font-extrabold">
-                        <AlertTriangle size={20} className="shrink-0 text-amber-600 dark:text-amber-400" />
-                        <span>خدمة الـ API معطلة حالياً. جميع الطلبات الخارجية مرفوضة حتى تقوم بتفعيلها مجدداً.</span>
-                      </div>
-                    )}
-                  </section>
-
-                  {/* Create API Key Section */}
-                  <section className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 shadow-sm border-2 border-slate-200 dark:border-slate-800 space-y-6">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200 rounded-xl flex items-center justify-center shrink-0">
-                        <KeyRound size={20} />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-extrabold text-slate-900 dark:text-white">إنشاء مفتاح API جديد</h3>
-                        <p className="text-xs text-slate-600 dark:text-slate-300 font-bold">سمّ المفتاح لتنظيمه (مثال: تطبيق الآيفون، تطبيق الأندرويد)</p>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row gap-3">
-                      <input
-                        type="text"
-                        value={newKeyName}
-                        onChange={(e) => setNewKeyName(e.target.value)}
-                        placeholder="أدخل اسماً توضيحياً للمفتاح..."
-                        className="flex-1 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white border-2 border-slate-300 dark:border-slate-600 rounded-2xl px-5 py-3.5 text-sm font-bold outline-none focus:border-blue-500 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500"
-                      />
-                      <button
-                        onClick={handleCreateApiKey}
-                        disabled={isSaving}
-                        className="px-6 py-3.5 text-white bg-blue-600 hover:bg-blue-700 active:scale-95 rounded-2xl font-black text-sm transition-all shadow-md flex items-center justify-center gap-2 shrink-0"
-                      >
-                        <Plus size={18} />
-                        <span>إنشاء وتوليد المفتاح</span>
-                      </button>
-                    </div>
-
-                    {/* Display freshly generated key */}
-                    {generatedKey && (
-                      <div className="p-5 bg-emerald-50 dark:bg-emerald-950/80 border-2 border-emerald-400 dark:border-emerald-700 rounded-2xl space-y-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-black text-emerald-950 dark:text-emerald-100 flex items-center gap-1.5">
-                            <CheckCircle size={18} className="text-emerald-600 dark:text-emerald-400" /> تم إنتاج المفتاح بنجاح! احفظه لديك:
-                          </span>
-                          <button
-                            onClick={() => {
-                              navigator.clipboard.writeText(generatedKey);
-                              toast({ title: "تم النسخ!", description: "تم نسخ مفتاح الـ API إلى الحافظة" });
-                            }}
-                            className="px-4 py-2 bg-emerald-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 hover:bg-emerald-800 transition-all shadow-sm"
-                          >
-                            <Copy size={14} />
-                            <span>نسخ المفتاح</span>
-                          </button>
-                        </div>
-                        <div className="bg-white dark:bg-slate-900 p-3.5 rounded-xl border-2 border-emerald-300 dark:border-emerald-800 font-mono text-xs text-emerald-950 dark:text-emerald-300 font-extrabold break-all dir-ltr text-left">
-                          {generatedKey}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* List Existing API Keys */}
-                    <div className="space-y-4 pt-4 border-t-2 border-slate-100 dark:border-slate-800">
-                      <h4 className="text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">المفاتيح الحالية ({apiKeysList?.length || 0})</h4>
-
-                      {!apiKeysList || apiKeysList.length === 0 ? (
-                        <p className="text-xs text-slate-500 dark:text-slate-400 font-bold text-center py-6">لا يوجد مفاتيح حالية. أنشئ مفتاحك الأول أعلاه.</p>
-                      ) : (
-                        <div className="space-y-3">
-                          {apiKeysList.map((keyDoc: any) => {
-                            const isVisible = visibleKeyId === keyDoc.id;
-                            const maskedKey = keyDoc.key
-                              ? `${keyDoc.key.substring(0, 10)}...${keyDoc.key.substring(keyDoc.key.length - 4)}`
-                              : '••••••••••••••••';
-
-                            return (
-                              <div
-                                key={keyDoc.id}
-                                className="p-4 bg-slate-50 dark:bg-slate-800/90 border-2 border-slate-200 dark:border-slate-700 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-                              >
-                                <div className="space-y-1.5 min-w-0">
-                                  <div className="flex items-center gap-2">
-                                    <p className="font-extrabold text-sm text-slate-900 dark:text-white">{keyDoc.name}</p>
-                                    <span className={cn(
-                                      "px-2.5 py-0.5 rounded-full text-[11px] font-black",
-                                      keyDoc.active ? "bg-emerald-100 text-emerald-900 dark:bg-emerald-900/80 dark:text-emerald-200" : "bg-red-100 text-red-900 dark:bg-red-900/80 dark:text-red-200"
-                                    )}>
-                                      {keyDoc.active ? 'مفعل' : 'معطل'}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center gap-2 font-mono text-xs text-slate-800 dark:text-slate-200 dir-ltr text-left">
-                                    <span className="font-bold">{isVisible ? keyDoc.key : maskedKey}</span>
-                                    <button
-                                      onClick={() => setVisibleKeyId(isVisible ? null : keyDoc.id)}
-                                      className="text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition-colors p-1"
-                                      title={isVisible ? "إخفاء" : "إظهار"}
-                                    >
-                                      {isVisible ? <EyeOff size={15} /> : <Eye size={15} />}
-                                    </button>
-                                  </div>
-                                  <p className="text-[11px] text-slate-600 dark:text-slate-400 font-bold">
-                                    تاريخ الإنشاء: {keyDoc.createdAt ? new Date(keyDoc.createdAt).toLocaleDateString('ar-EG') : 'غير محدد'} | عدد الاستخدامات: {keyDoc.usageCount || 0}
-                                  </p>
-                                </div>
-
-                                <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                                  <button
-                                    onClick={() => {
-                                      navigator.clipboard.writeText(keyDoc.key);
-                                      toast({ title: "تم النسخ!", description: "تم نسخ مفتاح API" });
-                                    }}
-                                    className="p-2.5 bg-white dark:bg-slate-700 border-2 border-slate-200 dark:border-slate-600 rounded-xl text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-600 transition-all text-xs font-black flex items-center gap-1.5 shadow-sm"
-                                  >
-                                    <Copy size={14} />
-                                    <span>نسخ</span>
-                                  </button>
-                                  <button
-                                    onClick={() => handleToggleApiKey(keyDoc.id, keyDoc.active)}
-                                    className={cn(
-                                      "p-2.5 rounded-xl border-2 text-xs font-black transition-all shadow-sm",
-                                      keyDoc.active
-                                        ? "bg-amber-100 text-amber-950 border-amber-300 dark:bg-amber-900/60 dark:border-amber-700 dark:text-amber-200"
-                                        : "bg-emerald-100 text-emerald-950 border-emerald-300 dark:bg-emerald-900/60 dark:border-emerald-700 dark:text-emerald-200"
-                                    )}
-                                  >
-                                    {keyDoc.active ? "تعطيل" : "تفعيل"}
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteApiKey(keyDoc.id)}
-                                    className="p-2.5 bg-red-100 text-red-800 border-2 border-red-300 dark:bg-red-900/60 dark:border-red-700 dark:text-red-200 rounded-xl hover:bg-red-200 transition-all shadow-sm"
-                                    title="حذف المفتاح"
-                                  >
-                                    <Trash2 size={14} />
-                                  </button>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  </section>
-
-                  {/* API Endpoints Documentation */}
-                  <section className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 shadow-sm border-2 border-slate-200 dark:border-slate-800 space-y-6">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-200 rounded-xl flex items-center justify-center shrink-0">
-                        <Terminal size={20} />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-extrabold text-slate-900 dark:text-white">روابط الخدمة المتاحة (Endpoints)</h3>
-                        <p className="text-xs text-slate-600 dark:text-slate-300 font-bold">الروابط التي يمكنك طلب البيانات منها</p>
-                      </div>
-                    </div>
-
-                    <div className="space-y-4">
-                      {/* Endpoint 1 */}
-                      <div className="border-2 border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden bg-slate-50 dark:bg-slate-800/80">
-                        <div className="bg-slate-100 dark:bg-slate-800 p-4 border-b-2 border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-3">
-                          <div className="flex items-center gap-2 font-mono text-xs">
-                            <span className="px-2.5 py-1 bg-blue-600 text-white font-black rounded-lg">GET</span>
-                            <span className="font-bold text-slate-900 dark:text-slate-100 dir-ltr text-left">/api/v1/content</span>
-                          </div>
-                          <span className="text-xs text-slate-800 dark:text-slate-200 font-extrabold">جلب كافة الأقسام والمنشورات والمحتوى</span>
-                        </div>
-                        <div className="p-4 text-xs space-y-2 text-slate-800 dark:text-slate-200 font-bold">
-                          <p>• الهيدر المطلوب: <code className="bg-white dark:bg-slate-900 px-2 py-1 rounded border border-slate-300 dark:border-slate-600 font-mono text-blue-700 dark:text-blue-400 font-bold dir-ltr inline-block">X-API-Key: YOUR_API_KEY</code></p>
-                          <p>• إمكانية الفلترة: إضافة <code className="bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-600 font-mono dir-ltr inline-block text-slate-900 dark:text-white">?type=categories</code> أو <code className="bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-600 font-mono dir-ltr inline-block text-slate-900 dark:text-white">?type=items</code></p>
-                        </div>
-                      </div>
-
-                      {/* Endpoint 2 */}
-                      <div className="border-2 border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden bg-slate-50 dark:bg-slate-800/80">
-                        <div className="bg-slate-100 dark:bg-slate-800 p-4 border-b-2 border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-3">
-                          <div className="flex items-center gap-2 font-mono text-xs">
-                            <span className="px-2.5 py-1 bg-emerald-600 text-white font-black rounded-lg">POST</span>
-                            <span className="font-bold text-slate-900 dark:text-slate-100 dir-ltr text-left">/api/v1/generate-image</span>
-                          </div>
-                          <span className="text-xs text-slate-800 dark:text-slate-200 font-extrabold">توليد الصور بالذكاء الاصطناعي برمجياً</span>
-                        </div>
-                        <div className="p-4 text-xs space-y-2 text-slate-800 dark:text-slate-200 font-bold">
-                          <p>• محتوى الطلب (JSON): <code className="bg-white dark:bg-slate-900 px-2 py-1 rounded border border-slate-300 dark:border-slate-600 font-mono text-emerald-700 dark:text-emerald-400 font-bold dir-ltr inline-block">{`{"prompt": "وصف الصورة المطلوب"}`}</code></p>
-                        </div>
-                      </div>
-                    </div>
-                  </section>
-
-                  {/* Interactive API Tester */}
-                  <section className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 shadow-sm border-2 border-slate-200 dark:border-slate-800 space-y-6">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200 rounded-xl flex items-center justify-center shrink-0">
-                        <Zap size={20} />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-extrabold text-slate-900 dark:text-white">مُختبر الـ API التجريبي المباشر</h3>
-                        <p className="text-xs text-slate-600 dark:text-slate-300 font-bold">اختبر استجابة الـ API مباشرة وقراءة البيانات بسهولة</p>
-                      </div>
-                    </div>
-
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="text-xs font-black text-slate-800 dark:text-slate-200 mb-1.5 block">الرابط المراد تجريبه (Endpoint):</label>
-                          <select
-                            value={testEndpoint}
-                            onChange={(e) => setTestEndpoint(e.target.value)}
-                            className="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-white border-2 border-slate-300 dark:border-slate-600 rounded-2xl px-4 py-3 text-xs font-extrabold outline-none focus:border-blue-500"
-                          >
-                            <option value="/api/v1/content">GET /api/v1/content (المحتوى والأقسام)</option>
-                            <option value="/api/v1/tools">GET /api/v1/tools (حالة الأدوات)</option>
-                            <option value="/api/v1/keys/validate">POST /api/v1/keys/validate (فحص المفتاح)</option>
-                            <option value="/api/v1/generate-image">POST /api/v1/generate-image (توليد صورة)</option>
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="text-xs font-black text-slate-800 dark:text-slate-200 mb-1.5 block">مفتاح الـ API للطلب (X-API-Key):</label>
-                          <input
-                            type="text"
-                            value={testApiKey}
-                            onChange={(e) => setTestApiKey(e.target.value)}
-                            placeholder="ضع المفتاح الذي أنشأته للتجربة..."
-                            className="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-white border-2 border-slate-300 dark:border-slate-600 rounded-2xl px-4 py-3 text-xs font-bold outline-none dir-ltr text-left placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-blue-500"
-                          />
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={handleRunApiTest}
-                        disabled={isTestingApi}
-                        className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-xs transition-all shadow-md flex items-center justify-center gap-2 active:scale-98"
-                      >
-                        {isTestingApi ? (
-                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        ) : (
-                          <Send size={16} />
-                        )}
-                        <span>{isTestingApi ? 'جاري الفحص وإرسال الطلب...' : 'إرسال الطلب وعرض النتيجة'}</span>
-                      </button>
-
-                      {/* Display Test Result */}
-                      {testResult && (
-                        <div className="p-4 bg-slate-950 rounded-2xl text-white space-y-2 font-mono text-xs dir-ltr text-left border-2 border-slate-800">
-                          <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-                            <span className="text-slate-300 text-[11px] font-bold">STATUS CODE:</span>
-                            <span className={cn(
-                              "px-2.5 py-1 rounded font-black text-[11px]",
-                              testResult.ok ? "bg-emerald-500/30 text-emerald-300 border border-emerald-500/50" : "bg-red-500/30 text-red-300 border border-red-500/50"
-                            )}>
-                              {testResult.status} {testResult.ok ? 'OK' : 'ERROR'}
-                            </span>
-                          </div>
-                          <pre className="text-emerald-300 text-[11px] overflow-x-auto p-3 bg-black rounded-xl max-h-80 overflow-y-auto font-bold">
-                            {JSON.stringify(testResult.data, null, 2)}
-                          </pre>
-                        </div>
-                      )}
-                    </div>
-                  </section>
-                </motion.div>
-
               ) : activeTab === 'content' ? (
                 <motion.div
                   key="content"
@@ -5125,7 +3998,7 @@ export default function AdminPage() {
                           <Database size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-primary transition-colors" />
                         </div>
                         <button
-                          onClick={() => setEditingCategory({ name: '', type: 'XML', displayStyle: 'style1' })}
+                          onClick={() => setEditingCategory({ name: '', type: 'XML', displayStyle: 'style1', isHidden: false, useCustomAccent: false, accentColor: '' })}
                           className="flex items-center gap-2 px-8 py-3 bg-primary text-white rounded-2xl font-bold text-sm shadow-lg shadow-primary/20 hover:opacity-90 transition-all active:scale-95"
                         >
                           <Plus size={18} />
@@ -5140,12 +4013,50 @@ export default function AdminPage() {
                         .filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()))
                         .map((cat, idx) => (
                         <div key={`cat-${cat.id}-${idx}`} className="bg-white rounded-[28px] sm:rounded-[40px] overflow-hidden shadow-sm border border-gray-100 group hover:shadow-xl transition-all duration-500">
-                          <div className="bg-primary p-6 sm:p-8 text-white relative">
-                            <div className="flex items-center justify-between mb-3 sm:mb-4">
-                              <span className="px-2 sm:px-3 py-0.5 sm:py-1 bg-white/20 backdrop-blur-md rounded-lg text-[8px] sm:text-[10px] font-bold uppercase tracking-wider">
-                                {cat.displayStyle || 'style1'}
-                              </span>
-                              <div className="w-2 h-8 sm:h-10 bg-white/20 rounded-full" />
+                          <div 
+                            className="p-6 sm:p-8 text-white relative transition-all"
+                            style={{
+                              background: cat.useCustomAccent && cat.accentColor 
+                                ? `linear-gradient(135deg, ${cat.accentColor}, ${cat.accentColor}dd)` 
+                                : 'var(--primary-gradient, #2563EB)'
+                            }}
+                          >
+                            <div className="flex items-center justify-between mb-3 sm:mb-4 gap-2 flex-wrap">
+                              <div className="flex items-center gap-2">
+                                <span className="px-2 sm:px-3 py-0.5 sm:py-1 bg-white/20 backdrop-blur-md rounded-lg text-[8px] sm:text-[10px] font-bold uppercase tracking-wider">
+                                  {cat.displayStyle || 'style1'}
+                                </span>
+                                {cat.useCustomAccent && cat.accentColor ? (
+                                  <span className="px-2 py-0.5 bg-black/20 backdrop-blur-md rounded-lg text-[8px] sm:text-[10px] font-bold flex items-center gap-1.5">
+                                    <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: cat.accentColor }} />
+                                    لون مخصص
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 bg-white/15 backdrop-blur-md rounded-lg text-[8px] sm:text-[10px] font-bold">
+                                    لون الموقع الرئيسي
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleToggleCategoryVisibility(cat.id, !!cat.isHidden);
+                                  }}
+                                  className={cn(
+                                    "px-2.5 py-1 rounded-xl text-[10px] font-bold flex items-center gap-1.5 backdrop-blur-md transition-all shadow-xs",
+                                    cat.isHidden 
+                                      ? "bg-red-500/90 text-white hover:bg-red-600" 
+                                      : "bg-emerald-500/90 text-white hover:bg-emerald-600"
+                                  )}
+                                  title={cat.isHidden ? "القسم مخفي عن الزوار - انقر لإظهاره" : "القسم ظاهر للزوار - انقر لإخفائه"}
+                                >
+                                  {cat.isHidden ? <EyeOff size={13} /> : <Eye size={13} />}
+                                  <span>{cat.isHidden ? 'مخفي عن الزوار' : 'ظاهر للزوار'}</span>
+                                </button>
+                                <div className="w-2 h-8 sm:h-10 bg-white/20 rounded-full" />
+                              </div>
                             </div>
                             <h3 className="text-xl sm:text-2xl font-black">{cat.name}</h3>
                           </div>
@@ -5168,6 +4079,19 @@ export default function AdminPage() {
                                 </button>
                               </div>
                               <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleToggleCategoryVisibility(cat.id, !!cat.isHidden)}
+                                  className={cn(
+                                    "p-3 sm:p-4 rounded-xl sm:rounded-2xl transition-colors border",
+                                    cat.isHidden
+                                      ? "bg-amber-50 text-amber-600 border-amber-200 hover:bg-amber-100"
+                                      : "bg-gray-50 text-gray-400 border-gray-100 hover:bg-gray-100 hover:text-gray-600"
+                                  )}
+                                  title={cat.isHidden ? "القسم مخفي - انقر لإظهاره للزوار" : "القسم ظاهر - انقر لإخفائه عن الزوار"}
+                                >
+                                  {cat.isHidden ? <EyeOff size={18} className="sm:hidden" /> : <Eye size={18} className="sm:hidden" />}
+                                  {cat.isHidden ? <EyeOff size={20} className="hidden sm:block" /> : <Eye size={20} className="hidden sm:block" />}
+                                </button>
                                 <button
                                   onClick={() => initiateDelete(`categories/${cat.id}`, 'category', cat.name)}
                                   className="p-3 sm:p-4 bg-red-50 text-red-500 rounded-xl sm:rounded-2xl hover:bg-red-100 transition-colors"
@@ -5216,142 +4140,425 @@ export default function AdminPage() {
                         </div>
                         <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 mx-auto mt-6 sm:mt-8">
                           <button
-                            onClick={() => setEditingSubCategory({ name: '', categoryId: selectedManagerId?.id, description: '', displayStyle: 'style1', fileTypes: '' })}
+                            onClick={() => setEditingSubCategory({ name: '', categoryId: selectedManagerId?.id, description: '', displayStyle: 'style1', fileTypes: '', isHidden: false, useCustomAccent: false, accentColor: '' })}
                             className="flex items-center gap-2 px-6 sm:px-10 py-3 sm:py-4 bg-white border-2 border-gray-100 text-gray-900 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm hover:bg-gray-50 transition-all active:scale-95"
                           >
                             <FolderPlus size={18} className="sm:hidden" />
                             <FolderPlus size={20} className="hidden sm:block" />
                             <span>إضافة قسم فرعي</span>
                           </button>
-                          {!hasSubCategories && (
-                            <button
-                              onClick={() => setEditingItem({ title: '', subCategoryId: selectedManagerId?.id, description: '', downloadUrl: '' })}
-                              className="flex items-center gap-2 px-6 sm:px-10 py-3 sm:py-4 bg-primary text-white rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm shadow-xl shadow-primary/20 hover:opacity-90 transition-all active:scale-95"
-                            >
-                              <Plus size={18} className="sm:hidden" />
-                              <Plus size={20} className="hidden sm:block" />
-                              <span>إضافة محتوى</span>
-                            </button>
-                          )}
+                          <button
+                            onClick={() => setEditingItem({ 
+                              title: '', 
+                              subCategoryId: selectedManagerId?.id, 
+                              description: '', 
+                              downloadUrl: '', 
+                              prompt: '', 
+                              promptInstructions: '', 
+                              usedApps: [], 
+                              hasMaterials: false, 
+                              materialsUrl: '', 
+                              materialsLabel: '', 
+                              materialsDescription: '' 
+                            })}
+                            className="flex items-center gap-2 px-6 sm:px-10 py-3 sm:py-4 bg-primary text-white rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm shadow-xl shadow-primary/20 hover:opacity-90 transition-all active:scale-95"
+                          >
+                            <Plus size={18} className="sm:hidden" />
+                            <Plus size={20} className="hidden sm:block" />
+                            <span>إضافة محتوى مباشر</span>
+                          </button>
                         </div>
-                      </div>
-                      <div className="space-y-3 sm:space-y-4">
-                        <h3 className="text-primary font-bold text-xs sm:text-sm mr-2 sm:mr-4 uppercase tracking-wider">
-                          {hasSubCategories ? 'الأقسام الفرعية' : 'المحتوى المباشر'}
-                        </h3>
-                        <div className="grid grid-cols-1 gap-3 sm:gap-4">
-                          {hasSubCategories ? (
-                            relevantSubs
-                              .filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()))
-                              .map((sub, idx) => (
-                              <div key={`sub-${sub.id}-${idx}`} className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-[32px] shadow-sm border border-gray-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 group hover:shadow-md transition-all">
-                                <div className="flex items-center gap-3 sm:gap-4">
-                                  <div className="p-2 sm:p-3 bg-gray-50 text-gray-400 rounded-xl sm:rounded-2xl group-hover:bg-primary/10 group-hover:text-primary transition-colors">
-                                    <List size={18} className="sm:hidden" />
-                                    <List size={20} className="hidden sm:block" />
-                                  </div>
-                                  <div className="flex flex-col">
-                                    <span className="font-black text-base sm:text-lg">{sub.name}</span>
-                                    <span className="text-[8px] sm:text-[10px] text-gray-400 font-bold uppercase">{sub.displayStyle || 'style1'} • {sub.fileTypes || 'بدون صيغة'}</span>
-                                  </div>
-                                </div>
-                                <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3">
-                                  <div className="flex items-center gap-1 sm:gap-1.5 ml-0 sm:ml-2">
-                                    <button
-                                      onClick={() => handleMoveSubCategory(sub.id, 'up')}
-                                      disabled={idx === 0}
-                                      className="p-2 bg-gray-50 text-gray-400 rounded-lg hover:bg-primary/10 hover:text-primary disabled:opacity-30 transition-all border border-transparent"
-                                    >
-                                      <ArrowUp size={14} />
-                                    </button>
-                                    <button
-                                      onClick={() => handleMoveSubCategory(sub.id, 'down')}
-                                      disabled={idx === relevantSubs.length - 1}
-                                      className="p-2 bg-gray-50 text-gray-400 rounded-lg hover:bg-primary/10 hover:text-primary disabled:opacity-30 transition-all border border-transparent"
-                                    >
-                                      <ArrowDown size={14} />
-                                    </button>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <button
-                                      onClick={() => initiateDelete(`categories/${sub.id}`, 'subcategory', sub.name)}
-                                      className="p-2 sm:p-3 text-red-500 hover:bg-red-50 rounded-xl transition-colors"
-                                    >
-                                      <Trash2 size={18} className="sm:hidden" />
-                                      <Trash2 size={20} className="hidden sm:block" />
-                                    </button>
-                                    <button
-                                      onClick={() => setEditingSubCategory({...sub, categoryId: sub.parentId})}
-                                      className="p-2 sm:p-3 text-blue-500 hover:bg-blue-50 rounded-xl transition-colors"
-                                    >
-                                      <Edit3 size={18} className="sm:hidden" />
-                                      <Edit3 size={20} className="hidden sm:block" />
-                                    </button>
-                                    <button
-                                      onClick={() => {
-                                        setSelectedManagerId({type: 'subcategory', id: sub.id});
-                                        setViewLevel('items');
-                                      }}
-                                      className="px-4 py-2 sm:p-3 bg-primary/5 sm:bg-transparent text-primary hover:bg-primary/10 rounded-xl transition-all font-bold text-xs sm:text-sm flex items-center gap-2"
-                                    >
-                                      <Database size={18} className="sm:hidden" />
-                                      <Database size={20} className="hidden sm:block" />
-                                      <span className="sm:hidden text-xs">إدارة المحتوى</span>
-                                    </button>
-                                  </div>
-                                </div>
+                        {(relevantSubs.length > 0 || items.length > 0) && (
+                          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-6 sm:pt-8 border-t border-gray-100 mt-6 sm:mt-8">
+                            {relevantSubs.length > 0 && items.length > 0 ? (
+                              <div className="flex items-center bg-gray-100/80 p-1.5 rounded-2xl w-full sm:w-auto">
+                                <button
+                                  onClick={() => setCategoryViewTab('all')}
+                                  className={cn(
+                                    "flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5",
+                                    categoryViewTab === 'all' ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-900"
+                                  )}
+                                >
+                                  <span>عرض الكل</span>
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-700 font-black">
+                                    {relevantSubs.length + items.length}
+                                  </span>
+                                </button>
+                                <button
+                                  onClick={() => setCategoryViewTab('subcategories')}
+                                  className={cn(
+                                    "flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5",
+                                    categoryViewTab === 'subcategories' ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-900"
+                                  )}
+                                >
+                                  <List size={14} />
+                                  <span>الأقسام الفرعية</span>
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-700 font-black">
+                                    {relevantSubs.length}
+                                  </span>
+                                </button>
+                                <button
+                                  onClick={() => setCategoryViewTab('items')}
+                                  className={cn(
+                                    "flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5",
+                                    categoryViewTab === 'items' ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-900"
+                                  )}
+                                >
+                                  <Database size={14} />
+                                  <span>المحتوى المباشر</span>
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-700 font-black">
+                                    {items.length}
+                                  </span>
+                                </button>
                               </div>
-                            ))
-                          ) : (
-                            items.length > 0 ? (
-                              items
-                                .filter(item =>
-                                  item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                                  item.description.toLowerCase().includes(searchQuery.toLowerCase())
-                                )
-                                .map((item, idx) => (
-                                <div key={`item-${item.id}-${idx}`} className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-[32px] shadow-sm border border-gray-100 flex items-center justify-between group hover:shadow-md transition-all">
-                                  <div className="flex items-center gap-3 sm:gap-4 overflow-hidden">
-                                    <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-50 rounded-xl sm:rounded-2xl flex items-center justify-center text-gray-400 relative overflow-hidden flex-shrink-0">
-                                      {item.imageUrl ? (
-                                        <Image src={item.imageUrl} fill className="object-cover" alt="" referrerPolicy="no-referrer" />
-                                      ) : (
-                                        <>
-                                          <Database size={20} className="sm:hidden" />
-                                          <Database size={24} className="hidden sm:block" />
-                                        </>
-                                      )}
-                                    </div>
-                                    <div className="min-w-0">
-                                      <h4 className="font-black text-base sm:text-lg truncate">{item.title}</h4>
-                                      <p className="text-[10px] sm:text-xs text-gray-400 line-clamp-1">{item.description}</p>
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center gap-1 sm:gap-3 flex-shrink-0">
-                                    <button
-                                      onClick={() => setEditingItem({ ...item, subCategoryId: item.subCategoryId || selectedManagerId?.id })}
-                                      className="p-2 sm:p-3 text-blue-500 hover:bg-blue-50 rounded-xl transition-colors"
-                                    >
-                                      <Edit3 size={18} className="sm:hidden" />
-                                      <Edit3 size={20} className="hidden sm:block" />
-                                    </button>
-                                    <button
-                                      onClick={() => initiateDelete(`categories/${selectedManagerId?.id}/items/${item.id}`, 'item', item.title)}
-                                      className="p-2 sm:p-3 text-red-500 hover:bg-red-50 rounded-xl transition-colors"
-                                    >
-                                      <Trash2 size={18} className="sm:hidden" />
-                                      <Trash2 size={20} className="hidden sm:block" />
-                                    </button>
-                                  </div>
-                                </div>
-                              ))
                             ) : (
-                              <div className="text-center py-12 bg-gray-50 rounded-3xl border border-dashed border-gray-200">
-                                <p className="text-gray-400 font-bold">لا يوجد محتوى أو أقسام فرعية بعد</p>
+                              <div className="text-xs font-bold text-gray-400">
+                                {relevantSubs.length > 0 ? `الأقسام الفرعية (${relevantSubs.length})` : `المحتوى المباشر (${items.length})`}
                               </div>
-                            )
-                          )}
-                        </div>
+                            )}
+                            <div className="relative group w-full sm:w-64">
+                              <input
+                                type="text"
+                                placeholder="بحث في الأقسام أو المحتوى..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="bg-gray-50 border-2 border-gray-100 rounded-2xl px-4 py-2.5 pr-10 text-xs font-bold w-full outline-none focus:bg-white focus:border-primary/30 transition-all"
+                              />
+                              <Search size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-primary transition-colors" />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <div className="space-y-6 sm:space-y-8">
+                        {/* Subcategories */}
+                        {(categoryViewTab === 'all' || categoryViewTab === 'subcategories') && (
+                          relevantSubs.length > 0 ? (
+                            <div className="space-y-3 sm:space-y-4">
+                              <div className="flex items-center justify-between mr-2 sm:mr-4">
+                                <h3 className="text-primary font-bold text-xs sm:text-sm uppercase tracking-wider flex items-center gap-2">
+                                  <List size={16} />
+                                  <span>الأقسام الفرعية ({relevantSubs.length})</span>
+                                </h3>
+                              </div>
+                              <div className="grid grid-cols-1 gap-3 sm:gap-4">
+                                {relevantSubs
+                                  .filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()))
+                                  .map((sub, idx) => (
+                                  <div key={`sub-${sub.id}-${idx}`} className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-[32px] shadow-sm border border-gray-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 group hover:shadow-md transition-all">
+                                    <div className="flex items-center gap-3 sm:gap-4">
+                                      <div 
+                                        className="p-2.5 sm:p-3 rounded-xl sm:rounded-2xl transition-colors shrink-0"
+                                        style={{
+                                          backgroundColor: sub.useCustomAccent && sub.accentColor ? `${sub.accentColor}18` : undefined,
+                                          color: sub.useCustomAccent && sub.accentColor ? sub.accentColor : undefined
+                                        }}
+                                      >
+                                        <List size={18} className="sm:hidden" />
+                                        <List size={20} className="hidden sm:block" />
+                                      </div>
+                                      <div className="flex flex-col">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <span className="font-black text-base sm:text-lg">{sub.name}</span>
+                                          {sub.isHidden ? (
+                                            <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-red-100 text-red-600 flex items-center gap-1">
+                                              <EyeOff size={10} /> مخفي عن الزوار
+                                            </span>
+                                          ) : (
+                                            <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-emerald-100 text-emerald-700 flex items-center gap-1">
+                                              <Eye size={10} /> معروض للزوار
+                                            </span>
+                                          )}
+                                          {sub.useCustomAccent && sub.accentColor && (
+                                            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-gray-100 text-gray-700 flex items-center gap-1.5">
+                                              <span className="w-2 h-2 rounded-full inline-block shrink-0" style={{ backgroundColor: sub.accentColor }} />
+                                              لون مخصص
+                                            </span>
+                                          )}
+                                        </div>
+                                        <span className="text-[8px] sm:text-[10px] text-gray-400 font-bold uppercase mt-0.5">
+                                          {sub.displayStyle || 'style1'} • {sub.fileTypes || 'بدون صيغة'} • {sub.useCustomAccent && sub.accentColor ? 'لون مخصص' : 'لون الموقع الرئيسي'}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3">
+                                      <div className="flex items-center gap-1 sm:gap-1.5 ml-0 sm:ml-2">
+                                        <button
+                                          onClick={() => handleMoveSubCategory(sub.id, 'up')}
+                                          disabled={idx === 0}
+                                          className="p-2 bg-gray-50 text-gray-400 rounded-lg hover:bg-primary/10 hover:text-primary disabled:opacity-30 transition-all border border-transparent"
+                                        >
+                                          <ArrowUp size={14} />
+                                        </button>
+                                        <button
+                                          onClick={() => handleMoveSubCategory(sub.id, 'down')}
+                                          disabled={idx === relevantSubs.length - 1}
+                                          className="p-2 bg-gray-50 text-gray-400 rounded-lg hover:bg-primary/10 hover:text-primary disabled:opacity-30 transition-all border border-transparent"
+                                        >
+                                          <ArrowDown size={14} />
+                                        </button>
+                                      </div>
+                                      <div className="flex items-center gap-1.5 sm:gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={() => handleToggleSubCategoryVisibility(sub.id, !!sub.isHidden)}
+                                          className={cn(
+                                            "p-2 sm:p-3 rounded-xl transition-colors border",
+                                            sub.isHidden
+                                              ? "bg-amber-50 text-amber-600 border-amber-200 hover:bg-amber-100"
+                                              : "bg-gray-50 text-gray-400 border-gray-100 hover:bg-gray-100 hover:text-gray-600"
+                                          )}
+                                          title={sub.isHidden ? "القسم الفرعي مخفي - انقر لإظهاره للزوار" : "القسم الفرعي معروض - انقر لإخفائه عن الزوار"}
+                                        >
+                                          {sub.isHidden ? <EyeOff size={18} className="sm:hidden" /> : <Eye size={18} className="sm:hidden" />}
+                                          {sub.isHidden ? <EyeOff size={20} className="hidden sm:block" /> : <Eye size={20} className="hidden sm:block" />}
+                                        </button>
+                                        <button
+                                          onClick={() => initiateDelete(`categories/${sub.id}`, 'subcategory', sub.name)}
+                                          className="p-2 sm:p-3 text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+                                          title="حذف القسم الفرعي"
+                                        >
+                                          <Trash2 size={18} className="sm:hidden" />
+                                          <Trash2 size={20} className="hidden sm:block" />
+                                        </button>
+                                        <button
+                                          onClick={() => setEditingSubCategory({...sub, categoryId: sub.parentId})}
+                                          className="p-2 sm:p-3 text-blue-500 hover:bg-blue-50 rounded-xl transition-colors"
+                                          title="تعديل القسم الفرعي"
+                                        >
+                                          <Edit3 size={18} className="sm:hidden" />
+                                          <Edit3 size={20} className="hidden sm:block" />
+                                        </button>
+                                        <button
+                                          onClick={() => {
+                                            setSelectedManagerId({type: 'subcategory', id: sub.id});
+                                            setViewLevel('items');
+                                          }}
+                                          className="px-4 py-2 sm:p-3 bg-primary/5 sm:bg-transparent text-primary hover:bg-primary/10 rounded-xl transition-all font-bold text-xs sm:text-sm flex items-center gap-2"
+                                        >
+                                          <Database size={18} className="sm:hidden" />
+                                          <Database size={20} className="hidden sm:block" />
+                                          <span className="sm:hidden text-xs">إدارة المحتوى</span>
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ) : categoryViewTab === 'subcategories' ? (
+                            <div className="text-center py-10 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                              <p className="text-gray-400 text-xs font-bold">لا توجد أقسام فرعية في هذا القسم بعد</p>
+                            </div>
+                          ) : null
+                        )}
+
+                        {/* Direct Items */}
+                        {(categoryViewTab === 'all' || categoryViewTab === 'items') && (
+                          items.length > 0 ? (
+                            <div className="space-y-3 sm:space-y-4">
+                              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mr-2 sm:mr-4">
+                                <h3 className="text-primary font-bold text-xs sm:text-sm uppercase tracking-wider flex items-center gap-2">
+                                  <Database size={16} />
+                                  <span>المحتوى المباشر في هذا القسم ({items.length})</span>
+                                </h3>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleSelectAllItems(
+                                      items.filter(item =>
+                                        item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                        item.description.toLowerCase().includes(searchQuery.toLowerCase())
+                                      )
+                                    )}
+                                    className="text-xs font-bold text-gray-500 hover:text-primary transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200"
+                                  >
+                                    {items
+                                      .filter(item =>
+                                        item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                        item.description.toLowerCase().includes(searchQuery.toLowerCase())
+                                      )
+                                      .every(i => selectedItemIds.includes(i.id)) && selectedItemIds.length > 0 ? (
+                                      <>
+                                        <CheckSquare size={14} className="text-primary" />
+                                        <span>إلغاء تحديد الكل</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Square size={14} />
+                                        <span>تحديد الكل</span>
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Selected Items Action Bar */}
+                              {selectedItemIds.length > 0 && (
+                                <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-amber-500/10 border-2 border-primary/20 p-3 sm:p-4 rounded-2xl flex flex-wrap items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-xl bg-primary text-white flex items-center justify-center font-black text-xs shadow-sm">
+                                      {selectedItemIds.length}
+                                    </div>
+                                    <div className="flex flex-col">
+                                      <span className="font-black text-xs sm:text-sm text-gray-900">
+                                        تم تحديد {selectedItemIds.length} منشور
+                                      </span>
+                                      <span className="text-[10px] sm:text-xs text-gray-500">
+                                        يمكنك نقل المنشورات المحددة إلى أي قسم فرعي أو رئيسي
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <button
+                                      type="button"
+                                      onClick={() => setSelectedItemIds([])}
+                                      className="px-3 py-2 rounded-xl text-xs font-bold text-gray-500 hover:text-red-500 transition-all"
+                                    >
+                                      إلغاء التحديد
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={openBatchTransfer}
+                                      className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-xl text-xs sm:text-sm font-bold shadow-lg shadow-primary/25 hover:opacity-95 transition-all active:scale-95"
+                                    >
+                                      <FolderInput size={16} />
+                                      <span>نقل المحدد ({selectedItemIds.length})</span>
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+
+                              <div className="grid grid-cols-1 gap-3 sm:gap-4">
+                                {(() => {
+                                  const sortedItemsList = [...items].sort((a, b) => {
+                                    if (typeof a.order === 'number' && typeof b.order === 'number' && a.order !== b.order) {
+                                      return a.order - b.order;
+                                    }
+                                    return 0;
+                                  });
+                                  const filteredSortedItems = sortedItemsList.filter(item =>
+                                    item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                    item.description.toLowerCase().includes(searchQuery.toLowerCase())
+                                  );
+                                  return filteredSortedItems.map((item, idx) => (
+                                    <div
+                                      key={`item-${item.id}-${idx}`}
+                                      className={cn(
+                                        "bg-white p-4 sm:p-6 rounded-2xl sm:rounded-[32px] shadow-sm border transition-all flex items-center justify-between group hover:shadow-md",
+                                        selectedItemIds.includes(item.id)
+                                          ? "border-primary/40 ring-2 ring-primary/15 bg-primary/[0.02]"
+                                          : "border-gray-100"
+                                      )}
+                                    >
+                                      <div className="flex items-center gap-3 sm:gap-4 overflow-hidden">
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            toggleSelectItem(item.id);
+                                          }}
+                                          className={cn(
+                                            "p-2 rounded-xl border transition-all flex items-center justify-center shrink-0",
+                                            selectedItemIds.includes(item.id)
+                                              ? "bg-primary text-white border-primary shadow-sm"
+                                              : "bg-gray-50 text-gray-400 border-gray-200 hover:border-primary/40 hover:text-gray-600"
+                                          )}
+                                          title={selectedItemIds.includes(item.id) ? "إلغاء التحديد" : "تحديد المنشور للنقل"}
+                                        >
+                                          {selectedItemIds.includes(item.id) ? (
+                                            <CheckSquare size={18} />
+                                          ) : (
+                                            <Square size={18} />
+                                          )}
+                                        </button>
+                                        <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-50 rounded-xl sm:rounded-2xl flex items-center justify-center text-gray-400 relative overflow-hidden flex-shrink-0">
+                                          {item.imageUrl ? (
+                                            <Image src={item.imageUrl} fill className="object-cover" alt="" referrerPolicy="no-referrer" />
+                                          ) : (
+                                            <>
+                                              <Database size={20} className="sm:hidden" />
+                                              <Database size={24} className="hidden sm:block" />
+                                            </>
+                                          )}
+                                        </div>
+                                        <div className="min-w-0">
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-gray-100 text-gray-600 shrink-0">
+                                              #{typeof item.order === 'number' ? item.order : idx}
+                                            </span>
+                                            <h4 className="font-black text-base sm:text-lg truncate">{item.title}</h4>
+                                          </div>
+                                          <p className="text-[10px] sm:text-xs text-gray-400 line-clamp-1">{item.description}</p>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+                                        <div className="flex flex-col gap-0.5 ml-1">
+                                          <button
+                                            type="button"
+                                            onClick={() => handleMoveItem(item.id, 'up')}
+                                            disabled={idx === 0 || isSaving}
+                                            className="p-1 text-gray-400 hover:text-primary hover:bg-primary/10 rounded-md disabled:opacity-20 transition-all"
+                                            title="تقديم للأعلى (ترتيب أسبق)"
+                                          >
+                                            <ChevronUp size={15} />
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleMoveItem(item.id, 'down')}
+                                            disabled={idx === filteredSortedItems.length - 1 || isSaving}
+                                            className="p-1 text-gray-400 hover:text-primary hover:bg-primary/10 rounded-md disabled:opacity-20 transition-all"
+                                            title="تأخير للأسفل (ترتيب تالي)"
+                                          >
+                                            <ChevronDown size={15} />
+                                          </button>
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() => openSingleItemTransfer(item.id)}
+                                          className="p-2 sm:p-3 text-amber-600 hover:bg-amber-50 rounded-xl transition-colors"
+                                          title="نقل هذا المنشور إلى قسم آخر"
+                                        >
+                                          <FolderInput size={18} className="sm:hidden" />
+                                          <FolderInput size={20} className="hidden sm:block" />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => setEditingItem({ ...item, subCategoryId: item.subCategoryId || selectedManagerId?.id })}
+                                          className="p-2 sm:p-3 text-blue-500 hover:bg-blue-50 rounded-xl transition-colors"
+                                          title="تعديل المحتوى"
+                                        >
+                                          <Edit3 size={18} className="sm:hidden" />
+                                          <Edit3 size={20} className="hidden sm:block" />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => initiateDelete(`categories/${selectedManagerId?.id}/items/${item.id}`, 'item', item.title)}
+                                          className="p-2 sm:p-3 text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+                                          title="حذف المحتوى"
+                                        >
+                                          <Trash2 size={18} className="sm:hidden" />
+                                          <Trash2 size={20} className="hidden sm:block" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ));
+                                })()}
+                              </div>
+                            </div>
+                          ) : categoryViewTab === 'items' ? (
+                            <div className="text-center py-10 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                              <p className="text-gray-400 text-xs font-bold">لا يوجد محتوى مباشر في هذا القسم بعد</p>
+                            </div>
+                          ) : null
+                        )}
+
+                        {/* Empty State */}
+                        {relevantSubs.length === 0 && items.length === 0 && (
+                          <div className="text-center py-12 bg-gray-50 rounded-3xl border border-dashed border-gray-200 space-y-2">
+                            <p className="text-gray-500 font-black text-sm">لا يوجد محتوى أو أقسام فرعية بعد في هذا القسم</p>
+                            <p className="text-gray-400 text-xs">يمكنك البدء بإضافة قسم فرعي أو إضافة محتوى مباشر لهذا القسم</p>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ) : (
@@ -5396,7 +4603,46 @@ export default function AdminPage() {
                             <Database size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-primary transition-colors" />
                           </div>
                           <button
-                            onClick={() => setEditingItem({ title: '', subCategoryId: selectedManagerId?.id, description: '', downloadUrl: '' })}
+                            type="button"
+                            onClick={() => toggleSelectAllItems(
+                              items.filter(item =>
+                                item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                item.description.toLowerCase().includes(searchQuery.toLowerCase())
+                              )
+                            )}
+                            className="flex items-center gap-1.5 px-4 py-3 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm transition-all"
+                          >
+                            {items
+                              .filter(item =>
+                                item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                item.description.toLowerCase().includes(searchQuery.toLowerCase())
+                              )
+                              .every(i => selectedItemIds.includes(i.id)) && selectedItemIds.length > 0 ? (
+                              <>
+                                <CheckSquare size={16} className="text-primary" />
+                                <span>إلغاء تحديد الكل</span>
+                              </>
+                            ) : (
+                              <>
+                                <Square size={16} />
+                                <span>تحديد الكل</span>
+                              </>
+                            )}
+                          </button>
+                          <button
+                            onClick={() => setEditingItem({ 
+                              title: '', 
+                              subCategoryId: selectedManagerId?.id, 
+                              description: '', 
+                              downloadUrl: '', 
+                              prompt: '', 
+                              promptInstructions: '', 
+                              usedApps: [], 
+                              hasMaterials: false, 
+                              materialsUrl: '', 
+                              materialsLabel: '', 
+                              materialsDescription: '' 
+                            })}
                             className="flex items-center gap-2 px-6 sm:px-10 py-3 sm:py-4 bg-primary text-white rounded-xl sm:rounded-2xl font-bold text-sm shadow-xl shadow-primary/20 hover:opacity-90 transition-all active:scale-95 w-full sm:w-auto"
                           >
                             <Plus size={18} className="sm:hidden" />
@@ -5405,6 +4651,43 @@ export default function AdminPage() {
                           </button>
                         </div>
                       </div>
+
+                      {/* Selected Items Action Bar in Items View */}
+                      {selectedItemIds.length > 0 && (
+                        <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-amber-500/10 border-2 border-primary/20 p-3 sm:p-4 rounded-2xl flex flex-wrap items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-xl bg-primary text-white flex items-center justify-center font-black text-xs shadow-sm">
+                              {selectedItemIds.length}
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="font-black text-xs sm:text-sm text-gray-900">
+                                تم تحديد {selectedItemIds.length} منشور
+                              </span>
+                              <span className="text-[10px] sm:text-xs text-gray-500">
+                                يمكنك نقل المنشورات المحددة إلى أي قسم فرعي أو رئيسي
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedItemIds([])}
+                              className="px-3 py-2 rounded-xl text-xs font-bold text-gray-500 hover:text-red-500 transition-all"
+                            >
+                              إلغاء التحديد
+                            </button>
+                            <button
+                              type="button"
+                              onClick={openBatchTransfer}
+                              className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-xl text-xs sm:text-sm font-bold shadow-lg shadow-primary/25 hover:opacity-95 transition-all active:scale-95"
+                            >
+                              <FolderInput size={16} />
+                              <span>نقل المحدد ({selectedItemIds.length})</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="grid grid-cols-1 gap-3 sm:gap-4">
                         {items
                           .filter(item =>
@@ -5412,8 +4695,36 @@ export default function AdminPage() {
                             item.description.toLowerCase().includes(searchQuery.toLowerCase())
                           )
                           .map((item, idx) => (
-                          <div key={`item-${item.id}-${idx}`} className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-[32px] shadow-sm border border-gray-100 flex items-center justify-between group hover:shadow-md transition-all">
+                          <div
+                            key={`item-${item.id}-${idx}`}
+                            className={cn(
+                              "bg-white p-4 sm:p-6 rounded-2xl sm:rounded-[32px] shadow-sm border transition-all flex items-center justify-between group hover:shadow-md",
+                              selectedItemIds.includes(item.id)
+                                ? "border-primary/40 ring-2 ring-primary/15 bg-primary/[0.02]"
+                                : "border-gray-100"
+                            )}
+                          >
                             <div className="flex items-center gap-3 sm:gap-4 overflow-hidden">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleSelectItem(item.id);
+                                }}
+                                className={cn(
+                                  "p-2 rounded-xl border transition-all flex items-center justify-center shrink-0",
+                                  selectedItemIds.includes(item.id)
+                                    ? "bg-primary text-white border-primary shadow-sm"
+                                    : "bg-gray-50 text-gray-400 border-gray-200 hover:border-primary/40 hover:text-gray-600"
+                                )}
+                                title={selectedItemIds.includes(item.id) ? "إلغاء التحديد" : "تحديد المنشور للنقل"}
+                              >
+                                {selectedItemIds.includes(item.id) ? (
+                                  <CheckSquare size={18} />
+                                ) : (
+                                  <Square size={18} />
+                                )}
+                              </button>
                               <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-50 rounded-xl sm:rounded-2xl flex items-center justify-center text-gray-400 relative overflow-hidden flex-shrink-0">
                                 {item.imageUrl ? (
                                   <Image src={item.imageUrl} fill className="object-cover" alt="" referrerPolicy="no-referrer" />
@@ -5429,17 +4740,30 @@ export default function AdminPage() {
                                 <p className="text-[10px] sm:text-xs text-gray-400 line-clamp-1">{item.description}</p>
                               </div>
                             </div>
-                            <div className="flex items-center gap-1 sm:gap-3 flex-shrink-0">
+                            <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                               <button
+                                type="button"
+                                onClick={() => openSingleItemTransfer(item.id)}
+                                className="p-2 sm:p-3 text-amber-600 hover:bg-amber-50 rounded-xl transition-colors"
+                                title="نقل هذا المنشور إلى قسم آخر"
+                              >
+                                <FolderInput size={18} className="sm:hidden" />
+                                <FolderInput size={20} className="hidden sm:block" />
+                              </button>
+                              <button
+                                type="button"
                                 onClick={() => setEditingItem({ ...item, subCategoryId: item.subCategoryId || selectedManagerId?.id })}
                                 className="p-2 sm:p-3 text-blue-500 hover:bg-blue-50 rounded-xl transition-colors"
+                                title="تعديل المحتوى"
                               >
                                 <Edit3 size={18} className="sm:hidden" />
                                 <Edit3 size={20} className="hidden sm:block" />
                               </button>
                               <button
+                                type="button"
                                 onClick={() => initiateDelete(`categories/${selectedManagerId?.id}/items/${item.id}`, 'item', item.title)}
                                 className="p-2 sm:p-3 text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+                                title="حذف المحتوى"
                               >
                                 <Trash2 size={18} className="sm:hidden" />
                                 <Trash2 size={20} className="hidden sm:block" />
@@ -5452,6 +4776,330 @@ export default function AdminPage() {
                   )}
                   {/* Modals for Editing */}
                   <AnimatePresence>
+                    {/* Transfer Items Modal */}
+                    {transferModal && (
+                      <div
+                        key="transfer-items-modal"
+                        className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm"
+                      >
+                        <motion.div
+                          initial={{ scale: 0.95, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          exit={{ scale: 0.95, opacity: 0 }}
+                          className="bg-white rounded-[28px] sm:rounded-[36px] p-5 sm:p-8 w-full max-w-xl shadow-2xl relative max-h-[90vh] flex flex-col"
+                        >
+                          {/* Close Button */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!isTransferring) {
+                                setTransferModal(null);
+                                setTargetDestinationId('');
+                              }
+                            }}
+                            disabled={isTransferring}
+                            className="absolute left-4 sm:left-6 top-4 sm:top-6 p-2 text-gray-400 hover:text-gray-700 rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-30"
+                          >
+                            <X size={20} />
+                          </button>
+
+                          {/* Header */}
+                          <div className="flex items-center gap-3 mb-4 pr-1">
+                            <div className="p-3 bg-amber-500/10 text-amber-600 rounded-2xl">
+                              <FolderInput size={24} />
+                            </div>
+                            <div>
+                              <h2 className="text-lg sm:text-xl font-black text-gray-900">نقل المنشورات إلى قسم آخر</h2>
+                              <p className="text-xs text-gray-400 font-bold">
+                                تم تحديد <span className="text-primary font-black">{transferModal.itemIds.length}</span> منشور للنقل
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Origin Info */}
+                          <div className="bg-gray-50 border border-gray-100 p-3 rounded-2xl flex items-center justify-between gap-2 mb-4 text-xs font-bold">
+                            <div className="flex items-center gap-2 text-gray-500">
+                              <span>القسم الحالي:</span>
+                              <span className="text-gray-900 font-black">
+                                {allCategories.find(c => c.id === selectedManagerId?.id)?.name || 'القسم الحالي'}
+                              </span>
+                            </div>
+                            <div className="text-[11px] px-2 py-0.5 rounded-lg bg-gray-200/60 text-gray-600 font-black">
+                              {selectedManagerId?.type === 'category' ? 'قسم رئيسي' : 'قسم فرعي'}
+                            </div>
+                          </div>
+
+                          {/* Search Destinations */}
+                          <div className="relative mb-3">
+                            <input
+                              type="text"
+                              placeholder="ابحث عن اسم القسم أو القسم الفرعي..."
+                              value={transferSearchQuery}
+                              onChange={(e) => setTransferSearchQuery(e.target.value)}
+                              className="bg-gray-50 border-2 border-gray-100 rounded-2xl px-4 py-2.5 pr-10 text-xs font-bold w-full outline-none focus:bg-white focus:border-primary/30 transition-all"
+                            />
+                            <Search size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                          </div>
+
+                          {/* Tabs if there are relevant subcategories */}
+                          {relevantSubs.length > 0 && !transferSearchQuery && (
+                            <div className="flex items-center bg-gray-100 p-1 rounded-2xl mb-3 text-xs font-bold">
+                              <button
+                                type="button"
+                                onClick={() => setTransferTab('subs')}
+                                className={cn(
+                                  "flex-1 py-1.5 rounded-xl transition-all flex items-center justify-center gap-1.5",
+                                  transferTab === 'subs' ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-900"
+                                )}
+                              >
+                                <List size={14} />
+                                <span>أقسام هذا القسم الفرعية ({relevantSubs.length})</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setTransferTab('all')}
+                                className={cn(
+                                  "flex-1 py-1.5 rounded-xl transition-all flex items-center justify-center gap-1.5",
+                                  transferTab === 'all' ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-900"
+                                )}
+                              >
+                                <Layers size={14} />
+                                <span>جميع الأقسام الأخرى</span>
+                              </button>
+                            </div>
+                          )}
+
+                          {/* Destination List (Scrollable) */}
+                          <div className="flex-1 overflow-y-auto max-h-[260px] space-y-2 pr-1 pl-1">
+                            {(() => {
+                              // If searching
+                              if (transferSearchQuery.trim()) {
+                                const query = transferSearchQuery.toLowerCase().trim();
+                                const matched = allCategories.filter(c =>
+                                  c.id !== selectedManagerId?.id &&
+                                  c.name.toLowerCase().includes(query)
+                                );
+
+                                if (matched.length === 0) {
+                                  return (
+                                    <div className="text-center py-8 text-gray-400 text-xs font-bold">
+                                      لا توجد أقسام مطابقة للبحث
+                                    </div>
+                                  );
+                                }
+
+                                return matched.map(cat => {
+                                  const isSelected = targetDestinationId === cat.id;
+                                  const parentCat = cat.parentId ? categories.find(p => p.id === cat.parentId) : null;
+                                  return (
+                                    <button
+                                      key={`dest-search-${cat.id}`}
+                                      type="button"
+                                      onClick={() => setTargetDestinationId(cat.id)}
+                                      className={cn(
+                                        "w-full text-right p-3 rounded-2xl border-2 transition-all flex items-center justify-between gap-3 group",
+                                        isSelected
+                                          ? "border-primary bg-primary/5 shadow-sm"
+                                          : "border-gray-100 hover:border-primary/20 hover:bg-gray-50"
+                                      )}
+                                    >
+                                      <div className="flex items-center gap-3 min-w-0">
+                                        <div className={cn(
+                                          "p-2 rounded-xl transition-colors shrink-0",
+                                          isSelected ? "bg-primary text-white" : "bg-gray-100 text-gray-400 group-hover:text-primary"
+                                        )}>
+                                          {cat.parentId ? <List size={16} /> : <Layers size={16} />}
+                                        </div>
+                                        <div className="min-w-0 text-right">
+                                          <div className="font-black text-xs sm:text-sm truncate text-gray-900">{cat.name}</div>
+                                          <div className="text-[10px] text-gray-400 font-bold">
+                                            {parentCat ? `تابع لقسم: ${parentCat.name}` : 'قسم رئيسي'}
+                                          </div>
+                                        </div>
+                                      </div>
+                                      {isSelected && (
+                                        <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center shrink-0">
+                                          <Check size={14} />
+                                        </div>
+                                      )}
+                                    </button>
+                                  );
+                                });
+                              }
+
+                              // Tab 1: Current Subcategories
+                              if (transferTab === 'subs' && relevantSubs.length > 0) {
+                                return (
+                                  <div className="space-y-2">
+                                    <div className="text-[11px] font-bold text-gray-400 px-1">
+                                      اختر القسم الفرعي المراد نقل المنشورات إليه مباشرة:
+                                    </div>
+                                    {relevantSubs.map(sub => {
+                                      const isSelected = targetDestinationId === sub.id;
+                                      return (
+                                        <button
+                                          key={`sub-dest-${sub.id}`}
+                                          type="button"
+                                          onClick={() => setTargetDestinationId(sub.id)}
+                                          className={cn(
+                                            "w-full text-right p-3.5 rounded-2xl border-2 transition-all flex items-center justify-between gap-3 group",
+                                            isSelected
+                                              ? "border-primary bg-primary/5 shadow-sm"
+                                              : "border-gray-100 hover:border-primary/20 hover:bg-gray-50"
+                                          )}
+                                        >
+                                          <div className="flex items-center gap-3 min-w-0">
+                                            <div className={cn(
+                                              "p-2.5 rounded-xl transition-colors shrink-0",
+                                              isSelected ? "bg-primary text-white" : "bg-gray-100 text-gray-400 group-hover:text-primary"
+                                            )}>
+                                              <List size={18} />
+                                            </div>
+                                            <div className="min-w-0 text-right">
+                                              <div className="font-black text-xs sm:text-sm truncate text-gray-900">{sub.name}</div>
+                                              <div className="text-[10px] text-gray-400 font-bold">
+                                                نمط العرض: {sub.displayStyle || 'style1'} • {sub.fileTypes || 'بدون صيغة'}
+                                              </div>
+                                            </div>
+                                          </div>
+                                          {isSelected ? (
+                                            <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center shrink-0">
+                                              <Check size={14} />
+                                            </div>
+                                          ) : (
+                                            <div className="text-[11px] font-bold text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+                                              اختيار
+                                            </div>
+                                          )}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                );
+                              }
+
+                              // Tab 2: All Other Categories and Subcategories
+                              return (
+                                <div className="space-y-3">
+                                  {categories
+                                    .filter(c => c.id !== selectedManagerId?.id)
+                                    .map(mainCat => {
+                                      const mainSubs = subCategories.filter(s => s.parentId === mainCat.id && s.id !== selectedManagerId?.id);
+                                      const isMainSelected = targetDestinationId === mainCat.id;
+
+                                      return (
+                                        <div key={`cat-group-${mainCat.id}`} className="space-y-1.5 bg-gray-50/70 p-2.5 rounded-2xl border border-gray-100">
+                                          {/* Main Category Itself */}
+                                          <button
+                                            type="button"
+                                            onClick={() => setTargetDestinationId(mainCat.id)}
+                                            className={cn(
+                                              "w-full text-right p-2.5 rounded-xl border transition-all flex items-center justify-between gap-2 group",
+                                              isMainSelected
+                                                ? "border-primary bg-primary text-white"
+                                                : "border-transparent bg-white hover:border-primary/30"
+                                            )}
+                                          >
+                                            <div className="flex items-center gap-2 min-w-0">
+                                              <Layers size={16} className={isMainSelected ? "text-white" : "text-primary"} />
+                                              <span className="font-black text-xs sm:text-sm truncate">{mainCat.name}</span>
+                                              <span className={cn(
+                                                "text-[9px] px-1.5 py-0.5 rounded-md font-bold",
+                                                isMainSelected ? "bg-white/20 text-white" : "bg-gray-100 text-gray-500"
+                                              )}>
+                                                قسم رئيسي
+                                              </span>
+                                            </div>
+                                            {isMainSelected && <Check size={14} />}
+                                          </button>
+
+                                          {/* Its Subcategories */}
+                                          {mainSubs.length > 0 && (
+                                            <div className="grid grid-cols-1 gap-1 mr-3">
+                                              {mainSubs.map(sub => {
+                                                const isSubSelected = targetDestinationId === sub.id;
+                                                return (
+                                                  <button
+                                                    key={`sub-under-${sub.id}`}
+                                                    type="button"
+                                                    onClick={() => setTargetDestinationId(sub.id)}
+                                                    className={cn(
+                                                      "text-right p-2 rounded-xl border transition-all flex items-center justify-between gap-2 group",
+                                                      isSubSelected
+                                                        ? "border-primary bg-primary/10 text-primary font-black"
+                                                        : "border-gray-100 bg-white hover:border-primary/20 text-gray-700"
+                                                    )}
+                                                  >
+                                                    <div className="flex items-center gap-2 min-w-0">
+                                                      <List size={14} className={isSubSelected ? "text-primary" : "text-gray-400"} />
+                                                      <span className="text-xs truncate">{sub.name}</span>
+                                                    </div>
+                                                    {isSubSelected && <Check size={14} className="text-primary shrink-0" />}
+                                                  </button>
+                                                );
+                                              })}
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                </div>
+                              );
+                            })()}
+                          </div>
+
+                          {/* Footer Preview & Actions */}
+                          <div className="pt-4 mt-3 border-t border-gray-100 space-y-3">
+                            {targetDestinationId && (
+                              <div className="p-2.5 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between text-xs font-bold text-primary">
+                                <span className="flex items-center gap-1.5 truncate">
+                                  <ArrowRightLeft size={14} />
+                                  <span>الوجهة المختارة:</span>
+                                  <span className="font-black text-gray-900">
+                                    {allCategories.find(c => c.id === targetDestinationId)?.name}
+                                  </span>
+                                </span>
+                                <span className="text-[10px] text-gray-400">
+                                  ({transferModal.itemIds.length} منشور)
+                                </span>
+                              </div>
+                            )}
+
+                            <div className="flex items-center gap-2 justify-end">
+                              <button
+                                type="button"
+                                disabled={isTransferring}
+                                onClick={() => {
+                                  setTransferModal(null);
+                                  setTargetDestinationId('');
+                                }}
+                                className="px-4 py-2.5 text-xs font-bold text-gray-500 hover:text-gray-700 transition-colors"
+                              >
+                                إلغاء
+                              </button>
+                              <button
+                                type="button"
+                                disabled={!targetDestinationId || isTransferring}
+                                onClick={handleTransferItems}
+                                className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl text-xs sm:text-sm font-bold shadow-lg shadow-primary/25 hover:opacity-95 transition-all active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
+                              >
+                                {isTransferring ? (
+                                  <>
+                                    <RefreshCw size={16} className="animate-spin" />
+                                    <span>جاري النقل...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <FolderInput size={16} />
+                                    <span>تأكيد النقل الآن</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        </motion.div>
+                      </div>
+                    )}
                     {editingCategory && (
                       <div
                         key="edit-category-modal"
@@ -5527,42 +5175,167 @@ export default function AdminPage() {
                                 placeholder="XML, PLP, APK..."
                               />
                             </div>
-                            <div className="flex items-center justify-between p-4 sm:p-6 bg-gray-50 rounded-2xl sm:rounded-[28px] border-2 border-gray-100">
-                              <span className="text-xs sm:text-sm font-bold text-gray-900">لون مخصص لهذا القسم</span>
+                            {/* حالة ظهور القسم للزوار */}
+                            <div className="flex items-center justify-between p-4 sm:p-6 bg-gray-50 rounded-2xl sm:rounded-[28px] border-2 border-gray-100 transition-all">
+                              <div className="flex flex-col gap-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs sm:text-sm font-black text-gray-900">حالة ظهور القسم</span>
+                                  {editingCategory.isHidden ? (
+                                    <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-red-100 text-red-600 flex items-center gap-1">
+                                      <EyeOff size={11} /> مخفي عن الزوار
+                                    </span>
+                                  ) : (
+                                    <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-emerald-100 text-emerald-700 flex items-center gap-1">
+                                      <Eye size={11} /> معروض للزوار
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="text-[10px] sm:text-xs text-gray-500 font-medium">
+                                  {editingCategory.isHidden ? 'القسم مخفي حالياً ولن يظهر للزوار في واجهة الموقع' : 'القسم ظاهر ونشط لجميع الزوار في الصفحة الرئيسية'}
+                                </span>
+                              </div>
                               <button
                                 type="button"
-                                onClick={() => setEditingCategory({...editingCategory, useCustomAccent: !editingCategory.useCustomAccent})}
+                                onClick={() => setEditingCategory({...editingCategory, isHidden: !editingCategory.isHidden})}
                                 className={cn(
-                                  "w-12 h-7 sm:w-14 sm:h-8 rounded-full transition-all relative",
-                                  editingCategory.useCustomAccent ? "bg-primary" : "bg-gray-200"
+                                  "w-12 h-7 sm:w-14 sm:h-8 rounded-full transition-all relative shrink-0",
+                                  editingCategory.isHidden ? "bg-gray-300" : "bg-emerald-500"
                                 )}
                               >
                                 <div className={cn(
-                                  "absolute top-0.5 sm:top-1 w-6 h-6 bg-white rounded-full transition-all",
-                                  editingCategory.useCustomAccent ? "right-0.5 sm:right-1" : "right-5 sm:right-7"
+                                  "absolute top-0.5 sm:top-1 w-6 h-6 bg-white rounded-full transition-all shadow-xs",
+                                  editingCategory.isHidden ? "right-5 sm:right-7" : "right-0.5 sm:right-1"
                                 )} />
                               </button>
                             </div>
-                            {editingCategory.useCustomAccent && (
-                              <div className="space-y-2 sm:space-y-3">
-                                <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">لون البراند المخصص (Hex)</label>
-                                <div className="flex items-center gap-3 sm:gap-4">
-                                  <input
-                                    type="color"
-                                    value={editingCategory.accentColor || '#3B82F6'}
-                                    onChange={(e) => setEditingCategory({...editingCategory, accentColor: e.target.value})}
-                                    className="w-10 h-10 sm:w-12 sm:h-12 cursor-pointer rounded-lg sm:rounded-xl border-2 border-gray-100 shadow-sm"
-                                  />
-                                  <input
-                                    type="text"
-                                    value={editingCategory.accentColor || ''}
-                                    onChange={(e) => setEditingCategory({...editingCategory, accentColor: e.target.value})}
-                                    className="flex-1 bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all uppercase"
-                                    placeholder="#000000"
-                                  />
+
+                            {/* تخصيص لون القسم */}
+                            <div className="p-4 sm:p-6 bg-gray-50 rounded-2xl sm:rounded-[28px] border-2 border-gray-100 space-y-4">
+                              <div className="flex items-center justify-between">
+                                <div className="flex flex-col gap-0.5">
+                                  <span className="text-xs sm:text-sm font-black text-gray-900">تخصيص لون القسم</span>
+                                  <span className="text-[10px] sm:text-xs text-gray-500 font-medium">
+                                    {editingCategory.useCustomAccent ? 'استخدام لون مخصص يميز هذا القسم' : 'استخدام لون الموقع الرئيسي الافتراضي'}
+                                  </span>
                                 </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingCategory({
+                                    ...editingCategory,
+                                    useCustomAccent: !editingCategory.useCustomAccent,
+                                    accentColor: !editingCategory.useCustomAccent && !editingCategory.accentColor ? '#3B82F6' : editingCategory.accentColor
+                                  })}
+                                  className={cn(
+                                    "w-12 h-7 sm:w-14 sm:h-8 rounded-full transition-all relative shrink-0",
+                                    editingCategory.useCustomAccent ? "bg-primary" : "bg-gray-300"
+                                  )}
+                                >
+                                  <div className={cn(
+                                    "absolute top-0.5 sm:top-1 w-6 h-6 bg-white rounded-full transition-all shadow-xs",
+                                    editingCategory.useCustomAccent ? "right-0.5 sm:right-1" : "right-5 sm:right-7"
+                                  )} />
+                                </button>
                               </div>
-                            )}
+
+                              {/* اختيار النمط: نفس لون الموقع أو لون مخصص */}
+                              <div className="grid grid-cols-2 gap-2 pt-1">
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingCategory({...editingCategory, useCustomAccent: false})}
+                                  className={cn(
+                                    "p-3 rounded-xl sm:rounded-2xl text-xs font-black border-2 transition-all flex items-center justify-center gap-2",
+                                    !editingCategory.useCustomAccent
+                                      ? "bg-white border-primary text-primary shadow-xs"
+                                      : "bg-gray-100/70 border-transparent text-gray-500 hover:bg-white/60"
+                                  )}
+                                >
+                                  <span className="w-2.5 h-2.5 rounded-full bg-primary" />
+                                  <span>لون الموقع الرئيسي</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingCategory({
+                                    ...editingCategory,
+                                    useCustomAccent: true,
+                                    accentColor: editingCategory.accentColor || '#3B82F6'
+                                  })}
+                                  className={cn(
+                                    "p-3 rounded-xl sm:rounded-2xl text-xs font-black border-2 transition-all flex items-center justify-center gap-2",
+                                    editingCategory.useCustomAccent
+                                      ? "bg-white border-primary text-primary shadow-xs"
+                                      : "bg-gray-100/70 border-transparent text-gray-500 hover:bg-white/60"
+                                  )}
+                                >
+                                  <span 
+                                    className="w-2.5 h-2.5 rounded-full" 
+                                    style={{ backgroundColor: editingCategory.accentColor || '#3B82F6' }} 
+                                  />
+                                  <span>لون مخصص للقسم</span>
+                                </button>
+                              </div>
+
+                              {editingCategory.useCustomAccent && (
+                                <div className="space-y-3 pt-2 border-t border-gray-200/60">
+                                  <label className="text-xs sm:text-sm font-bold text-gray-900 block">اختر اللون المخصص</label>
+                                  
+                                  {/* لوحة ألوان سريعة */}
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    {[
+                                      { name: 'أزرق', hex: '#2563EB' },
+                                      { name: 'بنفسجي', hex: '#7C3AED' },
+                                      { name: 'وردي', hex: '#EC4899' },
+                                      { name: 'أحمر', hex: '#EF4444' },
+                                      { name: 'برتقالي', hex: '#F97316' },
+                                      { name: 'كهرماني', hex: '#F59E0B' },
+                                      { name: 'أخضر زمردي', hex: '#10B981' },
+                                      { name: 'فيروزي', hex: '#06B6D4' },
+                                      { name: 'رمادي داكن', hex: '#374151' },
+                                    ].map((palette) => (
+                                      <button
+                                        key={palette.hex}
+                                        type="button"
+                                        onClick={() => setEditingCategory({...editingCategory, accentColor: palette.hex})}
+                                        className={cn(
+                                          "w-7 h-7 sm:w-8 sm:h-8 rounded-full transition-all border-2 flex items-center justify-center",
+                                          editingCategory.accentColor === palette.hex 
+                                            ? "border-gray-900 scale-110 shadow-sm ring-2 ring-primary/30" 
+                                            : "border-white hover:scale-105"
+                                        )}
+                                        style={{ backgroundColor: palette.hex }}
+                                        title={palette.name}
+                                      >
+                                        {editingCategory.accentColor === palette.hex && (
+                                          <Check size={12} className="text-white drop-shadow-xs" />
+                                        )}
+                                      </button>
+                                    ))}
+                                  </div>
+
+                                  {/* Color Picker و Hex input */}
+                                  <div className="flex items-center gap-3">
+                                    <input
+                                      type="color"
+                                      value={editingCategory.accentColor || '#3B82F6'}
+                                      onChange={(e) => setEditingCategory({...editingCategory, accentColor: e.target.value})}
+                                      className="w-10 h-10 sm:w-12 sm:h-12 cursor-pointer rounded-xl border-2 border-gray-200 shadow-xs bg-white p-1"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={editingCategory.accentColor || ''}
+                                      onChange={(e) => setEditingCategory({...editingCategory, accentColor: e.target.value})}
+                                      className="flex-1 bg-white border-2 border-gray-200 rounded-xl sm:rounded-2xl px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-bold outline-none focus:border-primary transition-all uppercase"
+                                      placeholder="#3B82F6"
+                                    />
+                                    <div 
+                                      className="px-3 py-2 rounded-xl text-white font-bold text-xs shadow-xs shrink-0 flex items-center gap-1.5"
+                                      style={{ backgroundColor: editingCategory.accentColor || '#3B82F6' }}
+                                    >
+                                      <span>معاينة اللون</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
                             <div className="flex items-center justify-between p-4 sm:p-6 bg-gray-50 rounded-2xl sm:rounded-[28px] border-2 border-gray-100">
                               <span className="text-xs sm:text-sm font-bold text-gray-900">زر مشاركة المحتوى (إظهار/إخفاء)</span>
                               <button
@@ -5677,42 +5450,167 @@ export default function AdminPage() {
                                 />
                               </div>
                             </div>
-                            <div className="flex items-center justify-between p-4 sm:p-6 bg-gray-50 rounded-2xl sm:rounded-[28px] border-2 border-gray-100">
-                              <span className="text-xs sm:text-sm font-bold text-gray-900">لون مخصص لهذه الصفحة</span>
+                            {/* حالة ظهور القسم الفرعي للزوار */}
+                            <div className="flex items-center justify-between p-4 sm:p-6 bg-gray-50 rounded-2xl sm:rounded-[28px] border-2 border-gray-100 transition-all">
+                              <div className="flex flex-col gap-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs sm:text-sm font-black text-gray-900">حالة ظهور القسم الفرعي</span>
+                                  {editingSubCategory.isHidden ? (
+                                    <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-red-100 text-red-600 flex items-center gap-1">
+                                      <EyeOff size={11} /> مخفي عن الزوار
+                                    </span>
+                                  ) : (
+                                    <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-emerald-100 text-emerald-700 flex items-center gap-1">
+                                      <Eye size={11} /> معروض للزوار
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="text-[10px] sm:text-xs text-gray-500 font-medium">
+                                  {editingSubCategory.isHidden ? 'القسم الفرعي مخفي حالياً ولن يظهر للزوار في واجهة الموقع' : 'القسم الفرعي ظاهر ونشط لجميع الزوار'}
+                                </span>
+                              </div>
                               <button
                                 type="button"
-                                onClick={() => setEditingSubCategory({...editingSubCategory, useCustomAccent: !editingSubCategory.useCustomAccent})}
+                                onClick={() => setEditingSubCategory({...editingSubCategory, isHidden: !editingSubCategory.isHidden})}
                                 className={cn(
-                                  "w-12 h-7 sm:w-14 sm:h-8 rounded-full transition-all relative",
-                                  editingSubCategory.useCustomAccent ? "bg-primary" : "bg-gray-200"
+                                  "w-12 h-7 sm:w-14 sm:h-8 rounded-full transition-all relative shrink-0",
+                                  editingSubCategory.isHidden ? "bg-gray-300" : "bg-emerald-500"
                                 )}
                               >
                                 <div className={cn(
-                                  "absolute top-0.5 sm:top-1 w-6 h-6 bg-white rounded-full transition-all",
-                                  editingSubCategory.useCustomAccent ? "right-0.5 sm:right-1" : "right-5 sm:right-7"
+                                  "absolute top-0.5 sm:top-1 w-6 h-6 bg-white rounded-full transition-all shadow-xs",
+                                  editingSubCategory.isHidden ? "right-5 sm:right-7" : "right-0.5 sm:right-1"
                                 )} />
                               </button>
                             </div>
-                            {editingSubCategory.useCustomAccent && (
-                              <div className="space-y-2 sm:space-y-3">
-                                <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">لون البراند المخصص (Hex)</label>
-                                <div className="flex items-center gap-3 sm:gap-4">
-                                  <input
-                                    type="color"
-                                    value={editingSubCategory.accentColor || '#3B82F6'}
-                                    onChange={(e) => setEditingSubCategory({...editingSubCategory, accentColor: e.target.value})}
-                                    className="w-10 h-10 sm:w-12 sm:h-12 cursor-pointer rounded-lg sm:rounded-xl border-2 border-gray-100 shadow-sm"
-                                  />
-                                  <input
-                                    type="text"
-                                    value={editingSubCategory.accentColor || ''}
-                                    onChange={(e) => setEditingSubCategory({...editingSubCategory, accentColor: e.target.value})}
-                                    className="flex-1 bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all uppercase"
-                                    placeholder="#000000"
-                                  />
+
+                            {/* تخصيص لون القسم الفرعي */}
+                            <div className="p-4 sm:p-6 bg-gray-50 rounded-2xl sm:rounded-[28px] border-2 border-gray-100 space-y-4">
+                              <div className="flex items-center justify-between">
+                                <div className="flex flex-col gap-0.5">
+                                  <span className="text-xs sm:text-sm font-black text-gray-900">تخصيص لون القسم الفرعي</span>
+                                  <span className="text-[10px] sm:text-xs text-gray-500 font-medium">
+                                    {editingSubCategory.useCustomAccent ? 'استخدام لون مخصص يميز هذا القسم الفرعي' : 'استخدام لون الموقع الرئيسي الافتراضي'}
+                                  </span>
                                 </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingSubCategory({
+                                    ...editingSubCategory,
+                                    useCustomAccent: !editingSubCategory.useCustomAccent,
+                                    accentColor: !editingSubCategory.useCustomAccent && !editingSubCategory.accentColor ? '#3B82F6' : editingSubCategory.accentColor
+                                  })}
+                                  className={cn(
+                                    "w-12 h-7 sm:w-14 sm:h-8 rounded-full transition-all relative shrink-0",
+                                    editingSubCategory.useCustomAccent ? "bg-primary" : "bg-gray-300"
+                                  )}
+                                >
+                                  <div className={cn(
+                                    "absolute top-0.5 sm:top-1 w-6 h-6 bg-white rounded-full transition-all shadow-xs",
+                                    editingSubCategory.useCustomAccent ? "right-0.5 sm:right-1" : "right-5 sm:right-7"
+                                  )} />
+                                </button>
                               </div>
-                            )}
+
+                              {/* اختيار النمط: نفس لون الموقع أو لون مخصص */}
+                              <div className="grid grid-cols-2 gap-2 pt-1">
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingSubCategory({...editingSubCategory, useCustomAccent: false})}
+                                  className={cn(
+                                    "p-3 rounded-xl sm:rounded-2xl text-xs font-black border-2 transition-all flex items-center justify-center gap-2",
+                                    !editingSubCategory.useCustomAccent
+                                      ? "bg-white border-primary text-primary shadow-xs"
+                                      : "bg-gray-100/70 border-transparent text-gray-500 hover:bg-white/60"
+                                  )}
+                                >
+                                  <span className="w-2.5 h-2.5 rounded-full bg-primary" />
+                                  <span>لون الموقع الرئيسي</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingSubCategory({
+                                    ...editingSubCategory,
+                                    useCustomAccent: true,
+                                    accentColor: editingSubCategory.accentColor || '#3B82F6'
+                                  })}
+                                  className={cn(
+                                    "p-3 rounded-xl sm:rounded-2xl text-xs font-black border-2 transition-all flex items-center justify-center gap-2",
+                                    editingSubCategory.useCustomAccent
+                                      ? "bg-white border-primary text-primary shadow-xs"
+                                      : "bg-gray-100/70 border-transparent text-gray-500 hover:bg-white/60"
+                                  )}
+                                >
+                                  <span 
+                                    className="w-2.5 h-2.5 rounded-full" 
+                                    style={{ backgroundColor: editingSubCategory.accentColor || '#3B82F6' }} 
+                                  />
+                                  <span>لون مخصص للقسم</span>
+                                </button>
+                              </div>
+
+                              {editingSubCategory.useCustomAccent && (
+                                <div className="space-y-3 pt-2 border-t border-gray-200/60">
+                                  <label className="text-xs sm:text-sm font-bold text-gray-900 block">اختر اللون المخصص</label>
+                                  
+                                  {/* لوحة ألوان سريعة */}
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    {[
+                                      { name: 'أزرق', hex: '#2563EB' },
+                                      { name: 'بنفسجي', hex: '#7C3AED' },
+                                      { name: 'وردي', hex: '#EC4899' },
+                                      { name: 'أحمر', hex: '#EF4444' },
+                                      { name: 'برتقالي', hex: '#F97316' },
+                                      { name: 'كهرماني', hex: '#F59E0B' },
+                                      { name: 'أخضر زمردي', hex: '#10B981' },
+                                      { name: 'فيروزي', hex: '#06B6D4' },
+                                      { name: 'رمادي داكن', hex: '#374151' },
+                                    ].map((palette) => (
+                                      <button
+                                        key={palette.hex}
+                                        type="button"
+                                        onClick={() => setEditingSubCategory({...editingSubCategory, accentColor: palette.hex})}
+                                        className={cn(
+                                          "w-7 h-7 sm:w-8 sm:h-8 rounded-full transition-all border-2 flex items-center justify-center",
+                                          editingSubCategory.accentColor === palette.hex 
+                                            ? "border-gray-900 scale-110 shadow-sm ring-2 ring-primary/30" 
+                                            : "border-white hover:scale-105"
+                                        )}
+                                        style={{ backgroundColor: palette.hex }}
+                                        title={palette.name}
+                                      >
+                                        {editingSubCategory.accentColor === palette.hex && (
+                                          <Check size={12} className="text-white drop-shadow-xs" />
+                                        )}
+                                      </button>
+                                    ))}
+                                  </div>
+
+                                  {/* Color Picker و Hex input */}
+                                  <div className="flex items-center gap-3">
+                                    <input
+                                      type="color"
+                                      value={editingSubCategory.accentColor || '#3B82F6'}
+                                      onChange={(e) => setEditingSubCategory({...editingSubCategory, accentColor: e.target.value})}
+                                      className="w-10 h-10 sm:w-12 sm:h-12 cursor-pointer rounded-xl border-2 border-gray-200 shadow-xs bg-white p-1"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={editingSubCategory.accentColor || ''}
+                                      onChange={(e) => setEditingSubCategory({...editingSubCategory, accentColor: e.target.value})}
+                                      className="flex-1 bg-white border-2 border-gray-200 rounded-xl sm:rounded-2xl px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-bold outline-none focus:border-primary transition-all uppercase"
+                                      placeholder="#3B82F6"
+                                    />
+                                    <div 
+                                      className="px-3 py-2 rounded-xl text-white font-bold text-xs shadow-xs shrink-0 flex items-center gap-1.5"
+                                      style={{ backgroundColor: editingSubCategory.accentColor || '#3B82F6' }}
+                                    >
+                                      <span>معاينة اللون</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
                             <div className="flex items-center justify-between p-4 sm:p-6 bg-gray-50 rounded-2xl sm:rounded-[28px] border-2 border-gray-100">
                               <span className="text-xs sm:text-sm font-bold text-gray-900">زر مشاركة المحتوى (إظهار/إخفاء)</span>
                               <button
@@ -5787,6 +5685,16 @@ export default function AdminPage() {
                                 onChange={(e) => setEditingItem({...editingItem, title: e.target.value})}
                                 className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all"
                                 required
+                              />
+                            </div>
+                            <div className="space-y-2 sm:space-y-3">
+                              <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">ترتيب المنشور (رقم تسلسلي، 0 للأول)</label>
+                              <input
+                                type="number"
+                                value={editingItem.order ?? ''}
+                                onChange={(e) => setEditingItem({...editingItem, order: e.target.value === '' ? '' : parseInt(e.target.value)})}
+                                placeholder="0, 1, 2..."
+                                className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold outline-none focus:border-primary/30 focus:bg-white transition-all"
                               />
                             </div>
                             {/* Conditional Rendering Based on Style */}
@@ -5986,15 +5894,140 @@ export default function AdminPage() {
                               )}
                               {/* Prompt for Style 5 */}
                               {currentParentStyle === 'style5' && (
-                                <div className="space-y-2 sm:space-y-3">
-                                  <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2">نص البرومبت (Prompt)</label>
-                                  <textarea
-                                    value={editingItem.prompt || ''}
-                                    onChange={(e) => setEditingItem({...editingItem, prompt: e.target.value})}
-                                    className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-mono h-32 resize-none outline-none focus:border-primary/30 focus:bg-white transition-all"
-                                    placeholder="اكتب البرومبت هنا..."
-                                    dir="ltr"
-                                  />
+                                <div className="space-y-4">
+                                  <div className="space-y-2 sm:space-y-3">
+                                    <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2 flex items-center justify-between">
+                                      <span>نص البرومبت (Prompt)</span>
+                                      <span className="text-[10px] text-primary font-normal">النص الإنجليزي أو العربي المطلوب نسخه</span>
+                                    </label>
+                                    <textarea
+                                      value={editingItem.prompt || ''}
+                                      onChange={(e) => setEditingItem({...editingItem, prompt: e.target.value})}
+                                      className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-mono h-32 resize-none outline-none focus:border-primary/30 focus:bg-white transition-all"
+                                      placeholder="اكتب البرومبت هنا..."
+                                      dir="ltr"
+                                    />
+                                  </div>
+
+                                  {/* Details & Instructions for Prompt */}
+                                  <div className="space-y-2 sm:space-y-3">
+                                    <label className="text-xs sm:text-sm font-bold text-gray-900 mr-2 flex items-center justify-between">
+                                      <span className="flex items-center gap-1.5">
+                                        <BookOpen className="w-4 h-4 text-primary" />
+                                        تفاصيل وتعليمات استخدام البرومبت
+                                      </span>
+                                      <span className="text-[10px] text-gray-400 font-normal">إرشادات التوليد، الإعدادات، والخيارات</span>
+                                    </label>
+                                    <textarea
+                                      value={editingItem.promptInstructions || ''}
+                                      onChange={(e) => setEditingItem({...editingItem, promptInstructions: e.target.value})}
+                                      className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-medium h-24 resize-none outline-none focus:border-primary/30 focus:bg-white transition-all text-right"
+                                      placeholder="مثال: يفضل استخدام نسبة أبعاد --ar 16:9، ووضع جودة عالية. قم بتعديل الكلمات بين الأقواس لتناسب موضوعك..."
+                                    />
+                                  </div>
+
+                                  {/* Used Applications */}
+                                  <div className="space-y-3 bg-gray-50/80 p-4 rounded-2xl border border-gray-100">
+                                    <label className="text-xs sm:text-sm font-bold text-gray-900 flex items-center justify-between">
+                                      <span className="flex items-center gap-1.5">
+                                        <Sparkles className="w-4 h-4 text-amber-500" />
+                                        التطبيقات والمنصات المستخدمة
+                                      </span>
+                                      <span className="text-[10px] text-gray-400 font-normal">اختر التطبيقات أو أضف تطبيقاً مخصصاً</span>
+                                    </label>
+                                    
+                                    {/* Quick Select Pills */}
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {POPULAR_PROMPT_APPS.map(appName => {
+                                        const isSelected = Array.isArray(editingItem.usedApps) && editingItem.usedApps.includes(appName);
+                                        return (
+                                          <button
+                                            key={appName}
+                                            type="button"
+                                            onClick={() => {
+                                              const current = Array.isArray(editingItem.usedApps) ? [...editingItem.usedApps] : [];
+                                              if (current.includes(appName)) {
+                                                setEditingItem({ ...editingItem, usedApps: current.filter(a => a !== appName) });
+                                              } else {
+                                                setEditingItem({ ...editingItem, usedApps: [...current, appName] });
+                                              }
+                                            }}
+                                            className={cn(
+                                              "text-xs px-3 py-1.5 rounded-xl font-bold transition-all border",
+                                              isSelected 
+                                                ? "bg-primary text-white border-primary shadow-sm" 
+                                                : "bg-white text-gray-700 border-gray-200 hover:border-primary/40 hover:bg-primary/5"
+                                            )}
+                                          >
+                                            {isSelected && <Check className="w-3 h-3 inline-block ml-1" />}
+                                            {appName}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+
+                                    {/* Custom app input */}
+                                    <div className="flex items-center gap-2 pt-1">
+                                      <input
+                                        type="text"
+                                        value={customAppInput}
+                                        onChange={(e) => setCustomAppInput(e.target.value)}
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            if (customAppInput.trim()) {
+                                              const current = Array.isArray(editingItem.usedApps) ? [...editingItem.usedApps] : [];
+                                              if (!current.includes(customAppInput.trim())) {
+                                                setEditingItem({ ...editingItem, usedApps: [...current, customAppInput.trim()] });
+                                              }
+                                              setCustomAppInput('');
+                                            }
+                                          }
+                                        }}
+                                        placeholder="أو اكتب اسم تطبيق آخر واضغط إضافة..."
+                                        className="flex-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-primary"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          if (customAppInput.trim()) {
+                                            const current = Array.isArray(editingItem.usedApps) ? [...editingItem.usedApps] : [];
+                                            if (!current.includes(customAppInput.trim())) {
+                                              setEditingItem({ ...editingItem, usedApps: [...current, customAppInput.trim()] });
+                                            }
+                                            setCustomAppInput('');
+                                          }
+                                        }}
+                                        className="bg-gray-900 hover:bg-black text-white text-xs font-bold px-3 py-2 rounded-xl transition-all"
+                                      >
+                                        إضافة
+                                      </button>
+                                    </div>
+
+                                    {/* Selected custom tags list if any not in popular list */}
+                                    {(Array.isArray(editingItem.usedApps) ? editingItem.usedApps : []).filter((a: string) => !POPULAR_PROMPT_APPS.includes(a)).length > 0 && (
+                                      <div className="flex flex-wrap gap-1.5 pt-1">
+                                        {(editingItem.usedApps || []).filter((a: string) => !POPULAR_PROMPT_APPS.includes(a)).map((customApp: string) => (
+                                          <span
+                                            key={customApp}
+                                            className="bg-primary/10 text-primary border border-primary/20 text-xs px-2.5 py-1 rounded-xl font-bold flex items-center gap-1"
+                                          >
+                                            {customApp}
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                const current = Array.isArray(editingItem.usedApps) ? [...editingItem.usedApps] : [];
+                                                setEditingItem({ ...editingItem, usedApps: current.filter(a => a !== customApp) });
+                                              }}
+                                              className="hover:text-red-500"
+                                            >
+                                              <X className="w-3 h-3" />
+                                            </button>
+                                          </span>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
                               )}
                               {/* App Store Style Fields (Style 3) */}
@@ -6092,6 +6125,108 @@ export default function AdminPage() {
                                   </div>
                                 </div>
                               )}
+
+                              {/* Materials & Attachments Section (الخامات وملحقات التصميم) */}
+                              <div className="bg-amber-50/40 border-2 border-amber-200/60 rounded-2xl sm:rounded-3xl p-4 sm:p-5 space-y-4">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2.5">
+                                    <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center font-bold">
+                                      <Layers size={18} />
+                                    </div>
+                                    <div>
+                                      <h4 className="text-xs sm:text-sm font-black text-gray-900 flex items-center gap-2">
+                                        تفعيل الخامات والملحقات
+                                        {editingItem.hasMaterials && (
+                                          <span className="text-[10px] bg-amber-500 text-white px-2 py-0.5 rounded-full font-bold">
+                                            مُفعلة
+                                          </span>
+                                        )}
+                                      </h4>
+                                      <p className="text-[10px] text-gray-500">
+                                        تفعيل أو تعطيل قسم تحميل الخامات لهذا المنشور تحديداً
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  {/* Toggle Switch */}
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingItem({
+                                      ...editingItem,
+                                      hasMaterials: !editingItem.hasMaterials
+                                    })}
+                                    className={cn(
+                                      "w-11 h-6 rounded-full transition-all relative flex-shrink-0",
+                                      editingItem.hasMaterials ? "bg-amber-500" : "bg-gray-300"
+                                    )}
+                                  >
+                                    <div className={cn(
+                                      "absolute top-1 w-4 h-4 bg-white rounded-full transition-all shadow-sm",
+                                      editingItem.hasMaterials ? "right-6" : "right-1"
+                                    )} />
+                                  </button>
+                                </div>
+
+                                {editingItem.hasMaterials && (
+                                  <motion.div
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: 'auto' }}
+                                    className="pt-2 border-t border-amber-200/50 space-y-3"
+                                  >
+                                    <div className="space-y-1.5">
+                                      <div className="flex items-center justify-between">
+                                        <label className="text-xs font-bold text-gray-900 mr-1 flex items-center gap-1.5">
+                                          <span>رابط تحميل الخامات</span>
+                                          <span className="text-[10px] text-amber-700 font-normal">(MediaFire, Google Drive, Mega, Pinterest...)</span>
+                                        </label>
+                                        {resolvingPinterestField === 'materialsUrl' && (
+                                          <span className="text-[10px] font-bold text-amber-600 flex items-center gap-1 animate-pulse">
+                                            <RefreshCw className="w-2.5 h-2.5 animate-spin" />
+                                            تحويل بينترست...
+                                          </span>
+                                        )}
+                                      </div>
+                                      <input
+                                        type="url"
+                                        value={editingItem.materialsUrl || ''}
+                                        onChange={(e) => {
+                                          const val = e.target.value;
+                                          setEditingItem({...editingItem, materialsUrl: val});
+                                          handleUrlAutoConvert(val, 'materialsUrl', (directUrl) => {
+                                            setEditingItem((prev: any) => ({...prev, materialsUrl: directUrl}));
+                                          });
+                                        }}
+                                        className="w-full bg-white border-2 border-amber-100 rounded-xl px-4 py-2.5 text-xs font-bold outline-none focus:border-amber-400 transition-all font-mono"
+                                        placeholder="https://..."
+                                        dir="ltr"
+                                      />
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                      <div className="space-y-1">
+                                        <label className="text-[11px] font-bold text-gray-700 mr-1">نص زر الخامات</label>
+                                        <input
+                                          type="text"
+                                          value={editingItem.materialsLabel || ''}
+                                          onChange={(e) => setEditingItem({...editingItem, materialsLabel: e.target.value})}
+                                          className="w-full bg-white border-2 border-amber-100 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-amber-400"
+                                          placeholder="مثال: تحميل ملف الخامات (ZIP)"
+                                        />
+                                      </div>
+                                      <div className="space-y-1">
+                                        <label className="text-[11px] font-bold text-gray-700 mr-1">وصف أو تفاصيل الخامات</label>
+                                        <input
+                                          type="text"
+                                          value={editingItem.materialsDescription || ''}
+                                          onChange={(e) => setEditingItem({...editingItem, materialsDescription: e.target.value})}
+                                          className="w-full bg-white border-2 border-amber-100 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-amber-400"
+                                          placeholder="مثال: صور بدقة 4K، ملحقات PNG بدون خلفية"
+                                        />
+                                      </div>
+                                    </div>
+                                  </motion.div>
+                                )}
+                              </div>
                             </div>
                             <div className="grid grid-cols-2 gap-3 sm:gap-4">
                               {(currentParentStyle === 'style5') && (

@@ -1,19 +1,21 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ShieldCheck, LogIn, ChevronLeft, Home, Palette, Info, Crown, Settings, User, LayoutGrid, HelpCircle, MessageSquare, Share2, LogOut, Rocket, Zap, Sparkles, Wand2, Scissors, Maximize2, ArrowRight, Key, Contrast, QrCode, Calculator, Type, Download, Smartphone } from 'lucide-react';
+import { X, ShieldCheck, LogIn, ChevronLeft, Home, Palette, Info, Crown, Settings, User, LayoutGrid, HelpCircle, MessageSquare, Share2, LogOut, Rocket, Zap, Sparkles, Wand2, Scissors, Maximize2, ArrowRight, Key, Contrast, QrCode, Calculator, Type, Download, BookOpen, ExternalLink, Database } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { useAuth, useDoc } from '@/hooks/useFirebase';
+import { useAuth, useDoc, useCollection } from '@/hooks/useFirebase';
 import { useState, useEffect, Fragment } from 'react';
 import { cn } from '@/lib/utils';
 import { useCategories } from '@/components/providers/CategoryProvider';
 import LoginModal from './LoginModal';
 import AboutModal from './AboutModal';
 import AppShareModal, { triggerAppShare } from './AppShareModal';
+import CacheManagerModal from './CacheManagerModal';
 import SocialLinks from './SocialLinks';
 import { useTool } from './providers/ToolProvider';
+import { getPageIcon } from '@/lib/pageIcons';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -26,12 +28,20 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { openTool } = useTool();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
+  const [isCacheModalOpen, setIsCacheModalOpen] = useState(false);
   const [logoClicks, setLogoClicks] = useState(0);
   const router = useRouter();
 
   const { data: generalConfig } = useDoc('appConfig', 'general');
   const { data: aboutConfig } = useDoc('appConfig', 'about');
   const { data: shareConfig } = useDoc('appConfig', 'share');
+  const { data: blogs } = useCollection('blogs');
+  const { data: rawPages } = useCollection('pages');
+
+  const hasBlog = (blogs as any[] || []).some((b: any) => b.enabled !== false);
+  const activeCustomPages = ((rawPages as any[]) || [])
+    .filter((p: any) => p.isActive !== false)
+    .sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0));
 
   const configuredAppName = generalConfig?.appName || aboutConfig?.appName || aboutConfig?.title || "رفيق المصمم";
   const words = configuredAppName.trim().split(/\s+/);
@@ -51,12 +61,14 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   const mainNav = [
     { label: 'الرئيسية', href: '/home', icon: Home },
+    ...(hasBlog ? [{ label: 'المدونة', href: '/blog', icon: BookOpen }] : []),
   ];
 
   const infoNav = [
     ...(shareConfig?.enabled !== false ? [{ label: 'مشاركة التطبيق', action: 'share', icon: Share2 }] : []),
     { label: 'حول التطبيق', href: '/about', icon: Info },
     { label: 'تواصل معنا', href: '/contact', icon: MessageSquare },
+    { label: 'الذاكرة المؤقتة والحفظ', action: 'cache', icon: Database },
   ];
 
   return (
@@ -118,11 +130,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             <div className="flex-1 bg-white rounded-t-[3rem] shadow-[0_-20px_60px_rgba(0,0,0,0.15)] overflow-hidden flex flex-col min-h-0">
               <div className="flex-1 overflow-y-auto py-8 px-6 custom-scrollbar space-y-6">
                 
-                {/* Main Navigation & PWA Install */}
+                {/* Main Navigation */}
                 <section className="space-y-3">
                   <ul className="space-y-2">
                     {mainNav.map((item) => (
-                      <li key={item.href}>
+                      <li key={item.label}>
                         <Link 
                           href={item.href}
                           onClick={onClose}
@@ -146,6 +158,74 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                   </ul>
                 </section>
 
+                {/* Custom Pages Added from Admin Panel */}
+                {activeCustomPages.length > 0 && (
+                  <section className="space-y-1.5">
+                    <ul className="space-y-1.5">
+                      {activeCustomPages.map((page: any) => {
+                        const PageIconComp = getPageIcon(page.icon);
+                        const rawUrl = (page.url || '').trim();
+                        const isExternal = Boolean(rawUrl);
+                        const targetUrl = isExternal
+                          ? (rawUrl.startsWith('http://') || rawUrl.startsWith('https://') ? rawUrl : `https://${rawUrl}`)
+                          : `/p/${page.slug || page.id}`;
+
+                        if (isExternal) {
+                          return (
+                            <li key={page.id || page.title}>
+                              <a
+                                href={targetUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={onClose}
+                                className={cn(
+                                  "flex items-center justify-between group py-3 px-4 rounded-2xl transition-all duration-300",
+                                  "hover:bg-gray-50 hover:shadow-xs"
+                                )}
+                              >
+                                <div className="flex items-center gap-3.5 min-w-0">
+                                  <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-primary/10 group-hover:text-primary transition-all shrink-0">
+                                    <PageIconComp size={20} />
+                                  </div>
+                                  <span className="text-sm font-bold text-gray-700 transition-colors group-hover:text-primary truncate">
+                                    {page.title}
+                                  </span>
+                                </div>
+                                <ChevronLeft size={16} className="text-gray-300 transition-all group-hover:translate-x-[-4px] group-hover:text-primary shrink-0" />
+                              </a>
+                            </li>
+                          );
+                        }
+
+                        return (
+                          <li key={page.id || page.slug}>
+                            <Link
+                              href={targetUrl}
+                              onClick={onClose}
+                              className={cn(
+                                "flex items-center justify-between group py-3 px-4 rounded-2xl transition-all duration-300",
+                                "hover:bg-gray-50 hover:shadow-xs"
+                              )}
+                            >
+                              <div className="flex items-center gap-3.5 min-w-0">
+                                <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-white group-hover:shadow-sm transition-all shrink-0">
+                                  <div className="group-hover:text-primary transition-colors">
+                                    <PageIconComp size={20} />
+                                  </div>
+                                </div>
+                                <span className="text-sm font-bold text-gray-600 transition-colors group-hover:text-primary truncate">
+                                  {page.title}
+                                </span>
+                              </div>
+                              <ChevronLeft size={16} className="text-gray-300 transition-all group-hover:translate-x-[-4px] group-hover:text-primary shrink-0" />
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </section>
+                )}
+
                 {/* Info & Contact */}
                 <section>
                   <ul className="space-y-2">
@@ -156,6 +236,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                             onClose();
                             if (item.action === 'share') {
                               triggerAppShare();
+                            } else if (item.action === 'cache') {
+                              setIsCacheModalOpen(true);
                             } else if (item.href === '/about') {
                               setIsAboutModalOpen(true);
                             } else if (item.href) {
@@ -232,6 +314,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     </AnimatePresence>
       <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
       <AboutModal isOpen={isAboutModalOpen} onClose={() => setIsAboutModalOpen(false)} />
+      <CacheManagerModal isOpen={isCacheModalOpen} onClose={() => setIsCacheModalOpen(false)} />
     </>
   );
 }

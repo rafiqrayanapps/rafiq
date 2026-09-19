@@ -6,6 +6,7 @@ export interface Category {
   parentId?: string;
   order?: number;
   visibility?: 'public';
+  isHidden?: boolean;
   isUnderMaintenance?: boolean;
   showShareButton?: boolean;
   fileTypes?: string;
@@ -33,6 +34,12 @@ export interface ContentItem {
   extraLinks?: Array<{ label?: string; url: string }>;
   sourceUrl?: string;
   prompt?: string;
+  promptInstructions?: string;
+  usedApps?: string[];
+  hasMaterials?: boolean;
+  materialsUrl?: string;
+  materialsLabel?: string;
+  materialsDescription?: string;
   showCopyButton?: boolean;
   showDownloadButton?: boolean;
   showShareButton?: boolean;
@@ -68,4 +75,52 @@ export interface WhitelistEntry {
   email: string;
   role: 'admin' | 'editor' | 'user';
   activatedByUid?: string;
+}
+
+export interface Blog {
+  id: string;
+  name: string;
+  url: string;
+  feedUrl: string;
+  enabled: boolean;
+  postCount?: number;
+  lastSync?: string;
+  lastStatus?: 'success' | 'error' | 'syncing';
+  lastError?: string;
+  description?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface BlogPost {
+  id: string;
+  blogId: string;
+  blogName: string;
+  externalId: string;
+  title: string;
+  slug?: string;
+  excerpt: string;
+  content: string;
+  featuredImage?: string;
+  images?: string[];
+  publishedAt: string;
+  updatedAt?: string;
+  originalUrl: string;
+  labels: string[];
+  author?: string;
+  createdAt?: string;
+}
+
+export interface CustomPage {
+  id: string;
+  title: string;
+  url: string; // الرابط الخارجي للصفحة
+  icon?: string;
+  isActive: boolean;
+  order?: number;
+  slug?: string;
+  content?: string;
+  description?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }

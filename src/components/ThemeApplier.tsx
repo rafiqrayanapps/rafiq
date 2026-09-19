@@ -17,6 +17,9 @@ export default function ThemeApplier() {
       if (cached) {
         try {
           const parsed = JSON.parse(cached);
+          if (parsed && parsed.customCss) {
+            delete parsed.customCss;
+          }
           setActiveTheme(parsed);
         } catch (e) {
           console.error("Error parsing cached theme", e);
@@ -28,8 +31,12 @@ export default function ThemeApplier() {
   // 2. Save fetched Firestore theme to localStorage and set it as active
   useEffect(() => {
     if (theme) {
-      localStorage.setItem('cached-app-theme', JSON.stringify(theme));
-      setActiveTheme(theme);
+      const sanitizedTheme = { ...theme };
+      if (sanitizedTheme.customCss) {
+        delete sanitizedTheme.customCss;
+      }
+      localStorage.setItem('cached-app-theme', JSON.stringify(sanitizedTheme));
+      setActiveTheme(sanitizedTheme);
     }
   }, [theme]);
 
@@ -175,16 +182,10 @@ export default function ThemeApplier() {
     // Initial theme mode application
     applyThemeMode();
 
-    // Apply custom CSS if it exists
+    // Ensure any legacy custom CSS style element is removed
     const existingCustomStyle = document.getElementById('custom-theme-css');
     if (existingCustomStyle) {
       existingCustomStyle.remove();
-    }
-    if (activeTheme.customCss) {
-      const styleEl = document.createElement('style');
-      styleEl.id = 'custom-theme-css';
-      styleEl.innerHTML = activeTheme.customCss;
-      document.head.appendChild(styleEl);
     }
 
     // Set listeners if autoTheme is active

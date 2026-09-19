@@ -1,7 +1,7 @@
 'use client';
 import { useState, useMemo, useRef, useEffect, Fragment } from 'react';
 import Image from 'next/image';
-import { Heart, Download, Music, Play, Pause, RefreshCw, Copy, X } from 'lucide-react';
+import { Heart, Download, Music, Play, Pause, RefreshCw, Copy, X, Layers, Sparkles, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
@@ -144,7 +144,6 @@ export default function FavoritesTab() {
   const { toast } = useToast();
   const [activeAudioId, setActiveAudioId] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [selectedAiTool, setSelectedAiTool] = useState<any>(null);
 
   const toggleFavorite = (item: any) => {
     setFavorites(prev => prev.filter(f => f.id !== item.id));
@@ -296,6 +295,7 @@ export default function FavoritesTab() {
         case 'style5': {
             const hasDownload = !!item.downloadUrl && item.showDownloadButton !== false;
             const hasCopy = item.showCopyButton !== false;
+            const hasMaterials = !!item.hasMaterials && !!item.materialsUrl;
 
             return (
                 <div key={`${item.id}-${idx}`} className="bg-card rounded-[2.5rem] overflow-hidden shadow-xl border-4 border-white/5 animate-in fade-in zoom-in-95 duration-500">
@@ -327,10 +327,25 @@ export default function FavoritesTab() {
                                                 triggerFileDownload(item.downloadUrl, item.title);
                                             }
                                         }}
-                                        title="تحميل الملف"
+                                        title={item.downloadUrlLabel || "تحميل الملف"}
                                         className="h-10 w-10 rounded-full hover:bg-primary/10 text-primary"
                                     >
                                         <Download className="h-5 w-5" />
+                                    </Button>
+                                )}
+                                {hasMaterials && (
+                                    <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        onClick={() => {
+                                            if (item.materialsUrl) {
+                                                triggerFileDownload(item.materialsUrl, item.materialsLabel || `${item.title} - خامات`);
+                                            }
+                                        }}
+                                        title={item.materialsLabel || "تحميل الخامات"}
+                                        className="h-10 w-10 rounded-full hover:bg-amber-500/10 text-amber-600"
+                                    >
+                                        <Layers className="h-5 w-5" />
                                     </Button>
                                 )}
                                 {hasCopy && (!hasDownload || item.showCopyButton === true) && (
@@ -347,8 +362,41 @@ export default function FavoritesTab() {
                                         <Copy className="h-5 w-5" />
                                     </Button>
                                 )}
+                                <QuickShareButton item={item} variant="ghost" size="icon" className="h-10 w-10 rounded-full hover:bg-primary/10 text-primary" />
                             </div>
                         </div>
+
+                        {/* Used Applications */}
+                        {Array.isArray(item.usedApps) && item.usedApps.length > 0 && (
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-[11px] font-bold text-muted-foreground flex items-center gap-1 ml-1">
+                                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                                    التطبيقات:
+                                </span>
+                                {item.usedApps.map((app, appIdx) => (
+                                    <span 
+                                        key={appIdx}
+                                        className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-primary/10 text-primary border border-primary/20"
+                                    >
+                                        {app}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Prompt Instructions */}
+                        {item.promptInstructions && (
+                            <div className="bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30 rounded-2xl p-3.5 space-y-1">
+                                <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 font-bold text-xs">
+                                    <Info className="w-4 h-4" />
+                                    <span>تعليمات الاستخدام والتوليد</span>
+                                </div>
+                                <p className="text-xs text-foreground/80 leading-relaxed whitespace-pre-line text-right pr-5">
+                                    {item.promptInstructions}
+                                </p>
+                            </div>
+                        )}
+
                         <div className="relative group flex flex-col gap-3">
                             {item.prompt && (
                                 <Textarea 
@@ -359,7 +407,53 @@ export default function FavoritesTab() {
                                     dir="ltr" 
                                 />
                             )}
-                            <div className="flex items-center justify-end gap-2">
+
+                            {/* Materials Banner if enabled */}
+                            {hasMaterials && (
+                                <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-3 flex items-center justify-between gap-3">
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                        <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center flex-shrink-0">
+                                            <Layers className="w-4 h-4" />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <div className="text-xs font-black text-amber-700 dark:text-amber-400 truncate">
+                                                {item.materialsLabel || "خامات وملحقات التصميم"}
+                                            </div>
+                                            {item.materialsDescription && (
+                                                <div className="text-[10px] text-muted-foreground truncate">
+                                                    {item.materialsDescription}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            if (item.materialsUrl) {
+                                                triggerFileDownload(item.materialsUrl, item.materialsLabel || `${item.title} - خامات`);
+                                            }
+                                        }}
+                                        className="h-8 px-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 flex-shrink-0 shadow-sm active:scale-95 transition-all"
+                                    >
+                                        <Download className="h-3 w-3" />
+                                        تحميل
+                                    </button>
+                                </div>
+                            )}
+
+                            <div className="flex items-center justify-end gap-2 flex-wrap">
+                                {hasMaterials && (
+                                    <button 
+                                        onClick={() => {
+                                            if (item.materialsUrl) {
+                                                triggerFileDownload(item.materialsUrl, item.materialsLabel || `${item.title} - خامات`);
+                                            }
+                                        }}
+                                        className="h-10 px-4 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg active:scale-95 transition-transform"
+                                    >
+                                        <Layers className="h-3.5 w-3.5" />
+                                        {item.materialsLabel || "تحميل الخامات"}
+                                    </button>
+                                )}
                                 {hasDownload && (
                                     <button 
                                         onClick={() => {
@@ -370,7 +464,7 @@ export default function FavoritesTab() {
                                         className="h-10 px-4 bg-primary text-primary-foreground rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg active:scale-95 transition-transform"
                                     >
                                         <Download className="h-3.5 w-3.5" />
-                                        تحميل الملف
+                                        {item.downloadUrlLabel || "تحميل الملف"}
                                     </button>
                                 )}
                                 {hasCopy && (!hasDownload || item.showCopyButton === true) && (
@@ -381,7 +475,7 @@ export default function FavoritesTab() {
                                         }}
                                         className={cn(
                                             "h-10 px-4 rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg active:scale-95 transition-transform",
-                                            hasDownload ? "bg-muted hover:bg-muted/80 text-foreground" : "bg-primary text-primary-foreground"
+                                            (hasDownload || hasMaterials) ? "bg-muted hover:bg-muted/80 text-foreground" : "bg-primary text-primary-foreground"
                                         )}
                                     >
                                         <Copy className="h-3.5 w-3.5" />
@@ -421,32 +515,6 @@ export default function FavoritesTab() {
                         </div>
                         <FavoriteButton isFavorite={isFav} onClick={(e) => { e.stopPropagation(); toggleFavorite(item); }} />
                     </div>
-                </div>
-            );
-        case 'style9': // AI Tools Style
-            return (
-                <div 
-                    key={`${item.id}-${idx}`} 
-                    className="flex flex-col gap-3 items-center group cursor-pointer animate-in fade-in zoom-in-95 duration-500"
-                    onClick={() => setSelectedAiTool(item)}
-                >
-                    <div className="relative w-full aspect-square bg-card rounded-[2.5rem] overflow-hidden shadow-lg border-4 border-white/5 transition-all duration-500 group-hover:shadow-primary/30">
-                        {item.imageUrl && (
-                            <div className="absolute inset-0 p-4 flex items-center justify-center">
-                                <div className="relative w-full h-full transform -rotate-12 group-hover:rotate-0 transition-transform duration-500">
-                                     <Image 
-                                        src={getDirectLink(item.imageUrl)} 
-                                        alt="" 
-                                        fill 
-                                        className="object-contain" 
-                                        referrerPolicy="no-referrer"
-                                    />
-                                </div>
-                            </div>
-                        )}
-                        <FavoriteButton isFavorite={isFav} onClick={(e) => { e.stopPropagation(); toggleFavorite(item); }} className="top-3 left-3 h-8 w-8" />
-                    </div>
-                    <h3 className="text-sm font-black text-center leading-tight group-hover:text-primary transition-colors">{item.title}</h3>
                 </div>
             );
         default:
@@ -527,59 +595,6 @@ export default function FavoritesTab() {
           <Button variant="ghost" size="icon" className="absolute top-4 right-4 text-white bg-black/40 hover:bg-black/60 rounded-full h-10 w-10 z-[100] backdrop-blur-md" onClick={() => setSelectedImage(null)}>
             <X className="h-6 w-6" />
           </Button>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={!!selectedAiTool} onOpenChange={() => setSelectedAiTool(null)}>
-        <DialogContent className="max-w-[90vw] sm:max-w-lg p-0 overflow-hidden bg-white rounded-[3rem] border-none shadow-2xl" dir="rtl">
-          <DialogTitle className="sr-only">{selectedAiTool?.title}</DialogTitle>
-          {selectedAiTool && (
-            <div className="flex flex-col">
-                <div className="relative aspect-video w-full">
-                    {selectedAiTool.imageUrl && (
-                        <Image 
-                            src={getDirectLink(selectedAiTool.imageUrl)} 
-                            alt="" 
-                            fill 
-                            className="object-cover" 
-                            referrerPolicy="no-referrer"
-                        />
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                    <button 
-                        onClick={() => setSelectedAiTool(null)}
-                        className="absolute top-4 right-4 h-10 w-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-white/40 transition-colors"
-                    >
-                        <X size={20} />
-                    </button>
-                </div>
-                <div className="p-8 space-y-6 text-right">
-                    <div className="space-y-2">
-                        <h2 className="text-2xl font-black text-gray-900">{selectedAiTool.title}</h2>
-                        <p className="text-gray-500 font-bold text-sm leading-relaxed">{selectedAiTool.description || 'أداة ذكاء اصطناعي احترافية للمصممين.'}</p>
-                    </div>
-                    
-                    <div className="flex flex-col gap-3">
-                        {selectedAiTool.sourceUrl && (
-                            <Button 
-                                className="w-full h-14 rounded-2xl font-black text-lg gap-3 shadow-lg shadow-primary/20"
-                                onClick={() => window.open(selectedAiTool.sourceUrl, '_blank')}
-                            >
-                                <Play className="h-5 w-5 rotate-180" />
-                                زيارة الموقع
-                            </Button>
-                        )}
-                        <Button 
-                            variant="secondary"
-                            className="w-full h-14 rounded-2xl font-black text-lg gap-3"
-                            onClick={() => setSelectedAiTool(null)}
-                        >
-                            إغلاق
-                        </Button>
-                    </div>
-                </div>
-            </div>
-          )}
         </DialogContent>
       </Dialog>
     </div>

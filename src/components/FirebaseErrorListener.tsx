@@ -14,7 +14,14 @@ export const FirebaseErrorListener = () => {
   useEffect(() => {
     const handlePermissionError = (error: any) => {
       const msg = error?.error || '';
+      const path = error?.path || '';
       const isQuota = msg.toLowerCase().includes('quota') || msg.toLowerCase().includes('exhausted');
+
+      // Do not block the user interface for public or gracefully-handled background paths
+      if (path === 'pages' || path.startsWith('pages/') || path.includes('customPages')) {
+        console.warn('Silently handled permission error for pages:', error);
+        return;
+      }
 
       if (isQuota) {
         setErrorDialog({
@@ -25,7 +32,7 @@ export const FirebaseErrorListener = () => {
       } else {
         setErrorDialog({
           title: "خطأ في الصلاحيات",
-          message: `ليس لديك صلاحية للقيام بهذه العملية: ${error.path}`,
+          message: `ليس لديك صلاحية للقيام بهذه العملية: ${path}`,
           type: 'permission'
         });
       }

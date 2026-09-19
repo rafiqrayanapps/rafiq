@@ -1,4 +1,4 @@
-import firebaseConfig from '../../firebase-applet-config.json';
+import { firebaseConfig } from '@/firebase/config';
 
 const projectId = firebaseConfig.projectId || 'rafiq-87f88';
 const apiKey = firebaseConfig.apiKey || '';
@@ -169,3 +169,88 @@ export async function updateFirestoreFields(path: string, fieldsObj: Record<stri
     return false;
   }
 }
+
+export async function queryFirestoreCollectionGroup(
+  collectionId: string,
+  limit = 100
+): Promise<any[]> {
+  try {
+    const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${databaseId}/documents:runQuery?key=${apiKey}`;
+    const body = {
+      structuredQuery: {
+        from: [{ collectionId, allDescendants: true }],
+        limit,
+      },
+    };
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      cache: 'no-store',
+    });
+
+    if (!res.ok) {
+      console.warn(`queryFirestoreCollectionGroup ${collectionId} returned status ${res.status}`);
+      return [];
+    }
+
+    const json = await res.json();
+    if (!Array.isArray(json)) return [];
+
+    const results: any[] = [];
+    for (const item of json) {
+      if (item.document) {
+        const parsed = parseFirestoreDoc(item.document);
+        // Extract subCategoryId from path if available
+        const docName = item.document.name || '';
+        const match = docName.match(/categories\/([^/]+)\/items/);
+        if (match && match[1] && !parsed.subCategoryId) {
+          parsed.subCategoryId = match[1];
+        }
+        results.push(parsed);
+      }
+    }
+    return results;
+  } catch (err) {
+    console.error(`queryFirestoreCollectionGroup error for ${collectionId}:`, err);
+    return [];
+  }
+}
+
+export async function setFirestoreDoc(path: string, data: Record<string, any>): Promise<boolean> {
+  try {
+    const url = `${BASE_URL}/${path}?key=${apiKey}`;
+    const fieldsMap: any = {};
+    for (const [k, v] of Object.entries(data)) {
+      if (k !== 'id') {
+        fieldsMap[k] = encodeFirestoreValue(v);
+      }
+    }
+
+    const res = await fetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fields: fieldsMap }),
+    });
+
+    return res.ok;
+  } catch (err) {
+    console.error(`setFirestoreDoc error for ${path}:`, err);
+    return false;
+  }
+}
+
+export async function deleteFirestoreDoc(path: string): Promise<boolean> {
+  try {
+    const url = `${BASE_URL}/${path}?key=${apiKey}`;
+    const res = await fetch(url, {
+      method: 'DELETE',
+    });
+    return res.ok;
+  } catch (err) {
+    console.error(`deleteFirestoreDoc error for ${path}:`, err);
+    return false;
+  }
+}
+

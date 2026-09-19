@@ -3,11 +3,6 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Global Default Deny
-    match /{document=**} {
-      allow read, write: if false;
-    }
-    
     function isSignedIn() {
       return request.auth != null;
     }
@@ -16,18 +11,40 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
     
-    function isAdmin() {
+    function isSuperAdmin() {
       return isSignedIn() && 
+             request.auth.token.email != null && 
+             request.auth.token.email_verified == true &&
+             (
+               request.auth.token.email.lower() == 'artbag.rayanapp@gmail.com' ||
+               request.auth.token.email == 'artbag.rayanapp@gmail.com'
+             );
+    }
+    
+    function isAdmin() {
+      return isSuperAdmin() || (
+             isSignedIn() && 
              request.auth.token.email != null &&
-             exists(/databases/$(database)/documents/whitelist/$(request.auth.token.email.lower())) &&
-             get(/databases/$(database)/documents/whitelist/$(request.auth.token.email.lower())).data.role == 'admin';
+             (
+               (exists(/databases/$(database)/documents/whitelist/$(request.auth.token.email.lower())) &&
+                get(/databases/$(database)/documents/whitelist/$(request.auth.token.email.lower())).data.role == 'admin') ||
+               (exists(/databases/$(database)/documents/whitelist/$(request.auth.token.email)) &&
+                get(/databases/$(database)/documents/whitelist/$(request.auth.token.email)).data.role == 'admin')
+             )
+      );
     }
 
     function isEditor() {
-      return isSignedIn() && 
+      return isSuperAdmin() || (
+             isSignedIn() && 
              request.auth.token.email != null &&
-             exists(/databases/$(database)/documents/whitelist/$(request.auth.token.email.lower())) &&
-             get(/databases/$(database)/documents/whitelist/$(request.auth.token.email.lower())).data.role == 'editor';
+             (
+               (exists(/databases/$(database)/documents/whitelist/$(request.auth.token.email.lower())) &&
+                get(/databases/$(database)/documents/whitelist/$(request.auth.token.email.lower())).data.role == 'editor') ||
+               (exists(/databases/$(database)/documents/whitelist/$(request.auth.token.email)) &&
+                get(/databases/$(database)/documents/whitelist/$(request.auth.token.email)).data.role == 'editor')
+             )
+      );
     }
 
     // --- Content Rules ---
@@ -43,18 +60,29 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // --- Affiliate Ads Rules ---
-    match /affiliateAds/{adId} {
+    // --- Blog and Posts Rules ---
+    match /blogs/{blogId} {
       allow read: if true;
       allow write: if isAdmin();
     }
 
-    // --- API Keys Rules (Admin-Only Access) ---
-    match /apiKeys/{keyId} {
-      allow read, write: if isAdmin();
+    match /posts/{postId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // --- Custom Pages Rules ---
+    match /pages/{pageId} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     match /subcategories/{subId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /subCategories/{subId} {
       allow read: if true;
       allow write: if isAdmin();
     }
@@ -66,11 +94,6 @@ service cloud.firestore {
 
     // --- App Configuration Rules ---
     match /appConfig/{docId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-
-    match /toolConfig/{docId} {
       allow read: if true;
       allow write: if isAdmin();
     }
@@ -89,12 +112,19 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
     }
+
+    // --- Push Notifications Tokens ---
+    match /fcmTokens/{token} {
+      allow read: if isAdmin();
+      allow create, update: if true;
+      allow delete: if isAdmin();
+    }
     
-    // --- User Data Rules ---
+    // --- User Data Rules (Hardened against IDOR & Privilege Escalation) ---
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
-      allow create: if isSignedIn() && request.auth.uid == userId;
-      allow update: if (isOwner(userId) || isAdmin());
+      allow create: if isOwner(userId) || isAdmin();
+      allow update: if (isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'points', 'status', 'createdAt'])) || isAdmin();
       allow delete: if isAdmin();
     }
 
@@ -102,17 +132,10 @@ service cloud.firestore {
       allow read, write: if isOwner(userId) || isAdmin();
     }
     
-    // --- Whitelist / Roles Rules ---
+    // --- Whitelist / Roles Rules (Protected against Information Disclosure) ---
     match /whitelist/{email} {
-      allow get: if isSignedIn() && (request.auth.token.email.lower() == email.lower() || isAdmin());
-      allow list: if isAdmin();
-      allow create: if isAdmin();
-      allow update: if isAdmin() || 
-                     (isSignedIn() && 
-                      request.resource.data.activatedByUid == request.auth.uid && 
-                      resource.data.activatedByUid == null &&
-                      request.resource.data.role == resource.data.role);
-      allow delete: if isAdmin();
+      allow read: if isSignedIn() && (request.auth.token.email.lower() == email.lower() || isAdmin());
+      allow write: if isAdmin();
     }
     
     match /used_invitations/{fingerprint} {

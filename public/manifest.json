@@ -1,19 +1,34 @@
 {
   "id": "/",
   "name": "رفيق المصمم",
-  "short_name": "رفيق المصمم",
-  "description": "التطبيق الشامل للمصممين والفرش والخلفيات والأدوات",
+  "short_name": "رفيق",
+  "description": "التطبيق الشامل للمصممين - ملحقات وتصاميم جاهزة، خطوط، خلفيات، وأدوات ذكاء اصطناعي",
   "lang": "ar",
   "dir": "rtl",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "display_override": ["standalone", "minimal-ui"],
-  "orientation": "portrait",
-  "theme_color": "#3B82F6",
+  "display_override": [
+    "standalone",
+    "window-controls-overlay",
+    "minimal-ui"
+  ],
+  "orientation": "portrait-primary",
+  "theme_color": "#2563EB",
   "background_color": "#ffffff",
-  "categories": ["design", "utilities", "productivity"],
+  "categories": [
+    "design",
+    "productivity",
+    "utilities",
+    "photo"
+  ],
   "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
     {
       "src": "/icon-192.png",
       "sizes": "192x192",
@@ -21,7 +36,7 @@
       "purpose": "any"
     },
     {
-      "src": "/icon-192.png",
+      "src": "/icon-192-maskable.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"
@@ -33,7 +48,7 @@
       "purpose": "any"
     },
     {
-      "src": "/icon-512.png",
+      "src": "/icon-512-maskable.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
@@ -45,29 +60,55 @@
       "purpose": "any"
     }
   ],
-  "screenshots": [
-    {
-      "src": "/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "form_factor": "wide",
-      "label": "شاشة الرئيسية - رفيق المصمم"
-    },
-    {
-      "src": "/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "واجهة الهاتف - رفيق المصمم"
-    }
-  ],
   "shortcuts": [
     {
       "name": "الرئيسية",
       "short_name": "الرئيسية",
-      "description": "الذهاب إلى الرئيسية",
-      "url": "/",
-      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+      "description": "الانتقال إلى الصفحة الرئيسية",
+      "url": "/home",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "الأقسام والملحقات",
+      "short_name": "الأقسام",
+      "description": "تصفح ملحقات التصميم والمشاريع",
+      "url": "/categories",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "أدوات الذكاء الاصطناعي",
+      "short_name": "الأدوات",
+      "description": "توليد الصور، إزالة الخلفية، وتنسيق الألوان",
+      "url": "/home?tab=tools",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "المدونة والشروحات",
+      "short_name": "المدونة",
+      "description": "شروحات ومقالات تصميم حصرية",
+      "url": "/blog",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     }
-  ]
+  ],
+  "prefer_related_applications": false
 }

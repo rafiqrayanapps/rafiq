@@ -3,7 +3,14 @@
 import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
-import { initializeFirestore, getFirestore, Firestore, setLogLevel } from 'firebase/firestore';
+import { 
+  initializeFirestore, 
+  getFirestore, 
+  Firestore, 
+  setLogLevel,
+  persistentLocalCache,
+  persistentMultipleTabManager
+} from 'firebase/firestore';
 
 // Set Firestore log level to silent to suppress benign temporary offline/reconnection console warnings
 try {
@@ -32,11 +39,21 @@ export const initializeFirebase = (() => {
 
     try {
       firestore = initializeFirestore(app, {
+        localCache: persistentLocalCache({
+          tabManager: persistentMultipleTabManager()
+        }),
         experimentalAutoDetectLongPolling: true,
         ignoreUndefinedProperties: true,
       }, dbId && dbId !== '(default)' ? dbId : undefined);
     } catch {
-      firestore = dbId && dbId !== '(default)' ? getFirestore(app, dbId) : getFirestore(app);
+      try {
+        firestore = initializeFirestore(app, {
+          experimentalAutoDetectLongPolling: true,
+          ignoreUndefinedProperties: true,
+        }, dbId && dbId !== '(default)' ? dbId : undefined);
+      } catch {
+        firestore = dbId && dbId !== '(default)' ? getFirestore(app, dbId) : getFirestore(app);
+      }
     }
 
     firebaseServices = {

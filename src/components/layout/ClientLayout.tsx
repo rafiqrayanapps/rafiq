@@ -13,11 +13,10 @@ import GlobalDialog from "@/components/GlobalDialog";
 import FloatingButton from "@/components/FloatingButton";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import BottomNav from "@/components/layout/BottomNav";
-import InterstitialAd from "@/components/InterstitialAd";
-import PopupAd from "@/components/PopupAd";
 import SiteMaintenanceGuard from "@/components/SiteMaintenanceGuard";
 import ChunkErrorListener from "@/components/ChunkErrorListener";
 import AppShareModal from "@/components/AppShareModal";
+import OfflineIndicator from "@/components/OfflineIndicator";
 import { useDoc } from '@/hooks/useFirebase';
 
 function SecurityApplier() {
@@ -94,10 +93,6 @@ export default function ClientLayout({
         <ToolProvider>
           <CategoryProvider>
               <SecurityApplier />
-              <Suspense fallback={null}>
-                <InterstitialAd />
-                <PopupAd />
-              </Suspense>
               <ServiceWorkerRegister />
               <ThemeApplier />
               <FontApplier />
@@ -105,6 +100,7 @@ export default function ClientLayout({
               <SiteMaintenanceGuard>
                 <GlobalDialog />
                 <PWAInstallModal />
+                <OfflineIndicator />
                 <FloatingButton />
                 <div className="relative min-h-screen flex flex-col">
                     <main className="flex-1">

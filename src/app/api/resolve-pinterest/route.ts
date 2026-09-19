@@ -134,25 +134,64 @@ export async function POST(req: NextRequest) {
     }
 
 
-    // Fetch the Pinterest page with standard browser headers
-    const fetchController = new AbortController();
-    const fetchTimeout = setTimeout(() => fetchController.abort(), 6000);
+    // Fetch the Pinterest page with safe redirect validation to prevent SSRF
+    let currentFetchUrl = targetUrl;
+    let response: Response | null = null;
+    let finalUrl = targetUrl;
 
-    const response = await fetch(targetUrl, {
-      method: 'GET',
-      redirect: 'follow',
-      signal: fetchController.signal,
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
-        'Accept':
-          'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-        'Accept-Language': 'ar,en-US,en;q=0.9',
-      },
-    });
-    clearTimeout(fetchTimeout);
+    for (let hop = 0; hop < 3; hop++) {
+      if (!isSafePinterestUrl(currentFetchUrl)) {
+        return NextResponse.json(
+          { success: false, error: 'إعادة توجيه إلى نطاق غير مصرح به.' },
+          { status: 400 }
+        );
+      }
 
-    const finalUrl = response.url || targetUrl;
+      const fetchController = new AbortController();
+      const fetchTimeout = setTimeout(() => fetchController.abort(), 6000);
+
+      try {
+        response = await fetch(currentFetchUrl, {
+          method: 'GET',
+          redirect: 'manual',
+          signal: fetchController.signal,
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+            'Accept':
+              'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+            'Accept-Language': 'ar,en-US,en;q=0.9',
+          },
+        });
+      } finally {
+        clearTimeout(fetchTimeout);
+      }
+
+      finalUrl = currentFetchUrl;
+
+      // Handle redirect
+      if (response.status >= 300 && response.status < 400) {
+        const location = response.headers.get('location');
+        if (!location) break;
+        let nextUrl = location.trim();
+        if (nextUrl.startsWith('/')) {
+          const parsed = new URL(currentFetchUrl);
+          nextUrl = `${parsed.origin}${nextUrl}`;
+        }
+        currentFetchUrl = nextUrl;
+        continue;
+      }
+
+      break;
+    }
+
+    if (!response || !response.ok) {
+      return NextResponse.json(
+        { success: false, error: 'تعذر تحميل صفحة Pinterest.' },
+        { status: 502 }
+      );
+    }
+
     const html = await response.text();
 
     let extractedUrl: string | null = null;
@@ -240,11 +279,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (!extractedUrl) {
+    if (!extractedUrl || !isSafePinterestUrl(extractedUrl)) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Could not extract direct image from Pinterest URL',
+          error: 'تعذر استخراج رابط صورة صالح وموثوق من Pinterest.',
           directUrl: rawUrl,
         },
         { status: 422 }

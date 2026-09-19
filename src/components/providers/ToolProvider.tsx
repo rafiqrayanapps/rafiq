@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import QuickToolsModal from '@/components/QuickToolsModal';
 
-type ToolType = 'contrast' | 'qr' | 'ratio' | 'lorem' | 'palette' | 'local-ai' | 'remove-bg' | null;
+type ToolType = 'contrast' | 'qr' | 'ratio' | 'lorem' | 'palette' | 'remove-bg' | null;
 
 interface ToolContextType {
   activeTool: ToolType;

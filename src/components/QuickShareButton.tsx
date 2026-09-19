@@ -44,6 +44,13 @@ export function getItemShareLinks(item: any): ShareLinkOption[] {
     });
   }
 
+  if (item.hasMaterials && item.materialsUrl) {
+    links.push({
+      label: item.materialsLabel || 'رابط تحميل الخامات',
+      url: item.materialsUrl,
+    });
+  }
+
   if (item.extraLinks && Array.isArray(item.extraLinks)) {
     item.extraLinks.forEach((linkObj: any, idx: number) => {
       if (typeof linkObj === 'string' && linkObj.trim()) {

@@ -15,7 +15,6 @@ import MaintenanceModal from '@/components/MaintenanceModal';
 import Sidebar from '@/components/Sidebar';
 import FavoritesTab from '@/components/tabs/FavoritesTab';
 import NotificationsTab from '@/components/tabs/NotificationsTab';
-import AdBanner from '@/components/AdBanner';
 import RedDotBadge, { checkCategoryIsNew, getLatestCategoryWithNewContent, useViewedCategories, markCategoryAsViewed } from '@/components/RedDotBadge';
 import ScrollReveal from '@/components/ScrollReveal';
 
@@ -36,7 +35,7 @@ function HomeContent() {
     // Robust selection: use main categories if they exist, otherwise use all categories as a backup
     let base = allMainCategories || [];
     if (base.length === 0 && allCategories && allCategories.length > 0) {
-      base = allCategories;
+      base = allCategories.filter(c => !c.parentId && !c.isHidden);
     }
     
     if (!searchTerm) return base;

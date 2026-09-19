@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useFirestore, useCollection, useDoc, useMemoFirebase, WithId } from '@/firebase';
 import { collection, query, doc, orderBy } from 'firebase/firestore';
 import type { Category as CategoryType, ContentItem } from '@/lib/definitions';
-import { ArrowLeft, Download, Search, Heart, Hammer, ExternalLink, PlayCircle, X, Music, Play, Pause, RefreshCw, Settings, Wrench, Package, Rocket, Copy, Check, ChevronLeft, ChevronRight, Star, ArrowDownToLine, Sparkles } from 'lucide-react';
+import { ArrowLeft, Download, Search, Heart, Hammer, ExternalLink, PlayCircle, X, Music, Play, Pause, RefreshCw, Settings, Wrench, Package, Rocket, Copy, Check, ChevronLeft, ChevronRight, Star, ArrowDownToLine, Sparkles, Layers, Info, ArrowUpDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -22,8 +22,6 @@ import CategorySkeleton from '@/components/skeletons/CategorySkeleton';
 import { useUserProfile } from '@/hooks/use-user-profile';
 import { useCategories } from '@/components/providers/CategoryProvider';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { AffiliateAdSlot, useAffiliateAds } from '@/components/ads/AffiliateAdsManager';
-import AdBanner from '@/components/AdBanner';
 import RedDotBadge, { checkCategoryIsNew, checkItemIsNew, getLatestCategoryWithNewContent, useViewedCategories, markCategoryAsViewed, markItemAsViewed } from '@/components/RedDotBadge';
 import ScrollReveal from '@/components/ScrollReveal';
 import QuickShareButton from '@/components/QuickShareButton';
@@ -177,12 +175,10 @@ export default function CategoryPage() {
   const viewedData = useViewedCategories();
 
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [selectedAiTool, setSelectedAiTool] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [favorites, setFavorites] = useLocalStorage<any[]>('favorites', []);
   const { toast } = useToast();
   const { isAdmin, isEditor, isLoading: isUserLoading } = useUserProfile();
-  const { adFrequency } = useAffiliateAds();
   const [activeAudioId, setActiveAudioId] = useState<string | null>(null);
   const [selectedSubCategoryId, setSelectedSubCategoryId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -195,47 +191,111 @@ export default function CategoryPage() {
 
   const categoryRef = useMemoFirebase(() => id ? doc(firestore!, 'categories', id) : null, [firestore, id]);
   const { data: category, isLoading: isCategoryLoading } = useDoc<CategoryType>(categoryRef);
-  
-  const adsConfigRef = useMemoFirebase(() => doc(firestore!, 'appConfig', 'ads'), [firestore]);
-  const { data: adsConfig } = useDoc<any>(adsConfigRef);
   const { subCategories } = useCategories();
   
+  const [sortMode, setSortMode] = useState<'default' | 'newest' | 'oldest' | 'alpha'>('default');
+
   const currentSubCategories = useMemo(() => {
       if (!id || !category) return [];
-      if (category.displayStyle === 'style7' && category.parentId) return subCategories.get(category.parentId) || [];
-      return subCategories.get(id) || [];
-  }, [subCategories, id, category]);
-
-  const isHorizontalSubCats = category?.subCategoryLayout === 'horizontal' && currentSubCategories.length > 0;
-  const targetCategoryId = isHorizontalSubCats ? (selectedSubCategoryId || currentSubCategories[0]?.id || id) : id;
-
-  const activeSubCategory = useMemo(() => {
-    if (!isHorizontalSubCats) return null;
-    return currentSubCategories.find(s => s.id === targetCategoryId) || currentSubCategories[0] || null;
-  }, [isHorizontalSubCats, currentSubCategories, targetCategoryId]);
+      const list = (category.displayStyle === 'style7' && category.parentId) 
+        ? (subCategories.get(category.parentId) || []) 
+        : (subCategories.get(id) || []);
+      const sorted = [...list].sort((a, b) => (a.order || 0) - (b.order || 0));
+      return (isAdmin || isEditor) ? sorted : sorted.filter(s => !s.isHidden);
+  }, [subCategories, id, category, isAdmin, isEditor]);
 
   const latestSubCatId = useMemo(() => {
     return getLatestCategoryWithNewContent(currentSubCategories, undefined, viewedData);
   }, [currentSubCategories, viewedData]);
 
-  const itemsQuery = useMemoFirebase(() => targetCategoryId ? collection(firestore!, 'categories', targetCategoryId, 'items') : null, [firestore, targetCategoryId]);
+  // Query direct items of the main category to dynamically detect if direct content exists
+  const mainCategoryItemsQuery = useMemoFirebase(
+    () => id ? collection(firestore!, 'categories', id, 'items') : null, 
+    [firestore, id]
+  );
+  const { data: rawMainItems, isLoading: isMainItemsLoading } = useCollection<any>(mainCategoryItemsQuery);
+
+  // Extract direct items belonging directly to the main category (excluding items associated with any subcategory)
+  const directMainItems = useMemo(() => {
+    if (!rawMainItems) return [];
+    const subCatIds = new Set(currentSubCategories.map(s => s.id));
+    return rawMainItems.filter(item => {
+      const isApproved = (isAdmin || isEditor) ? true : (item.status === 'approved' || !item.status);
+      if (!isApproved) return false;
+      // Must not belong to any subcategory
+      if (item.subCategoryId && (subCatIds.has(item.subCategoryId) || (item.subCategoryId !== id && item.subCategoryId !== 'main'))) return false;
+      if (item.subCategory && item.subCategory !== '' && item.subCategory !== 'main' && item.subCategory !== 'none') return false;
+      if (item.subCategoryName && item.subCategoryName.trim() !== '') return false;
+      return true;
+    });
+  }, [rawMainItems, currentSubCategories, isAdmin, isEditor, id]);
+
+  const hasDirectMainContent = directMainItems.length > 0;
+
+  const isHorizontalSubCats = category?.subCategoryLayout === 'horizontal' && currentSubCategories.length > 0;
+  
+  const targetCategoryId = useMemo(() => {
+    if (!isHorizontalSubCats) return id;
+
+    if (selectedSubCategoryId && selectedSubCategoryId !== 'main') {
+      const exists = currentSubCategories.some(s => s.id === selectedSubCategoryId);
+      if (exists) return selectedSubCategoryId;
+    }
+
+    if (selectedSubCategoryId === 'main') {
+      if (hasDirectMainContent) return id;
+      return latestSubCatId || currentSubCategories[0]?.id || id;
+    }
+
+    // Default selection:
+    // If there is direct content in the main category, display it first ("القسم الرئيسي")!
+    if (hasDirectMainContent) {
+      return id;
+    }
+
+    // If no direct content, select the latest updated subcategory or the first one
+    return latestSubCatId || currentSubCategories[0]?.id || id;
+  }, [isHorizontalSubCats, selectedSubCategoryId, hasDirectMainContent, currentSubCategories, latestSubCatId, id]);
+
+  const activeSubCategory = useMemo(() => {
+    if (!isHorizontalSubCats || targetCategoryId === id) return null;
+    return currentSubCategories.find(s => s.id === targetCategoryId) || null;
+  }, [isHorizontalSubCats, currentSubCategories, targetCategoryId, id]);
+
+  const itemsQuery = useMemoFirebase(() => {
+    if (!targetCategoryId) return null;
+    return collection(firestore!, 'categories', targetCategoryId, 'items');
+  }, [firestore, targetCategoryId]);
   const { data: rawItems, isLoading: areItemsLoading } = useCollection<any>(itemsQuery);
+
+  const isLoadingCurrentItems = targetCategoryId === id ? isMainItemsLoading : areItemsLoading;
 
   useEffect(() => {
     if (targetCategoryId) {
-      markCategoryAsViewed(targetCategoryId, rawItems || undefined);
+      markCategoryAsViewed(targetCategoryId, targetCategoryId === id ? directMainItems : (rawItems || undefined));
     }
     if (id && id !== targetCategoryId) {
-      markCategoryAsViewed(id);
+      markCategoryAsViewed(id, directMainItems);
     }
-  }, [id, targetCategoryId, rawItems]);
+  }, [id, targetCategoryId, rawItems, directMainItems]);
 
-  const effectiveDisplayStyle = activeSubCategory?.displayStyle || category?.displayStyle || 'style1';
+  const effectiveDisplayStyle = (targetCategoryId === id ? category?.displayStyle : (activeSubCategory?.displayStyle || category?.displayStyle)) || 'style1';
+
+  const effectiveAccentColor = useMemo(() => {
+    if (activeSubCategory?.useCustomAccent && activeSubCategory?.accentColor) {
+      return activeSubCategory.accentColor;
+    }
+    if (category?.useCustomAccent && category?.accentColor) {
+      return category.accentColor;
+    }
+    return null;
+  }, [activeSubCategory, category]);
 
   const toggleFavorite = (item: WithId<any>) => {
     const isFavorite = favorites.some(f => f.id === item.id);
+    const itemStyle = item.displayStyle || effectiveDisplayStyle;
     if (isFavorite) setFavorites(prev => prev.filter(f => f.id !== item.id));
-    else setFavorites(prev => [...prev, { ...item, displayStyle: effectiveDisplayStyle }]);
+    else setFavorites(prev => [...prev, { ...item, displayStyle: itemStyle }]);
     toast({ title: isFavorite ? "تمت الإزالة" : "تمت الإضافة للمفضلة" });
   };
 
@@ -243,80 +303,132 @@ export default function CategoryPage() {
       action();
   };
 
+  const parseDateMs = (val: any): number => {
+    if (!val) return 0;
+    if (typeof val === 'number') return val;
+    if (typeof val === 'string') {
+      const t = new Date(val).getTime();
+      return isNaN(t) ? 0 : t;
+    }
+    if (typeof val === 'object') {
+      if (typeof val.toDate === 'function') {
+        try { return val.toDate().getTime(); } catch { return 0; }
+      }
+      if (typeof val.seconds === 'number') {
+        return val.seconds * 1000 + (val.nanoseconds ? Math.floor(val.nanoseconds / 1000000) : 0);
+      }
+    }
+    return 0;
+  };
+
   const filteredItems = useMemo(() => {
-    if (!rawItems) return [];
-    const viewable = (isAdmin || isEditor) ? rawItems : rawItems.filter(i => i.status === 'approved' || !i.status);
-    const filtered = viewable.filter(i => (i.title || "").toLowerCase().includes(searchTerm.toLowerCase()));
+    const sourceItems = targetCategoryId === id ? directMainItems : (rawItems || []);
+    if (!sourceItems || sourceItems.length === 0) return [];
+    const viewable = (targetCategoryId === id || isAdmin || isEditor) 
+      ? sourceItems 
+      : sourceItems.filter((i: any) => i.status === 'approved' || !i.status);
+    const filtered = viewable.filter((i: any) => (i.title || "").toLowerCase().includes(searchTerm.toLowerCase()));
 
     return [...filtered].sort((a, b) => {
+      if (sortMode === 'newest') {
+        const timeA = parseDateMs(a.createdAt);
+        const timeB = parseDateMs(b.createdAt);
+        if (timeA && timeB && timeA !== timeB) return timeB - timeA;
+        return (b.order ?? 0) - (a.order ?? 0);
+      }
+      if (sortMode === 'oldest') {
+        const timeA = parseDateMs(a.createdAt);
+        const timeB = parseDateMs(b.createdAt);
+        if (timeA && timeB && timeA !== timeB) return timeA - timeB;
+        return (a.order ?? 0) - (b.order ?? 0);
+      }
+      if (sortMode === 'alpha') {
+        const titleA = a.title || '';
+        const titleB = b.title || '';
+        return titleA.localeCompare(titleB, 'ar', { numeric: true, sensitivity: 'base' });
+      }
+
       // 1. Explicit order field if available and different
       if (typeof a.order === 'number' && typeof b.order === 'number' && a.order !== b.order) {
         return a.order - b.order;
       }
-      // 2. Addition date (createdAt ascending: oldest/first added item comes first)
-      if (a.createdAt && b.createdAt) {
-        const timeA = new Date(a.createdAt).getTime();
-        const timeB = new Date(b.createdAt).getTime();
-        if (!isNaN(timeA) && !isNaN(timeB) && timeA !== timeB) {
-          return timeA - timeB;
-        }
+      // 2. Addition date
+      const timeA = parseDateMs(a.createdAt);
+      const timeB = parseDateMs(b.createdAt);
+      if (timeA && timeB && timeA !== timeB) {
+        return timeB - timeA;
       }
       // 3. Fallback: Natural numeric title sorting ("لوجو الجزء (1)", "لوجو الجزء (2)", "لوجو الجزء (12)")
       const titleA = a.title || '';
       const titleB = b.title || '';
       return titleA.localeCompare(titleB, 'ar', { numeric: true, sensitivity: 'base' });
     });
-  }, [rawItems, searchTerm, isAdmin, isEditor]);
+  }, [targetCategoryId, id, directMainItems, rawItems, searchTerm, isAdmin, isEditor, sortMode]);
 
   const isMaintenanceOn = (activeSubCategory?.isUnderMaintenance || category?.isUnderMaintenance) && !isAdmin && !isEditor;
 
   const renderItem = (item: any, idx: number) => {
-    const style = effectiveDisplayStyle;
+    const style = item.displayStyle || effectiveDisplayStyle;
     const isFav = favorites.some(f => f.id === item.id);
     const isItemNew = checkItemIsNew(item, viewedData.viewedItemIds, viewedData.timestamps[targetCategoryId]);
 
     switch(style) {
         case 'style1': // Logos - 2 Column Grid
             return (
-                <div key={`${item.id}-${idx}`} className="flex flex-col gap-2 animate-in fade-in zoom-in-95 duration-500">
-                    <div 
-                        className="relative rounded-[2rem] overflow-hidden bg-card shadow-lg group cursor-pointer w-full flex items-center justify-center"
-                        onClick={() => {
-                            markItemAsViewed(item.id);
-                            setSelectedImage(getDirectLink(item.imageUrl));
-                        }}
-                    >
-                        {isItemNew && <RedDotBadge className="absolute top-3 right-3 z-30" />}
-                        {item.imageUrl && (
-                            <Image 
-                                src={getDirectLink(item.imageUrl)} 
-                                alt={item.title || ""} 
-                                width={0}
-                                height={0}
-                                sizes="100vw"
-                                unoptimized
-                                className="w-full h-auto object-contain rounded-[2rem] group-hover:scale-105 transition-transform duration-700 block" 
-                                referrerPolicy="no-referrer"
-                            />
-                        )}
-                        <FavoriteButton isFavorite={isFav} onClick={(e) => { e.stopPropagation(); toggleFavorite(item); }} className="top-3 left-3 h-8 w-8" />
-                    </div>
-                    <div className="px-1 text-center">
-                        <h3 className="text-xs font-black truncate">{item.title}</h3>
-                        {item.description && <p className="text-[10px] font-bold text-muted-foreground truncate">{item.description}</p>}
-                    </div>
-                    <div className="flex items-center gap-1.5 w-full">
-                        <Button 
-                            variant="default" 
-                            className={cn(
-                                "flex-1 rounded-2xl h-10 font-bold text-xs gap-2 shadow-sm active:scale-95 transition-transform",
-                                item.showDownloadButton === false && "hidden"
-                            )}
-                            onClick={() => handleAction(item, () => { markItemAsViewed(item.id); item.downloadUrl && triggerFileDownload(item.downloadUrl, item.title); })}
+                <div key={`${item.id}-${idx}`} className="flex flex-col gap-2.5 h-full justify-between animate-in fade-in zoom-in-95 duration-500 bg-card/60 p-2 sm:p-2.5 rounded-[2.25rem] border border-border/40 shadow-xs">
+                    <div className="flex flex-col gap-2">
+                        <div 
+                            className="relative aspect-square rounded-[1.75rem] overflow-hidden bg-muted/20 border border-border/30 group cursor-pointer w-full flex items-center justify-center p-2.5"
+                            onClick={() => {
+                                markItemAsViewed(item.id);
+                                setSelectedImage(getDirectLink(item.imageUrl));
+                            }}
                         >
-                            <Download className="h-3.5 w-3.5" />
-                            تحميل
-                        </Button>
+                            {isItemNew && <RedDotBadge className="absolute top-3 right-3 z-30" />}
+                            {item.imageUrl && (
+                                <Image 
+                                    src={getDirectLink(item.imageUrl)} 
+                                    alt={item.title || ""} 
+                                    fill
+                                    unoptimized
+                                    className="object-contain p-2 group-hover:scale-105 transition-transform duration-700 rounded-[1.5rem]" 
+                                    referrerPolicy="no-referrer"
+                                />
+                            )}
+                            <FavoriteButton isFavorite={isFav} onClick={(e) => { e.stopPropagation(); toggleFavorite(item); }} className="top-2.5 left-2.5 h-8 w-8" />
+                        </div>
+                        <div className="px-1 text-center">
+                            <h3 className="text-xs sm:text-sm font-black truncate">{item.title}</h3>
+                            {item.description && <p className="text-[10px] font-bold text-muted-foreground truncate">{item.description}</p>}
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 w-full mt-auto pt-1">
+                        {item.prompt && item.showCopyButton !== false ? (
+                            <Button 
+                                variant="default" 
+                                className="flex-1 rounded-2xl h-10 font-bold text-xs gap-2 shadow-sm active:scale-95 transition-transform"
+                                onClick={() => {
+                                    markItemAsViewed(item.id);
+                                    navigator.clipboard.writeText(item.prompt);
+                                    toast({ title: "تم نسخ البرومبت بنجاح! 📋" });
+                                }}
+                            >
+                                <Copy className="h-3.5 w-3.5" />
+                                نسخ البرومبت
+                            </Button>
+                        ) : (
+                            <Button 
+                                variant="default" 
+                                className={cn(
+                                    "flex-1 rounded-2xl h-10 font-bold text-xs gap-2 shadow-sm active:scale-95 transition-transform",
+                                    item.showDownloadButton === false && "hidden"
+                                )}
+                                onClick={() => handleAction(item, () => { markItemAsViewed(item.id); item.downloadUrl && triggerFileDownload(item.downloadUrl, item.title); })}
+                            >
+                                <Download className="h-3.5 w-3.5" />
+                                تحميل
+                            </Button>
+                        )}
                         <QuickShareButton 
                             item={item} 
                             category={category}
@@ -490,6 +602,7 @@ export default function CategoryPage() {
         case 'style5': { // Prompt Style
             const hasDownload = !!item.downloadUrl && item.showDownloadButton !== false;
             const hasCopy = item.showCopyButton !== false;
+            const hasMaterials = !!item.hasMaterials && !!item.materialsUrl;
 
             return (
                 <div key={`${item.id}-${idx}`} className="bg-card rounded-[2.5rem] overflow-hidden shadow-xl border-4 border-white/5 animate-in fade-in zoom-in-95 duration-500 relative">
@@ -528,10 +641,25 @@ export default function CategoryPage() {
                                                 triggerFileDownload(item.downloadUrl, item.title);
                                             }
                                         })}
-                                        title="تحميل الملف"
+                                        title={item.downloadUrlLabel || "تحميل الملف"}
                                         className="h-10 w-10 rounded-full hover:bg-primary/10 text-primary"
                                     >
                                         <Download className="h-5 w-5" />
+                                    </Button>
+                                )}
+                                {hasMaterials && (
+                                    <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        onClick={() => handleAction(item, () => {
+                                            if (item.materialsUrl) {
+                                                triggerFileDownload(item.materialsUrl, item.materialsLabel || `${item.title} - خامات`);
+                                            }
+                                        })}
+                                        title={item.materialsLabel || "تحميل الخامات"}
+                                        className="h-10 w-10 rounded-full hover:bg-amber-500/10 text-amber-600"
+                                    >
+                                        <Layers className="h-5 w-5" />
                                     </Button>
                                 )}
                                 {hasCopy && (!hasDownload || item.showCopyButton === true) && (
@@ -551,6 +679,38 @@ export default function CategoryPage() {
                                 <QuickShareButton item={item} category={category} variant="ghost" size="icon" className="h-10 w-10 rounded-full hover:bg-primary/10 text-primary" />
                             </div>
                         </div>
+
+                        {/* Used Applications */}
+                        {Array.isArray(item.usedApps) && item.usedApps.length > 0 && (
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-[11px] font-bold text-muted-foreground flex items-center gap-1 ml-1">
+                                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                                    التطبيقات:
+                                </span>
+                                {item.usedApps.map((app, appIdx) => (
+                                    <span 
+                                        key={appIdx}
+                                        className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-primary/10 text-primary border border-primary/20"
+                                    >
+                                        {app}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Prompt Instructions and Details */}
+                        {item.promptInstructions && (
+                            <div className="bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30 rounded-2xl p-3.5 space-y-1">
+                                <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 font-bold text-xs">
+                                    <Info className="w-4 h-4" />
+                                    <span>تعليمات الاستخدام والتوليد</span>
+                                </div>
+                                <p className="text-xs text-foreground/80 leading-relaxed whitespace-pre-line text-right pr-5">
+                                    {item.promptInstructions}
+                                </p>
+                            </div>
+                        )}
+
                         <div className="relative group flex flex-col gap-3">
                             {item.prompt && (
                                 <Textarea 
@@ -562,7 +722,53 @@ export default function CategoryPage() {
                                     dir="ltr" 
                                 />
                             )}
-                            <div className="flex items-center justify-end gap-2">
+
+                            {/* Materials Banner if enabled */}
+                            {hasMaterials && (
+                                <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-3 flex items-center justify-between gap-3">
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                        <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center flex-shrink-0">
+                                            <Layers className="w-4 h-4" />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <div className="text-xs font-black text-amber-700 dark:text-amber-400 truncate">
+                                                {item.materialsLabel || "خامات وملحقات التصميم"}
+                                            </div>
+                                            {item.materialsDescription && (
+                                                <div className="text-[10px] text-muted-foreground truncate">
+                                                    {item.materialsDescription}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => handleAction(item, () => {
+                                            if (item.materialsUrl) {
+                                                triggerFileDownload(item.materialsUrl, item.materialsLabel || `${item.title} - خامات`);
+                                            }
+                                        })}
+                                        className="h-8 px-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 flex-shrink-0 shadow-sm active:scale-95 transition-all"
+                                    >
+                                        <Download className="h-3 w-3" />
+                                        تحميل
+                                    </button>
+                                </div>
+                            )}
+
+                            <div className="flex items-center justify-end gap-2 flex-wrap">
+                                {hasMaterials && (
+                                    <button 
+                                        onClick={() => handleAction(item, () => {
+                                            if (item.materialsUrl) {
+                                                triggerFileDownload(item.materialsUrl, item.materialsLabel || `${item.title} - خامات`);
+                                            }
+                                        })}
+                                        className="h-10 px-4 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg active:scale-95 transition-transform"
+                                    >
+                                        <Layers className="h-3.5 w-3.5" />
+                                        {item.materialsLabel || "تحميل الخامات"}
+                                    </button>
+                                )}
                                 {hasDownload && (
                                     <button 
                                         onClick={() => handleAction(item, () => {
@@ -573,7 +779,7 @@ export default function CategoryPage() {
                                         className="h-10 px-4 bg-primary text-primary-foreground rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg active:scale-95 transition-transform"
                                     >
                                         <Download className="h-3.5 w-3.5" />
-                                        تحميل الملف
+                                        {item.downloadUrlLabel || "تحميل الملف"}
                                     </button>
                                 )}
                                 {hasCopy && (!hasDownload || item.showCopyButton === true) && (
@@ -584,7 +790,7 @@ export default function CategoryPage() {
                                         }}
                                         className={cn(
                                             "h-10 px-4 rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg active:scale-95 transition-transform",
-                                            hasDownload ? "bg-muted hover:bg-muted/80 text-foreground" : "bg-primary text-primary-foreground"
+                                            (hasDownload || hasMaterials) ? "bg-muted hover:bg-muted/80 text-foreground" : "bg-primary text-primary-foreground"
                                         )}
                                     >
                                         <Copy className="h-3.5 w-3.5" />
@@ -640,36 +846,6 @@ export default function CategoryPage() {
                     </div>
                 </div>
             );
-        case 'style9': // AI Tools Style
-            return (
-                <div 
-                    key={`${item.id}-${idx}`} 
-                    className="flex flex-col gap-3 items-center group cursor-pointer animate-in fade-in zoom-in-95 duration-500"
-                    onClick={() => {
-                        markItemAsViewed(item.id);
-                        setSelectedAiTool(item);
-                    }}
-                >
-                    <div className="relative w-full aspect-square bg-card rounded-[2.5rem] overflow-hidden shadow-lg border-4 border-white/5 transition-all duration-500 group-hover:shadow-primary/30">
-                        {isItemNew && <RedDotBadge className="absolute top-3 right-3 z-30" />}
-                        {item.imageUrl && (
-                            <div className="absolute inset-0 p-4 flex items-center justify-center">
-                                <div className="relative w-full h-full transform -rotate-12 group-hover:rotate-0 transition-transform duration-500">
-                                     <Image 
-                                        src={getDirectLink(item.imageUrl)} 
-                                        alt="" 
-                                        fill 
-                                        className="object-contain" 
-                                        referrerPolicy="no-referrer"
-                                    />
-                                </div>
-                            </div>
-                        )}
-                        <FavoriteButton isFavorite={isFav} onClick={(e) => { e.stopPropagation(); toggleFavorite(item); }} className="top-3 left-3 h-8 w-8" />
-                    </div>
-                    <h3 className="text-sm font-black text-center leading-tight group-hover:text-primary transition-colors">{item.title}</h3>
-                </div>
-            );
         default:
             return (
                 <div 
@@ -718,13 +894,27 @@ export default function CategoryPage() {
     );
   }
 
+  if (category.isHidden && !isAdmin && !isEditor) {
+    return (
+      <div className="flex flex-col bg-background overflow-x-hidden min-h-screen">
+        <Header title="القسم غير متاح" showBackButton={true} />
+        <main className="flex-1 px-6 pb-8 pt-12 space-y-6 container max-w-2xl mx-auto text-center">
+          <div className="bg-card p-8 rounded-3xl border border-border/40 shadow-sm space-y-4">
+            <h2 className="text-xl font-black">هذا القسم غير متاح حالياً</h2>
+            <p className="text-muted-foreground text-sm">عذراً، تم إخفاء هذا القسم وهو غير متاح للزوار في الوقت الحالي.</p>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col bg-background">
-      {category?.useCustomAccent && category?.accentColor && (
+      {effectiveAccentColor && (
           <style dangerouslySetInnerHTML={{ __html: `
               :root {
-                  --primary: ${category.accentColor} !important;
-                  --primary-gradient: linear-gradient(135deg, ${category.accentColor}, ${category.accentColor}dd) !important;
+                  --primary: ${effectiveAccentColor} !important;
+                  --primary-gradient: linear-gradient(135deg, ${effectiveAccentColor}, ${effectiveAccentColor}dd) !important;
               }
           `}} />
       )}
@@ -759,12 +949,40 @@ export default function CategoryPage() {
                 {currentSubCategories.length > 0 && (
                      <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
                          <div className="flex items-center justify-between px-1">
-                             <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider">أقسام فرعية ({currentSubCategories.length})</p>
+                             <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider">الأقسام ({currentSubCategories.length + (hasDirectMainContent ? 1 : 0)})</p>
                          </div>
                          
                          {category?.subCategoryLayout === 'horizontal' ? (
                              <ScrollArea className="w-full whitespace-nowrap rounded-xl" dir="rtl">
                                  <div className="flex w-max gap-3 p-1">
+                                     {/* 1. القسم الرئيسي يظهر في البداية فقط إذا وُجد محتوى مباشر */}
+                                     {hasDirectMainContent && (
+                                         <button 
+                                             onClick={() => {
+                                                 setSelectedSubCategoryId('main');
+                                                 markCategoryAsViewed(id, directMainItems);
+                                             }}
+                                             className="animate-in fade-in zoom-in-95 duration-500 fill-mode-both group relative"
+                                         >
+                                             <div className={cn(
+                                                 "flex items-center gap-2 px-5 py-2.5 rounded-full transition-all border-2 shadow-sm active:scale-95",
+                                                 targetCategoryId === id 
+                                                     ? "bg-primary text-primary-foreground border-primary shadow-md ring-2 ring-primary/20 scale-[1.02] font-black" 
+                                                     : "bg-card border-primary/10 text-primary hover:bg-primary/10 hover:border-primary/30 font-bold"
+                                             )}>
+                                                 <Layers className="h-3.5 w-3.5" />
+                                                 <span className="text-xs">القسم الرئيسي</span>
+                                                 <span className={cn(
+                                                     "text-[8px] px-1.5 py-0.5 rounded-md",
+                                                     targetCategoryId === id ? "bg-white/20 text-white" : "bg-black/10 text-foreground/70"
+                                                 )}>
+                                                     {directMainItems.length}
+                                                 </span>
+                                             </div>
+                                         </button>
+                                     )}
+
+                                     {/* 2. الأقسام الفرعية بعد القسم الرئيسي */}
                                      {currentSubCategories.map((subCat, idx) => {
                                          const isSelected = subCat.id === targetCategoryId;
                                          return (
@@ -775,7 +993,7 @@ export default function CategoryPage() {
                                                      markCategoryAsViewed(subCat.id);
                                                  }}
                                                  className="animate-in fade-in zoom-in-95 duration-500 fill-mode-both group relative"
-                                                 style={{ animationDelay: `${idx * 50}ms` }}
+                                                 style={{ animationDelay: `${(idx + (hasDirectMainContent ? 1 : 0)) * 50}ms` }}
                                              >
                                                  {subCat.id === latestSubCatId && (
                                                      <RedDotBadge size="sm" showLabel={false} className="absolute -top-1 -right-1" />
@@ -805,12 +1023,37 @@ export default function CategoryPage() {
                              </ScrollArea>
                          ) : (
                              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                                 {hasDirectMainContent && (
+                                     <div 
+                                         onClick={() => {
+                                             setSelectedSubCategoryId('main');
+                                             const el = document.getElementById('category-items-section');
+                                             el?.scrollIntoView({ behavior: 'smooth' });
+                                         }}
+                                         className="animate-in fade-in zoom-in-95 duration-500 fill-mode-both w-full aspect-square cursor-pointer"
+                                     >
+                                         <div 
+                                             className={cn(
+                                                 "w-full h-full relative text-primary-foreground p-4 rounded-[2.2rem] flex flex-col items-center justify-center cursor-pointer text-center category-card-glow group overflow-hidden border-4 border-white/5 transition-all duration-300",
+                                                 targetCategoryId === id ? "ring-2 ring-primary/40 scale-[1.02]" : ""
+                                             )}
+                                             style={{ background: category?.useCustomAccent && category?.accentColor ? `linear-gradient(135deg, ${category.accentColor}, ${category.accentColor}dd)` : 'var(--primary-gradient)' }}
+                                         >
+                                             <div className="absolute -bottom-4 -right-4 bg-white/10 w-16 h-16 rounded-full group-hover:scale-150 transition-transform duration-700" />
+                                             <div className="absolute top-4 right-4 bg-black/20 text-[9px] font-black px-2 py-0.5 rounded-full text-white uppercase backdrop-blur-sm z-20">
+                                                 {directMainItems.length} عنصر
+                                             </div>
+                                             <Layers className="h-7 w-7 mb-1 relative z-10 opacity-90 group-hover:scale-110 transition-transform" />
+                                             <p className="font-bold text-sm md:text-base relative z-10 leading-snug px-2">القسم الرئيسي</p>
+                                         </div>
+                                     </div>
+                                 )}
                                  {currentSubCategories.map((subCat, idx) => (
                                      <div 
                                          key={`${subCat.id}-${idx}`} 
                                          onClick={() => router.push(`/categories/${subCat.id}`)}
                                          className="animate-in fade-in zoom-in-95 duration-500 fill-mode-both w-full aspect-square"
-                                         style={{ animationDelay: `${idx * 50}ms` }}
+                                         style={{ animationDelay: `${(idx + (hasDirectMainContent ? 1 : 0)) * 50}ms` }}
                                      >
                                              <div 
                                                className="w-full h-full relative text-primary-foreground p-4 rounded-[2.2rem] flex flex-col items-center justify-center cursor-pointer text-center category-card-glow group overflow-hidden border-4 border-white/5"
@@ -834,13 +1077,45 @@ export default function CategoryPage() {
                      </div>
                  )}
 
-                {areItemsLoading && filteredItems.length === 0 ? (
+                {isLoadingCurrentItems && filteredItems.length === 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                         {[...Array(6)].map((_, i) => <CategorySkeleton key={`item-skeleton-${i}`} className="aspect-square" />)}
                     </div>
                 ) : filteredItems.length > 0 ? (
-                    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                        <p className="text-muted-foreground text-xs font-medium px-1">المحتوى ({filteredItems.length})</p>
+                    <div id="category-items-section" className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                        <div className="flex items-center justify-between px-1">
+                            <p className="text-muted-foreground text-xs font-bold">
+                                {activeSubCategory ? activeSubCategory.name : (currentSubCategories.length > 0 ? 'القسم الرئيسي' : 'المحتوى')} ({filteredItems.length})
+                            </p>
+                            
+                            <div className="flex items-center gap-1 bg-card/80 backdrop-blur-sm p-1 rounded-xl border border-border/60 shadow-xs text-[11px] font-bold">
+                                <ArrowUpDown className="h-3 w-3 text-muted-foreground mr-1 ml-0.5" />
+                                <button 
+                                    type="button"
+                                    onClick={() => setSortMode('default')}
+                                    className={cn("px-2 py-0.5 rounded-lg transition-all", sortMode === 'default' ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground hover:text-foreground")}
+                                    title="الترتيب الافتراضي المحدد"
+                                >
+                                    الافتراضي
+                                </button>
+                                <button 
+                                    type="button"
+                                    onClick={() => setSortMode('newest')}
+                                    className={cn("px-2 py-0.5 rounded-lg transition-all", sortMode === 'newest' ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground hover:text-foreground")}
+                                    title="الأحدث أولاً"
+                                >
+                                    الأحدث
+                                </button>
+                                <button 
+                                    type="button"
+                                    onClick={() => setSortMode('oldest')}
+                                    className={cn("px-2 py-0.5 rounded-lg transition-all", sortMode === 'oldest' ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground hover:text-foreground")}
+                                    title="الأقدم أولاً"
+                                >
+                                    الأقدم
+                                </button>
+                            </div>
+                        </div>
                         <div className={cn(
                             "grid gap-6",
                             effectiveDisplayStyle === 'style1' ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4" : 
@@ -850,43 +1125,17 @@ export default function CategoryPage() {
                             effectiveDisplayStyle === 'style5' ? "grid-cols-1" :
                             effectiveDisplayStyle === 'style6' ? "grid-cols-1" :
                             effectiveDisplayStyle === 'style8' ? "grid-cols-1 md:grid-cols-2" :
-                            effectiveDisplayStyle === 'style9' ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4" :
                             "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
                         )}>
-                            {(() => {
-                                const showAds = adsConfig?.showAds ?? false;
-                                const inlineShow = adsConfig?.inline?.show ?? showAds;
-                                const inlineFrequency = adsConfig?.inline?.frequency ?? adsConfig?.inlineAdFrequency ?? 4;
-                                const inlineOnLists = adsConfig?.inline?.showOnLists ?? adsConfig?.showContentAds ?? true;
-                                const inlineScript = adsConfig?.inline?.script ?? adsConfig?.adScript;
-                                const elements: React.ReactNode[] = [];
-                                
-                                filteredItems.forEach((item, index) => {
-                                    elements.push(
-                                        <ScrollReveal key={`${item.id}-${index}`} staggerIndex={index}>
-                                            {renderItem(item, index)}
-                                        </ScrollReveal>
-                                    );
-                                    
-                                    const showAdHere = showAds && inlineShow && inlineOnLists && inlineScript && ((index + 1) % inlineFrequency === 0);
-                                    if (showAdHere) {
-                                        elements.push(
-                                            <div 
-                                                key={`inline-ad-${item.id || index}`} 
-                                                className="col-span-full w-full flex justify-center items-center py-1 border-y border-gray-100/10 dark:border-white/5 my-1.5 overflow-hidden"
-                                            >
-                                                <AdBanner type="inline" />
-                                            </div>
-                                        );
-                                    }
-                                });
-                                
-                                return elements;
-                            })()}
+                            {filteredItems.map((item, index) => (
+                                <ScrollReveal key={`${item.id}-${index}`} staggerIndex={index}>
+                                    {renderItem(item, index)}
+                                </ScrollReveal>
+                            ))}
                         </div>
                     </div>
                 ) : (
-                    !areItemsLoading && (!currentSubCategories.length || isHorizontalSubCats) && (
+                    !isLoadingCurrentItems && (!currentSubCategories.length || isHorizontalSubCats) && (
                         <div className="flex flex-col items-center justify-center py-20 px-8 text-center animate-in fade-in zoom-in-95 duration-700">
                              <motion.div
                                 animate={{ 
@@ -930,8 +1179,6 @@ export default function CategoryPage() {
                         </div>
                     )
                 )}
-
-               <AffiliateAdSlot placement="inline" categoryId={targetCategoryId} />
             </Fragment>
         )}
       </main>
@@ -954,67 +1201,6 @@ export default function CategoryPage() {
           <Button variant="ghost" size="icon" className="absolute top-4 right-4 text-white bg-black/40 hover:bg-black/60 rounded-full h-12 w-12 z-[100] backdrop-blur-md" onClick={() => setSelectedImage(null)}>
             <X className="h-7 w-7" />
           </Button>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={!!selectedAiTool} onOpenChange={() => setSelectedAiTool(null)}>
-        <DialogContent className="max-w-[90vw] sm:max-w-lg p-0 overflow-hidden bg-card rounded-[3rem] border-none shadow-2xl">
-          <DialogTitle className="sr-only">{selectedAiTool?.title}</DialogTitle>
-          {selectedAiTool && (
-            <div className="flex flex-col">
-                <div className="relative aspect-video w-full">
-                    {selectedAiTool.imageUrl && (
-                        <Image 
-                            src={getDirectLink(selectedAiTool.imageUrl)} 
-                            alt="" 
-                            fill 
-                            className="object-cover" 
-                            referrerPolicy="no-referrer"
-                        />
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                    <button 
-                        onClick={() => setSelectedAiTool(null)}
-                        className="absolute top-4 right-4 h-10 w-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-white/40 transition-colors"
-                    >
-                        <X size={20} />
-                    </button>
-                </div>
-                <div className="p-8 space-y-6">
-                    <div className="space-y-2">
-                        <h2 className="text-2xl font-black text-foreground">{selectedAiTool.title}</h2>
-                        <p className="text-muted-foreground font-bold text-sm leading-relaxed">{selectedAiTool.description || 'أداة ذكاء اصطناعي احترافية للمصممين.'}</p>
-                    </div>
-                    
-                    <div className="flex flex-col gap-3">
-                        {selectedAiTool.sourceUrl && (
-                            <Button 
-                                className="w-full h-14 rounded-2xl font-black text-lg gap-3 shadow-lg shadow-primary/20"
-                                onClick={() => window.open(selectedAiTool.sourceUrl, '_blank')}
-                            >
-                                <ExternalLink className="h-5 w-5" />
-                                زيارة الموقع
-                            </Button>
-                        )}
-                        <QuickShareButton 
-                            item={selectedAiTool} 
-                            category={category}
-                            variant="outline" 
-                            showLabel 
-                            label="مشاركة الرابط" 
-                            className="w-full h-14 rounded-2xl font-black text-lg gap-3" 
-                        />
-                        <Button 
-                            variant="secondary"
-                            className="w-full h-14 rounded-2xl font-black text-lg gap-3"
-                            onClick={() => setSelectedAiTool(null)}
-                        >
-                            إغلاق
-                        </Button>
-                    </div>
-                </div>
-            </div>
-          )}
         </DialogContent>
       </Dialog>
     </div>

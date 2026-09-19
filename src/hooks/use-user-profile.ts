@@ -60,21 +60,42 @@ export function useUserProfile() {
        }
    }, [firestore, user, isProfileLoading, userProfile, deviceFingerprint, tempReferralCode]);
 
+   const SUPER_ADMIN_EMAILS = [
+       'artbag.rayanapp@gmail.com'
+   ];
+
+   const isSuperAdmin = Boolean(
+       user?.email && SUPER_ADMIN_EMAILS.includes(user.email.toLowerCase().trim())
+   );
+
    const whitelistRef = useMemoFirebase(
-       () => (firestore && user?.email ? doc(firestore, 'whitelist', user.email.toLowerCase()) : null),
+       () => (firestore && user?.email ? doc(firestore, 'whitelist', user.email.toLowerCase().trim()) : null),
        [firestore, user?.email]
    );
 
    const { data: whitelistEntry, isLoading: isWhitelistLoading } = useDoc<WhitelistEntry>(whitelistRef);
+
+   // Auto-seed superadmin to whitelist collection so everything in Firestore stays consistent
+   useEffect(() => {
+       if (firestore && user?.email && isSuperAdmin && !isWhitelistLoading && (!whitelistEntry || whitelistEntry.role !== 'admin')) {
+           setDoc(doc(firestore, 'whitelist', user.email.toLowerCase().trim()), {
+               email: user.email.toLowerCase().trim(),
+               role: 'admin',
+               createdAt: serverTimestamp(),
+           }, { merge: true }).catch((err) => {
+               console.warn("Auto-seeding superadmin note:", err);
+           });
+       }
+   }, [firestore, user?.email, isSuperAdmin, isWhitelistLoading, whitelistEntry]);
    
-   const isAdmin = whitelistEntry?.role === 'admin';
-   const isEditor = whitelistEntry?.role === 'editor';
+   const isAdmin = isSuperAdmin || whitelistEntry?.role === 'admin';
+   const isEditor = isSuperAdmin || isAdmin || whitelistEntry?.role === 'editor';
 
    const isPro = false;
    
-   const isAccountActive = userProfile?.status === 'approved' || (user && user.isAnonymous);
+   const isAccountActive = isSuperAdmin || userProfile?.status === 'approved' || (user && user.isAnonymous);
 
-   const isLoading = isAuthLoading || (user && !user.isAnonymous && (isProfileLoading || isWhitelistLoading));
+   const isLoading = isAuthLoading || (user && !user.isAnonymous && !isSuperAdmin && (isProfileLoading || isWhitelistLoading));
 
    return { 
        user, 

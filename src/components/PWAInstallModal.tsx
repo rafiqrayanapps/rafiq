@@ -62,8 +62,12 @@ export default function PWAInstallModal() {
               <X size={20} />
             </button>
 
-            <div className="w-16 h-16 mx-auto mb-3 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center text-white border border-white/20 shadow-lg">
-              <Smartphone size={32} />
+            <div className="w-20 h-20 mx-auto mb-3 rounded-2xl overflow-hidden shadow-xl border-2 border-white/30 p-0.5 bg-white/10 backdrop-blur-md flex items-center justify-center">
+              <img
+                src="/icon-192.png"
+                alt="أيقونة رفيق المصمم"
+                className="w-full h-full object-cover rounded-[14px] shadow-sm"
+              />
             </div>
 
             <h3 className="text-2xl font-black tracking-tight mb-1">تثبيت تطبيق رفيق</h3>
@@ -198,30 +202,35 @@ export default function PWAInstallModal() {
               <div className="space-y-4 text-gray-700 dark:text-gray-300 text-sm">
                 <h5 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
                   <Sparkles size={18} className="text-emerald-500" />
-                  تحويل التطبيق إلى ملف APK حقيقي للهاتف:
+                  خيارات تطبيق أندرويد (Android APK & Source):
                 </h5>
 
-                <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
-                  التطبيق مجهز ومفهرس بالكامل كـ Progressive Web App جاهز للتحويل لملف <span className="font-bold text-emerald-600 dark:text-emerald-400">.APK</span> قابل للتثبيت على جميع أجهزة أندرويد.
-                </p>
-
                 <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/50 rounded-2xl space-y-3">
-                  <div className="flex items-start gap-2 text-xs text-emerald-900 dark:text-emerald-200">
-                    <span className="font-black text-emerald-600">●</span>
-                    <span>اضغط على الزر أدناه للانتقال إلى منصة PWABuilder الرسمية (من Microsoft)</span>
+                  <div className="font-bold text-xs text-emerald-900 dark:text-emerald-200 flex items-center gap-2">
+                    <Download size={15} className="text-emerald-600" />
+                    <span>1. توليد وتحميل حزمة APK فوراً:</span>
                   </div>
-                  <div className="flex items-start gap-2 text-xs text-emerald-900 dark:text-emerald-200">
-                    <span className="font-black text-emerald-600">●</span>
-                    <span>اضغط على <b>&quot;Package for Store / APK&quot;</b> ثم حمّل ملف <b>.apk</b> فوراً!</span>
-                  </div>
+                  <p className="text-[11px] text-emerald-800 dark:text-emerald-300/90 leading-relaxed">
+                    يمكنك توليد ملف <b>.apk</b> حقيقي جاهز للتثبيت على هاتفك عبر أداة PWABuilder المجانية التابعة لمايكروسوفت بضغطة زر واحدة.
+                  </p>
 
                   <button
                     onClick={handlePWABuilder}
                     className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl flex items-center justify-center gap-2 shadow-md transition-all active:scale-95"
                   >
                     <Download size={16} />
-                    توليد وتحميل ملف APK عبر PWABuilder
+                    توليد وتحميل ملف APK الآن
                   </button>
+                </div>
+
+                <div className="p-4 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/50 rounded-2xl space-y-2.5">
+                  <div className="font-bold text-xs text-blue-900 dark:text-blue-200 flex items-center gap-2">
+                    <Smartphone size={15} className="text-blue-600" />
+                    <span>2. مشروع أندرويد ستوديو الأصلي (Native Android):</span>
+                  </div>
+                  <p className="text-[11px] text-blue-800 dark:text-blue-300/90 leading-relaxed">
+                    تم تضمين مشروع Android كامل ومكتوب بلغة Kotlin داخل مجلد <b>android/</b> في ملفات هذا المشروع. عند تحميل المشروع كـ ZIP يمكنك فتحه مباشرة في Android Studio وبناء <b>app-debug.apk</b> بنقرة واحدة!
+                  </p>
                 </div>
               </div>
             )}

@@ -12,7 +12,6 @@ import {
   Calculator,
   X,
   Palette,
-  Wand2,
   Scissors
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -27,7 +26,6 @@ import {
 import dynamic from 'next/dynamic';
 
 const ColorExtractor = dynamic(() => import('./tools/ColorExtractor'), { ssr: false });
-const LocalAiTool = dynamic(() => import('./tools/LocalAiTool'), { ssr: false });
 const BgRemovalTool = dynamic(() => import('./tools/BgRemovalTool'), { ssr: false });
 
 // --- Utility Functions ---
@@ -224,7 +222,7 @@ const LoremIpsum = () => {
 interface QuickToolsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  toolType: 'contrast' | 'qr' | 'ratio' | 'lorem' | 'palette' | 'local-ai' | 'remove-bg' | null;
+  toolType: 'contrast' | 'qr' | 'ratio' | 'lorem' | 'palette' | 'remove-bg' | null;
 }
 
 export default function QuickToolsModal({ isOpen, onClose, toolType }: QuickToolsModalProps) {
@@ -236,7 +234,6 @@ export default function QuickToolsModal({ isOpen, onClose, toolType }: QuickTool
     ratio: { title: 'حاسبة الأبعاد', icon: Calculator },
     lorem: { title: 'نص وهمي', icon: Type },
     palette: { title: 'مستخرج الألوان', icon: Palette },
-    'local-ai': { title: 'ذكاء اصطناعي محلي', icon: Wand2 },
     'remove-bg': { title: 'إزالة الخلفية', icon: Scissors },
   };
 
@@ -261,7 +258,6 @@ export default function QuickToolsModal({ isOpen, onClose, toolType }: QuickTool
           {toolType === 'ratio' && <AspectRatioCalc />}
           {toolType === 'lorem' && <LoremIpsum />}
           {toolType === 'palette' && <ColorExtractor />}
-          {toolType === 'local-ai' && <LocalAiTool />}
           {toolType === 'remove-bg' && <BgRemovalTool />}
         </div>
 

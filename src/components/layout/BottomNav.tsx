@@ -1,29 +1,26 @@
 'use client';
 
 import { Suspense, useState, useEffect, useMemo } from 'react';
-import { Home, Heart, Bell, Moon, Sun } from 'lucide-react';
+import { Home, Heart, Bell, Moon, Sun, BookOpen } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
-import { useCollection, useDoc } from '@/hooks/useFirebase';
-import AdBanner from '@/components/AdBanner';
+import { useCollection } from '@/hooks/useFirebase';
 
 function BottomNavContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [isDark, setIsDark] = useState(false);
   const { data: notifications } = useCollection('notifications');
+  const { data: blogs } = useCollection('blogs');
   const [readIds, setReadIds] = useState<string[]>([]);
-  const { data: adsConfig } = useDoc('appConfig', 'ads');
 
-  const showBottomAd = useMemo(() => {
-    return pathname === '/home' && 
-      !searchParams.get('tab') && 
-      adsConfig?.showAds === true && 
-      adsConfig?.showHomeAd === true && 
-      !!adsConfig?.adScript;
-  }, [pathname, searchParams, adsConfig]);
+  // Check if at least one blog exists and is enabled in the admin panel
+  const hasBlog = useMemo(() => {
+    if (!blogs || !Array.isArray(blogs) || blogs.length === 0) return false;
+    return blogs.some((b: any) => b.enabled !== false);
+  }, [blogs]);
 
   useEffect(() => {
     // Check initial dark mode state
@@ -54,18 +51,33 @@ function BottomNavContent() {
     return notifications.filter(n => !readIds.includes(n.id)).length;
   }, [notifications, readIds]);
 
+  const navItems = useMemo(() => {
+    const items = [
+      { icon: Home, label: 'الرئيسية', path: '/home' },
+    ];
+
+    if (hasBlog) {
+      items.push({ icon: BookOpen, label: 'المدونة', path: '/blog' });
+    }
+
+    items.push(
+      { icon: Heart, label: 'المفضلة', path: '/home?tab=favorites' },
+      { icon: Bell, label: 'الإشعارات', path: '/home?tab=notifications' }
+    );
+
+    return items;
+  }, [hasBlog]);
+
   const isToolPage = [
-    '/chat',
-    '/image-generation',
-    '/image-to-prompt',
-    '/ai-story-generator',
     '/remove-bg',
     '/colors'
   ].some(path => pathname.startsWith(path));
 
   const isCategoryPage = pathname.startsWith('/categories') || pathname.startsWith('/subcategory');
+  const isPostDetailPage = pathname.startsWith('/blog/') && pathname !== '/blog';
+  const isBlogPage = pathname === '/blog';
 
-  if (pathname === '/' || isToolPage || isCategoryPage) {
+  if (pathname === '/' || isToolPage || isCategoryPage || isPostDetailPage || (isBlogPage && !hasBlog)) {
     return null;
   }
 
@@ -79,27 +91,19 @@ function BottomNavContent() {
     }
   };
 
-  const navItems = [
-    { icon: Home, label: 'الرئيسية', path: '/home' },
-    { icon: Heart, label: 'المفضلة', path: '/home?tab=favorites' },
-    { icon: Bell, label: 'الإشعارات', path: '/home?tab=notifications' },
-  ];
-
   return (
-    <>
-      <div className={cn(
-        "fixed left-0 right-0 z-50 px-4 flex justify-center pointer-events-none transition-all duration-300",
-        showBottomAd ? "bottom-[68px]" : "bottom-4"
-      )}>
-        <nav 
-          className="relative flex items-stretch h-16 w-full max-w-md backdrop-blur-xl border border-gray-200/50 shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-[2rem] pointer-events-auto px-2 transition-colors duration-500"
-          style={{ backgroundColor: 'var(--bottom-nav, white)' }}
-        >
+    <div className="fixed left-0 right-0 z-50 px-4 flex justify-center pointer-events-none transition-all duration-300 bottom-4">
+      <nav 
+        className="relative flex items-stretch h-16 w-full max-w-md backdrop-blur-xl border border-gray-200/50 shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-[2rem] pointer-events-auto px-2 transition-colors duration-500"
+        style={{ backgroundColor: 'var(--bottom-nav, white)' }}
+      >
           {navItems.map((item) => {
-            const isActive = pathname === '/home' && (
-              (item.path === '/home' && !searchParams.get('tab')) ||
-              (item.path.includes('tab=') && searchParams.get('tab') === item.path.split('=')[1])
-            );
+            const isActive = item.path === '/blog' 
+              ? pathname.startsWith('/blog')
+              : pathname === '/home' && (
+                  (item.path === '/home' && !searchParams.get('tab')) ||
+                  (item.path.includes('tab=') && searchParams.get('tab') === item.path.split('=')[1])
+                );
             return (
               <Link 
                 key={item.path} 
@@ -156,15 +160,6 @@ function BottomNavContent() {
             </button>
           </nav>
         </div>
-
-        {showBottomAd && (
-          <div className="fixed bottom-0 left-0 right-0 z-50 bg-transparent flex justify-center items-center py-0.5 px-4 h-[64px] pointer-events-auto">
-            <div className="w-full max-w-md bg-transparent">
-              <AdBanner height="60px" className="my-0" />
-            </div>
-          </div>
-        )}
-      </>
   );
 }
 

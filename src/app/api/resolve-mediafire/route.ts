@@ -115,27 +115,66 @@ export async function POST(req: NextRequest) {
     // Always convert to permanent web page to resolve fresh download key
     const targetUrl = toPermanentMediaFireUrl(rawUrl);
 
-    // Fetch the MediaFire page with realistic browser headers
-    const fetchController = new AbortController();
-    const fetchTimeout = setTimeout(() => fetchController.abort(), 8000);
+    // Fetch the MediaFire page with safe redirect validation to prevent SSRF
+    let currentFetchUrl = targetUrl;
+    let response: Response | null = null;
+    let finalUrl = targetUrl;
 
-    const response = await fetch(targetUrl, {
-      method: 'GET',
-      redirect: 'follow',
-      signal: fetchController.signal,
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'Accept':
-          'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9,ar;q=0.8',
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache',
-      },
-    });
-    clearTimeout(fetchTimeout);
+    for (let hop = 0; hop < 3; hop++) {
+      if (!isSafeMediaFireUrl(currentFetchUrl)) {
+        return NextResponse.json(
+          { success: false, error: 'إعادة توجيه إلى نطاق غير مصرح به.' },
+          { status: 400 }
+        );
+      }
 
-    const finalUrl = response.url || targetUrl;
+      const fetchController = new AbortController();
+      const fetchTimeout = setTimeout(() => fetchController.abort(), 7000);
+
+      try {
+        response = await fetch(currentFetchUrl, {
+          method: 'GET',
+          redirect: 'manual',
+          signal: fetchController.signal,
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            'Accept':
+              'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9,ar;q=0.8',
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache',
+          },
+        });
+      } finally {
+        clearTimeout(fetchTimeout);
+      }
+
+      finalUrl = currentFetchUrl;
+
+      // If redirect, validate location
+      if (response.status >= 300 && response.status < 400) {
+        const location = response.headers.get('location');
+        if (!location) break;
+        let nextUrl = location.trim();
+        if (nextUrl.startsWith('/')) {
+          const parsed = new URL(currentFetchUrl);
+          nextUrl = `${parsed.origin}${nextUrl}`;
+        }
+        currentFetchUrl = nextUrl;
+        continue;
+      }
+
+      break;
+    }
+
+    if (!response || !response.ok) {
+      return NextResponse.json(
+        { success: false, error: 'تعذر الاتصال بصفحة التحميل.' },
+        { status: 502 }
+      );
+    }
+
     const html = await response.text();
 
     let directDownloadUrl: string | null = null;
@@ -187,11 +226,11 @@ export async function POST(req: NextRequest) {
       filename = extractFilenameFromUrl(targetUrl);
     }
 
-    if (!directDownloadUrl) {
+    if (!directDownloadUrl || !isSafeMediaFireUrl(directDownloadUrl)) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Could not extract direct download URL from MediaFire page',
+          error: 'تعذر استخراج رابط تحميل مباشر صالح وموثوق من MediaFire.',
           directUrl: targetUrl,
           filename,
         },

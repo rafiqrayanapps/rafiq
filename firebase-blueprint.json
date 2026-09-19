@@ -65,6 +65,13 @@
         "description": { "type": "string" },
         "downloadUrl": { "type": "string" },
         "imageUrl": { "type": "string" },
+        "prompt": { "type": "string" },
+        "promptInstructions": { "type": "string" },
+        "usedApps": { "type": "string" },
+        "hasMaterials": { "type": "boolean" },
+        "materialsUrl": { "type": "string" },
+        "materialsLabel": { "type": "string" },
+        "materialsDescription": { "type": "string" },
         "style": { "type": "string", "description": "Visual style or layout for this item" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
@@ -109,24 +116,25 @@
       },
       "required": ["userId", "lastReset"]
     },
-    "ToolSettings": {
-      "title": "Tool Settings",
-      "description": "Global settings for tool IDs (e.g. Cloudflare Worker IDs)",
+    "CustomPage": {
+      "title": "Custom Page",
+      "description": "Custom static or policy pages created by admin",
       "type": "object",
       "properties": {
-        "chatId": { "type": "string" },
-        "imageGenId": { "type": "string" },
-        "promptGenId": { "type": "string" },
-        "storyGenId": { "type": "string" },
-        "globalApiKey": { "type": "string" },
-        "updatedAt": { "type": "string", "format": "date-time" }
-      }
+        "title": { "type": "string" },
+        "slug": { "type": "string" },
+        "icon": { "type": "string" },
+        "content": { "type": "string" },
+        "isActive": { "type": "boolean" },
+        "order": { "type": "number" }
+      },
+      "required": ["title", "slug", "content", "isActive"]
     }
   },
   "firestore": {
-    "/toolConfig/global": {
-      "schema": "ToolSettings",
-      "description": "Global configuration for tool IDs"
+    "/pages/{pageId}": {
+      "schema": "CustomPage",
+      "description": "Collection of custom informational and policy pages"
     },
     "/appConfig/{configId}": {
       "schema": "AppConfig",

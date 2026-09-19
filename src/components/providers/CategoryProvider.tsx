@@ -55,9 +55,13 @@ export function CategoryProvider({ children }: { children: ReactNode }) {
        
        if (parentId && parentId !== "undefined" && parentId !== "null" && parentId !== "") {
            if (!sub.has(parentId)) sub.set(parentId, []);
-           sub.get(parentId)!.push(cat);
+           if (!cat.isHidden) {
+             sub.get(parentId)!.push(cat);
+           }
        } else {
-           main.push(cat);
+           if (!cat.isHidden) {
+             main.push(cat);
+           }
        }
    });
 
@@ -70,12 +74,15 @@ export function CategoryProvider({ children }: { children: ReactNode }) {
  useEffect(() => {
    if (!firestore || !mainCategories.length) return;
 
-   // Pre-fetch some items to warm the cache
-   const q = query(collection(firestore, 'items'), limit(20), orderBy('createdAt', 'desc'));
+   const firstCatId = mainCategories[0]?.id;
+   if (!firstCatId) return;
+
+   // Pre-fetch some items of the primary category to warm the cache
+   const q = query(collection(firestore, 'categories', firstCatId, 'items'), limit(20));
    const unsub = onSnapshot(q, () => {}, () => {});
 
    return () => unsub();
- }, [firestore, mainCategories.length]);
+ }, [firestore, mainCategories]);
 
  const value = {
    allCategories,

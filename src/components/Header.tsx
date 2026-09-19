@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, ArrowRight, Menu, Search, Rocket } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import AdBanner from '@/components/AdBanner';
 import { useDoc } from '@/hooks/useFirebase';
 
 interface HeaderProps {
@@ -14,10 +13,9 @@ interface HeaderProps {
   onMenuClick?: () => void;
   extraContent?: React.ReactNode;
   compact?: boolean;
-  showAd?: boolean;
 }
 
-export default function Header({ title = "رفيق المصمم", showBackButton, onBackClick, onMenuClick, extraContent, compact, showAd }: HeaderProps) {
+export default function Header({ title = "رفيق المصمم", showBackButton, onBackClick, onMenuClick, extraContent, compact }: HeaderProps) {
   const router = useRouter();
   const [logoClicks, setLogoClicks] = useState(0);
 
@@ -128,17 +126,10 @@ export default function Header({ title = "رفيق المصمم", showBackButton
           </div>
         </header>
         {extraContent}
-        {showAd && (
-          <div className="w-full max-w-2xl mx-auto px-6">
-            <AdBanner height="60px" className="my-1" />
-          </div>
-        )}
       </div>
       {/* Spacer to push content down since header is fixed */}
       <div className={
-        showAd 
-          ? (extraContent ? "h-[270px]" : compact ? "h-[170px]" : "h-[230px]")
-          : (extraContent ? "h-[200px]" : compact ? "h-[100px]" : "h-[160px]")
+        extraContent ? (!isDefaultOrAppName ? "h-[235px]" : "h-[210px]") : compact ? "h-[100px]" : "h-[160px]"
       } />
     </>
   );

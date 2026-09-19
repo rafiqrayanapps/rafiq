@@ -1,11 +1,20 @@
 'use client';
 
-import React, { ReactNode, useMemo } from 'react';
+import React, { ReactNode } from 'react';
 import { initializeFirebase } from './init';
 import { FirebaseProvider } from './provider';
 
+let cachedServices: ReturnType<typeof initializeFirebase> | null = null;
+
+function getServices() {
+  if (!cachedServices) {
+    cachedServices = initializeFirebase();
+  }
+  return cachedServices;
+}
+
 export function FirebaseClientProvider({ children }: { children: ReactNode }) {
-  const services = useMemo(() => initializeFirebase(), []);
+  const services = getServices();
 
   return (
     <FirebaseProvider
